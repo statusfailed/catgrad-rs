@@ -15,7 +15,7 @@ pub enum Dtype {
 
 /// A rank-N shape is a length-N array of natural numbers
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub struct Shape(Vec<Nat>);
+pub struct Shape(pub Vec<Nat>);
 
 impl Shape {
     pub fn size(&self) -> Nat {
