@@ -1,5 +1,8 @@
+use open_hypergraphs::prelude::*;
+
 use super::object::*;
 
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
     /// Pointwise composition of N matrices `x_i : A ⇒ B` with `y_i : B ⇒ C`
     /// for `i ∈ N`.
@@ -48,15 +51,21 @@ impl Operation {
         use Operation::*;
         match self {
             MatrixMultiply { n, a, b, c, dtype } => {
-                let source = NdArrayType {
+                let source0 = NdArrayType {
                     shape: n + a + b,
                     dtype: dtype.clone(),
                 };
-                let target = NdArrayType {
+
+                let source1 = NdArrayType {
                     shape: n + b + c,
                     dtype: dtype.clone(),
                 };
-                (vec![source], vec![target])
+
+                let target = NdArrayType {
+                    shape: n + a + c,
+                    dtype: dtype.clone(),
+                };
+                (vec![source0, source1], vec![target])
             }
 
             Broadcast { n, x } => {
@@ -69,5 +78,15 @@ impl Operation {
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
         }
+    }
+
+    // Make an OpenHypergraph from this operation
+    pub fn term(self) -> OpenHypergraph<GeneratingObject, Operation> {
+        let (s, t) = self.interface();
+        OpenHypergraph::singleton(
+            self,
+            SemifiniteFunction::new(VecArray(s)),
+            SemifiniteFunction::new(VecArray(t)),
+        )
     }
 }

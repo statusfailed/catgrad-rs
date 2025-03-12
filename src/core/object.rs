@@ -22,6 +22,10 @@ impl Shape {
         self.0.iter().product()
     }
 
+    pub fn empty() -> Self {
+        Shape(vec![])
+    }
+
     pub fn concatenate(&self, other: &Self) -> Self {
         Shape(self.0.iter().chain(other.0.iter()).cloned().collect())
     }

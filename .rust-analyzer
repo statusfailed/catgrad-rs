@@ -1,0 +1,4 @@
+{
+  "rust-analyzer.cargo.channel": "beta",
+  "rust-analyzer.check.overrideCommand": ["cargo", "+beta", "check", "--message-format=json"]
+}
