@@ -30,28 +30,11 @@ impl<T> NdArray<T> {
         self.shape.size()
     }
 
-    /// Creates an immutable slice from the array by fixing the first n dimensions
-    ///
-    /// # Example
-    /// ```
-    /// use catgrad::backend::cpu::ndarray::NdArray;
-    /// use catgrad::core::object::Shape;
-    /// use num_traits::Zero;
-    ///
-    /// let array: NdArray<f32> = NdArray::from_shape(Shape(vec![2, 3, 4, 5]));
-    /// let slice = array.slice(&[0, 1]); // Slice with shape [4, 5]
-    /// ```
-    pub fn slice<'a>(&'a self, indices: &[usize]) -> NdArraySlice<'a, T> {
+    /// Compute slice indices for fixed first n dimension.
+    /// Returns (start_index, slice_shape)
+    fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape) {
         if indices.len() > self.shape.0.len() {
             panic!("Too many indices provided");
-        }
-
-        // If no indices provided, return slice of the entire array
-        if indices.is_empty() {
-            return NdArraySlice {
-                data: &self.data[..],
-                shape: self.shape.clone(),
-            };
         }
 
         // Check that indices are within bounds
@@ -62,6 +45,11 @@ impl<T> NdArray<T> {
                     idx, i, self.shape.0[i]
                 );
             }
+        }
+
+        // If no indices provided, use the whole array
+        if indices.is_empty() {
+            return (0, self.shape.clone());
         }
 
         // Compute the start offset in the flattened array
@@ -81,8 +69,25 @@ impl<T> NdArray<T> {
             stride *= self.shape.0[i];
         }
 
-        // Compute the shape and length of the resulting slice
+        // Compute the shape of the resulting slice
         let slice_shape = Shape(self.shape.0[indices.len()..].to_vec());
+
+        (start_index, slice_shape)
+    }
+
+    /// Creates an immutable slice from the array by fixing the first n dimensions
+    ///
+    /// # Example
+    /// ```
+    /// use catgrad::backend::cpu::ndarray::NdArray;
+    /// use catgrad::core::object::Shape;
+    /// use num_traits::Zero;
+    ///
+    /// let array: NdArray<f32> = NdArray::from_shape(Shape(vec![2, 3, 4, 5]));
+    /// let slice = array.slice(&[0, 1]); // Slice with shape [4, 5]
+    /// ```
+    pub fn slice<'a>(&'a self, indices: &[usize]) -> NdArraySlice<'a, T> {
+        let (start_index, slice_shape) = self.calculate_slice_info(indices);
         let slice_len = slice_shape.size();
 
         // Create slice from data
@@ -106,47 +111,7 @@ impl<T> NdArray<T> {
     /// let slice = array.slice_mut(&[0, 1]); // Slice with shape [4, 5]
     /// ```
     pub fn slice_mut<'a>(&'a mut self, indices: &[usize]) -> NdArrayMutSlice<'a, T> {
-        if indices.len() > self.shape.0.len() {
-            panic!("Too many indices provided");
-        }
-
-        // If no indices provided, return slice of the entire array
-        if indices.is_empty() {
-            return NdArrayMutSlice {
-                data: &mut self.data[..],
-                shape: self.shape.clone(),
-            };
-        }
-
-        // Check that indices are within bounds
-        for (i, &idx) in indices.iter().enumerate() {
-            if idx >= self.shape.0[i] {
-                panic!(
-                    "Index {} out of bounds for dimension {} with size {}",
-                    idx, i, self.shape.0[i]
-                );
-            }
-        }
-
-        // Compute the start offset in the flattened array
-        let mut start_index = 0;
-        let mut stride = 1;
-
-        // Start with the innermost dimension
-        for i in (0..self.shape.0.len()).rev() {
-            if i >= indices.len() {
-                // This dimension is part of the slice, we start at index 0
-                // No need to add anything to start_index
-            } else {
-                // This dimension is fixed by the provided indices
-                start_index += indices[i] * stride;
-            }
-            // Update stride for the next (more significant) dimension
-            stride *= self.shape.0[i];
-        }
-
-        // Compute the shape and length of the resulting slice
-        let slice_shape = Shape(self.shape.0[indices.len()..].to_vec());
+        let (start_index, slice_shape) = self.calculate_slice_info(indices);
         let slice_len = slice_shape.size();
 
         // Create slice from data
