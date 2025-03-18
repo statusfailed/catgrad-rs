@@ -1,7 +1,7 @@
 //! Array kernels for CPU
 use super::ndarray::*;
 use core::fmt::Debug;
-use matrixmultiply::sgemm;
+use gemm::{gemm, Parallelism};
 
 pub trait MatMul: Sized {
     fn matmul(a: &NdArraySlice<Self>, b: &NdArraySlice<Self>, c: &mut NdArrayMutSlice<Self>);
@@ -41,22 +41,27 @@ impl MatMul for f32 {
         // - Column stride = 1 (adjacent elements in memory)
 
         unsafe {
-            sgemm(
+            gemm(
                 m,                   // m: rows in matrices A and C
-                k,                   // k: cols in A, rows in B
                 n,                   // n: cols in matrices B and C
-                1.0,                 // alpha: scaling factor for A*B
-                a.data.as_ptr(),     // a: pointer to first matrix A
-                k as isize,          // rsa: row stride of A
-                1,                   // csa: column stride of A
-                b.data.as_ptr(),     // b: pointer to second matrix B
-                n as isize,          // rsb: row stride of B
-                1,                   // csb: column stride of B
-                0.0,                 // beta: scaling factor for C
+                k,                   // k: cols in A, rows in B
                 c.data.as_mut_ptr(), // c: pointer to result matrix C
-                n as isize,          // rsc: row stride of C
-                1,                   // csc: column stride of C
-            );
+                1,                   // column stride for C
+                n as isize,          // row stride for C
+                false,               // read C
+                a.data.as_ptr(),     // a: pointer to first matrix A
+                1 as isize,          // column stride for A
+                k as isize,          // row stride for A
+                b.data.as_ptr(),     // b: pointer to second matrix B
+                1 as isize,          // column stride for B
+                n as isize,          // row stride for B
+                0.,                  // alpha scaling factor for A*B
+                1.,                  // beta scaling factor for C
+                false,               // conj C
+                false,               // conj A
+                false,               // conj B
+                Parallelism::None,
+            )
         }
     }
 }
@@ -68,13 +73,13 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
     if f.shape.0.len() < 2 || g.shape.0.len() < 2 || h.shape.0.len() < 2 {
         panic!("Matrix multiplication requires at least 2D arrays");
     }
-    
+
     // If arrays are exactly 2D, perform a single matrix multiplication
     if f.shape.0.len() == 2 && g.shape.0.len() == 2 && h.shape.0.len() == 2 {
         let a = f.shape.0[0];
         let b = f.shape.0[1];
         let c = g.shape.0[1];
-        
+
         // Check compatibility for 2D case
         if g.shape.0[0] != b {
             panic!("Incompatible dimensions for matrix multiplication");
@@ -82,29 +87,31 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
         if h.shape.0[0] != a || h.shape.0[1] != c {
             panic!("Output matrix has incorrect dimensions");
         }
-        
+
         let f_slice = f.slice(&[]);
         let g_slice = g.slice(&[]);
         let mut h_slice = h.slice_mut(&[]);
-        
+
         T::matmul(&f_slice, &g_slice, &mut h_slice);
         return;
     }
-    
+
     // For arrays with dimension > 2, treat all but the last 2 dimensions as batch dimensions
     // All arrays must have the same number of dimensions
     if f.shape.0.len() != g.shape.0.len() || f.shape.0.len() != h.shape.0.len() {
-        panic!("All arrays must have the same number of dimensions for batch matrix multiplication");
+        panic!(
+            "All arrays must have the same number of dimensions for batch matrix multiplication"
+        );
     }
-    
+
     let ndims = f.shape.0.len();
     let batch_dims = ndims - 2;
-    
+
     // For ND arrays, the last two dimensions are the matrix dimensions
     let a = f.shape.0[ndims - 2];
     let b = f.shape.0[ndims - 1];
     let c = g.shape.0[ndims - 1];
-    
+
     // Check compatibility for the matrix dimensions
     if g.shape.0[ndims - 2] != b {
         panic!("Incompatible dimensions for matrix multiplication");
@@ -112,24 +119,24 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
     if h.shape.0[ndims - 2] != a || h.shape.0[ndims - 1] != c {
         panic!("Output matrix has incorrect dimensions");
     }
-    
+
     // Check that batch dimensions are compatible
     for i in 0..batch_dims {
         if f.shape.0[i] != g.shape.0[i] || f.shape.0[i] != h.shape.0[i] {
             panic!("Batch dimensions must match for all arrays");
         }
     }
-    
+
     // If there's only one batch dimension, we can use the simple loop
     if batch_dims == 1 {
         let batch_size = f.shape.0[0];
-        
+
         // Loop over batch dimension calling matmul
         for i in 0..batch_size {
             let f_slice = f.slice(&[i]);
             let g_slice = g.slice(&[i]);
             let mut h_slice = h.slice_mut(&[i]);
-            
+
             T::matmul(&f_slice, &g_slice, &mut h_slice);
         }
     } else {
@@ -139,23 +146,23 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
         for i in 0..batch_dims {
             total_batches *= f.shape.0[i];
         }
-        
+
         // For each batch, compute the indices for that batch
         for batch_idx in 0..total_batches {
             let mut indices = Vec::with_capacity(batch_dims);
             let mut remaining = batch_idx;
-            
+
             // Convert flat batch index to multidimensional indices
             for i in (0..batch_dims).rev() {
                 let dim_size = f.shape.0[i];
                 indices.insert(0, remaining % dim_size);
                 remaining /= dim_size;
             }
-            
+
             let f_slice = f.slice(&indices);
             let g_slice = g.slice(&indices);
             let mut h_slice = h.slice_mut(&indices);
-            
+
             T::matmul(&f_slice, &g_slice, &mut h_slice);
         }
     }

@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 open-hypergraphs = "0.1.2"
 num-traits = "0.2.19"
-matrixmultiply = "0.3.9"
+gemm = "0.18.2"
