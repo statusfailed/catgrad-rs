@@ -6,4 +6,4 @@ pub use operation::*;
 
 use open_hypergraphs::prelude::OpenHypergraph;
 
-pub type Term = OpenHypergraph<GeneratingObject, operation::Operation>;
+pub type Term = OpenHypergraph<object::PrimitiveType, operation::Operation>;

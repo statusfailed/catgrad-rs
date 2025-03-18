@@ -56,14 +56,21 @@ impl NdArrayType {
     }
 }
 
-/// Generating objects
-pub type GeneratingObject = NdArrayType;
+/// Primitive types in catgrad core.
+///
+/// These form the generating objects of the category of "core" array programs.
+pub type PrimitiveType = NdArrayType;
 
-/// *Objects*
-pub type Object = Vec<GeneratingObject>;
+/// The type of a catgrad core term
+///
+/// "Functions" in catgrad naturally have multiple inputs and outputs, so *types* of "functions"
+/// are always *lists* of types.
+///
+/// These are the *objects* of the category of "core" array programs.
+pub type Type = Vec<PrimitiveType>;
 
-/// Type of morphisms
-pub type Interface = (Object, Object);
+/// The input and output type of a function (i.e., an arrow in the category).
+pub type Interface = (Type, Type);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Convenience instances

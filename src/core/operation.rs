@@ -81,7 +81,7 @@ impl Operation {
     }
 
     // Make an OpenHypergraph from this operation
-    pub fn term(self) -> OpenHypergraph<GeneratingObject, Operation> {
+    pub fn term(self) -> OpenHypergraph<PrimitiveType, Operation> {
         let (s, t) = self.interface();
         OpenHypergraph::singleton(
             self,
