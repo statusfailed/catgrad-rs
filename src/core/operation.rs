@@ -16,18 +16,25 @@ pub enum Operation {
     },
 
     /// Broadcast a value of shape x to one of shape n+x.
-    Broadcast {
-        n: Shape,
-        x: NdArrayType,
-    },
+    Broadcast { n: Shape, x: NdArrayType },
 
     /// Reshape a
-    Reshape {
-        x: NdArrayType,
-        y: NdArrayType,
-    },
+    Reshape { x: NdArrayType, y: NdArrayType },
 
+    /// Create a copy
     Copy(NdArrayType),
+
+    /// Pointwise addition of two values of similar shapes
+    Add(NdArrayType),
+
+    /// Pointwise subtraction of two values of similar shapes
+    Sub(NdArrayType),
+
+    /// Pointwise multiplication of two values of similar shapes
+    Mul(NdArrayType),
+
+    /// Pointwise negation of value
+    Negate(NdArrayType),
 }
 
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
@@ -79,6 +86,14 @@ impl Operation {
             Reshape { x, y } => (vec![x.clone()], vec![y.clone()]),
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
+
+            Add(x) => (vec![x.clone(), x.clone()], vec![x.clone()]),
+
+            Sub(x) => (vec![x.clone(), x.clone()], vec![x.clone()]),
+
+            Mul(x) => (vec![x.clone(), x.clone()], vec![x.clone()]),
+
+            Negate(x) => (vec![x.clone()], vec![x.clone()]),
         }
     }
 
