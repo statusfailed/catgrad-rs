@@ -30,6 +30,8 @@ pub enum Operation {
     Copy(NdArrayType),
 }
 
+pub type Term = OpenHypergraph<PrimitiveType, Operation>;
+
 impl Operation {
     /// Check an operation is *valid* - e.g., for Reshape the input and output types must be
     /// isomorphic.
@@ -81,7 +83,7 @@ impl Operation {
     }
 
     // Make an OpenHypergraph from this operation
-    pub fn term(self) -> OpenHypergraph<PrimitiveType, Operation> {
+    pub fn term(self) -> Term {
         let (s, t) = self.interface();
         OpenHypergraph::singleton(
             self,
