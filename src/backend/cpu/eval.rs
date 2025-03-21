@@ -31,12 +31,6 @@ fn allocate(f: &Term) -> Vec<TaggedNdArray> {
     result
 }
 
-enum BinOpKind {
-    Add,
-    Sub,
-    Mul,
-}
-
 /// Evaluator state for a single term.
 pub struct EvalState {
     term: Term,
@@ -52,25 +46,33 @@ impl EvalState {
         }
     }
 
-    fn apply_binary_operation(&mut self, sources: &[usize], targets: &[usize], opkind: BinOpKind) {
+    fn apply_binary_operation(
+        &mut self,
+        sources: &[usize],
+        targets: &[usize],
+        operation: &Operation,
+    ) {
+        use Operation::*;
         let (i, j) = (sources[0], sources[1]);
         let k = targets[0];
 
         match self.data[..].get_disjoint_mut([i, j, k]) {
             Ok([F32(a), F32(b), F32(c)]) => {
-                let op: Box<dyn kernel::BinOp<f32>> = match opkind {
-                    BinOpKind::Add => Box::new(kernel::AddOp),
-                    BinOpKind::Sub => Box::new(kernel::SubOp),
-                    BinOpKind::Mul => Box::new(kernel::MulOp),
+                let op: Box<dyn kernel::BinOp<f32>> = match operation {
+                    Add(_) => Box::new(kernel::AddOp),
+                    Sub(_) => Box::new(kernel::SubOp),
+                    Mul(_) => Box::new(kernel::MulOp),
+                    _ => panic!("invalid operation"),
                 };
 
                 op.apply(&*a.data, &*b.data, &mut c.data);
             }
             Ok([I32(a), I32(b), I32(c)]) => {
-                let op: Box<dyn kernel::BinOp<i32>> = match opkind {
-                    BinOpKind::Add => Box::new(kernel::AddOp),
-                    BinOpKind::Sub => Box::new(kernel::SubOp),
-                    BinOpKind::Mul => Box::new(kernel::MulOp),
+                let op: Box<dyn kernel::BinOp<i32>> = match operation {
+                    Add(_) => Box::new(kernel::AddOp),
+                    Sub(_) => Box::new(kernel::SubOp),
+                    Mul(_) => Box::new(kernel::MulOp),
+                    _ => panic!("invalid operation"),
                 };
 
                 op.apply(&*a.data, &*b.data, &mut c.data);
@@ -96,15 +98,15 @@ impl EvalState {
             }
 
             Add(_) => {
-                self.apply_binary_operation(sources, targets, BinOpKind::Add);
+                self.apply_binary_operation(sources, targets, op);
             }
 
             Sub(_) => {
-                self.apply_binary_operation(sources, targets, BinOpKind::Sub);
+                self.apply_binary_operation(sources, targets, op);
             }
 
             Mul(_) => {
-                self.apply_binary_operation(sources, targets, BinOpKind::Mul);
+                self.apply_binary_operation(sources, targets, op);
             }
             // this should be ruled out by typechecking
             op => {
