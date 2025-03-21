@@ -179,32 +179,32 @@ impl<T> Numeric for T where
 }
 
 pub trait BinOp<T: Numeric> {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]);
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>);
 }
 
 pub struct AddOp;
 impl<T: Numeric> BinOp<T> for AddOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] + b[i];
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i] + b.data[i];
         }
     }
 }
 
 pub struct SubOp;
 impl<T: Numeric> BinOp<T> for SubOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] - b[i];
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i] - b.data[i];
         }
     }
 }
 
 pub struct MulOp;
 impl<T: Numeric> BinOp<T> for MulOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] * b[i];
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i] * b.data[i];
         }
     }
 }

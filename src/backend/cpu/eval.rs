@@ -65,7 +65,7 @@ impl EvalState {
                     _ => panic!("invalid operation"),
                 };
 
-                op.apply(&*a.data, &*b.data, &mut c.data);
+                op.apply(&*a, &*b, c);
             }
             Ok([I32(a), I32(b), I32(c)]) => {
                 let op: Box<dyn kernel::BinOp<i32>> = match operation {
@@ -75,7 +75,7 @@ impl EvalState {
                     _ => panic!("invalid operation"),
                 };
 
-                op.apply(&*a.data, &*b.data, &mut c.data);
+                op.apply(&*a, &*b, c);
             }
             t => panic!("invalid type: {t:?}"),
         }
