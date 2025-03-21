@@ -97,17 +97,10 @@ impl EvalState {
                 }
             }
 
-            Add(_) => {
+            Add(_) | Sub(_) | Mul(_) => {
                 self.apply_binary_operation(sources, targets, op);
             }
 
-            Sub(_) => {
-                self.apply_binary_operation(sources, targets, op);
-            }
-
-            Mul(_) => {
-                self.apply_binary_operation(sources, targets, op);
-            }
             // this should be ruled out by typechecking
             op => {
                 panic!("unknown operation {:?}", op);
