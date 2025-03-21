@@ -1,5 +1,6 @@
 use crate::core::object::*;
 
+use half::f16;
 use num_traits::Zero;
 
 /// N-dimensional arrays of elements T with a given shape.
@@ -138,6 +139,7 @@ impl<T: Clone + Zero> NdArray<T> {
 /// intuition: the "values" assigned to each node in a [`Term`].
 #[derive(PartialEq, Debug, Clone)]
 pub enum TaggedNdArray {
+    F16(NdArray<f16>),
     F32(NdArray<f32>),
     I32(NdArray<i32>),
 }
@@ -145,6 +147,7 @@ pub enum TaggedNdArray {
 impl TaggedNdArray {
     pub fn is_empty(&self) -> bool {
         match self {
+            TaggedNdArray::F16(vec) => vec.is_empty(),
             TaggedNdArray::F32(vec) => vec.is_empty(),
             TaggedNdArray::I32(vec) => vec.is_empty(),
         }
@@ -152,6 +155,7 @@ impl TaggedNdArray {
 
     pub fn len(&self) -> usize {
         match self {
+            TaggedNdArray::F16(vec) => vec.len(),
             TaggedNdArray::F32(vec) => vec.len(),
             TaggedNdArray::I32(vec) => vec.len(),
         }
@@ -159,12 +163,18 @@ impl TaggedNdArray {
 
     pub fn from_type(t: &NdArrayType) -> Self {
         match t.dtype {
+            Dtype::F16 => TaggedNdArray::F16(NdArray::from_shape(t.shape.clone())),
             Dtype::F32 => TaggedNdArray::F32(NdArray::from_shape(t.shape.clone())),
             Dtype::I32 => TaggedNdArray::I32(NdArray::from_shape(t.shape.clone())),
         }
     }
 }
 
+impl From<NdArray<f16>> for TaggedNdArray {
+    fn from(value: NdArray<f16>) -> Self {
+        TaggedNdArray::F16(value)
+    }
+}
 impl From<NdArray<f32>> for TaggedNdArray {
     fn from(value: NdArray<f32>) -> Self {
         TaggedNdArray::F32(value)

@@ -9,6 +9,7 @@ pub type Nat = usize;
 /// Dtypes supported by N-dimensional arrays.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Dtype {
+    F16,
     F32,
     I32,
 }

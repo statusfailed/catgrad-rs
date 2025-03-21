@@ -45,6 +45,7 @@ name = "catgrad"
 version = "0.1.0"
 dependencies = [
  "gemm",
+ "half",
  "num-traits",
  "open-hypergraphs",
 ]
