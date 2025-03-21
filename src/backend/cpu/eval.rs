@@ -31,6 +31,53 @@ fn allocate(f: &Term) -> Vec<TaggedNdArray> {
     result
 }
 
+use std::ops::{Add, Mul, Neg, Sub};
+trait Numeric:
+    Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Neg<Output = Self> + Copy
+{
+}
+impl<T> Numeric for T where
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Neg<Output = Self> + Copy
+{
+}
+
+trait BinOp<T: Numeric> {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]);
+}
+
+struct AddOp;
+impl<T: Numeric> BinOp<T> for AddOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] + b[i];
+        }
+    }
+}
+
+struct SubOp;
+impl<T: Numeric> BinOp<T> for SubOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] - b[i];
+        }
+    }
+}
+
+struct MulOp;
+impl<T: Numeric> BinOp<T> for MulOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] * b[i];
+        }
+    }
+}
+
+enum BinOpKind {
+    Add,
+    Sub,
+    Mul,
+}
+
 /// Evaluator state for a single term.
 pub struct EvalState {
     term: Term,
@@ -43,6 +90,33 @@ impl EvalState {
         Self {
             data: allocate(&f),
             term: f,
+        }
+    }
+
+    fn apply_binary_operation(&mut self, sources: &[usize], targets: &[usize], opkind: BinOpKind) {
+        let (i, j) = (sources[0], sources[1]);
+        let k = targets[0];
+
+        match self.data[..].get_disjoint_mut([i, j, k]) {
+            Ok([F32(a), F32(b), F32(c)]) => {
+                let op: Box<dyn BinOp<f32>> = match opkind {
+                    BinOpKind::Add => Box::new(AddOp),
+                    BinOpKind::Sub => Box::new(SubOp),
+                    BinOpKind::Mul => Box::new(MulOp),
+                };
+
+                op.apply(&*a.data, &*b.data, &mut c.data);
+            }
+            Ok([I32(a), I32(b), I32(c)]) => {
+                let op: Box<dyn BinOp<i32>> = match opkind {
+                    BinOpKind::Add => Box::new(AddOp),
+                    BinOpKind::Sub => Box::new(SubOp),
+                    BinOpKind::Mul => Box::new(MulOp),
+                };
+
+                op.apply(&*a.data, &*b.data, &mut c.data);
+            }
+            t => panic!("invalid type: {t:?}"),
         }
     }
 
@@ -63,18 +137,16 @@ impl EvalState {
             }
 
             Add(_) => {
-                let (i, j) = (sources[0], sources[1]);
-                let k = targets[0];
-
-                if let Ok([F32(a), F32(b), F32(c)]) = self.data[..].get_disjoint_mut([i, j, k]) {
-                    for i in 0..a.data.len() {
-                        c.data[i] = a.data[i] + b.data[i];
-                    }
-                } else {
-                    panic!("invalid types!");
-                }
+                self.apply_binary_operation(sources, targets, BinOpKind::Add);
             }
 
+            Sub(_) => {
+                self.apply_binary_operation(sources, targets, BinOpKind::Sub);
+            }
+
+            Mul(_) => {
+                self.apply_binary_operation(sources, targets, BinOpKind::Mul);
+            }
             // this should be ruled out by typechecking
             op => {
                 panic!("unknown operation {:?}", op);
@@ -109,24 +181,26 @@ mod test {
     use super::*;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
 
-    #[test]
-    fn test_add() {
-        let f = Operation::Add(NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        })
-        .term();
+    fn test_binop_generic<T>(
+        op_type: Operation,
+        x_data: Vec<T>,
+        y_data: Vec<T>,
+        expected_data: Vec<T>,
+    ) where
+        TaggedNdArray: From<NdArray<T>>,
+    {
+        let f = op_type.term();
 
         let x = NdArray {
-            data: vec![1., 2., 3., 4.],
+            data: x_data,
             shape: Shape(vec![2, 2]),
         };
         let y = NdArray {
-            data: vec![10., 20., 30., 40.],
+            data: y_data,
             shape: Shape(vec![2, 2]),
         };
         let expected = NdArray {
-            data: vec![11., 22., 33., 44.],
+            data: expected_data,
             shape: Shape(vec![2, 2]),
         };
 
@@ -142,6 +216,79 @@ mod test {
 
         let tagged: TaggedNdArray = expected.into();
         assert_eq!(&tagged, actual);
+    }
+
+    #[test]
+    fn test_add() {
+        test_binop_generic::<f32>(
+            Operation::Add(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![10.0, 20.0, 30.0, 40.0],
+            vec![11.0, 22.0, 33.0, 44.0],
+        );
+
+        // Test for I32
+        test_binop_generic::<i32>(
+            Operation::Add(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 2, 3, 4],
+            vec![10, 20, 30, 40],
+            vec![11, 22, 33, 44],
+        );
+    }
+    #[test]
+    fn test_sub() {
+        // Test subtraction with F32
+        test_binop_generic::<f32>(
+            Operation::Sub(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![10.0, 20.0, 30.0, 40.0],
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![9.0, 18.0, 27.0, 36.0],
+        );
+
+        // Test subtraction with I32
+        test_binop_generic::<i32>(
+            Operation::Sub(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![10, 20, 30, 40],
+            vec![1, 2, 3, 4],
+            vec![9, 18, 27, 36],
+        );
+    }
+
+    #[test]
+    fn test_mul() {
+        // Test multiplication with F32
+        test_binop_generic::<f32>(
+            Operation::Mul(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![2.0, 3.0, 4.0, 5.0],
+            vec![10.0, 20.0, 30.0, 40.0],
+            vec![20.0, 60.0, 120.0, 200.0],
+        );
+
+        // Test multiplication with I32
+        test_binop_generic::<i32>(
+            Operation::Mul(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![2, 3, 4, 5],
+            vec![10, 20, 30, 40],
+            vec![20, 60, 120, 200],
+        );
     }
 
     #[test]
