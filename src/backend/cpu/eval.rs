@@ -31,47 +31,6 @@ fn allocate(f: &Term) -> Vec<TaggedNdArray> {
     result
 }
 
-use std::ops::{Add, Mul, Neg, Sub};
-trait Numeric:
-    Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Neg<Output = Self> + Copy
-{
-}
-impl<T> Numeric for T where
-    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Neg<Output = Self> + Copy
-{
-}
-
-trait BinOp<T: Numeric> {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]);
-}
-
-struct AddOp;
-impl<T: Numeric> BinOp<T> for AddOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] + b[i];
-        }
-    }
-}
-
-struct SubOp;
-impl<T: Numeric> BinOp<T> for SubOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] - b[i];
-        }
-    }
-}
-
-struct MulOp;
-impl<T: Numeric> BinOp<T> for MulOp {
-    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
-        for i in 0..a.len() {
-            c[i] = a[i] * b[i];
-        }
-    }
-}
-
 enum BinOpKind {
     Add,
     Sub,
@@ -99,19 +58,19 @@ impl EvalState {
 
         match self.data[..].get_disjoint_mut([i, j, k]) {
             Ok([F32(a), F32(b), F32(c)]) => {
-                let op: Box<dyn BinOp<f32>> = match opkind {
-                    BinOpKind::Add => Box::new(AddOp),
-                    BinOpKind::Sub => Box::new(SubOp),
-                    BinOpKind::Mul => Box::new(MulOp),
+                let op: Box<dyn kernel::BinOp<f32>> = match opkind {
+                    BinOpKind::Add => Box::new(kernel::AddOp),
+                    BinOpKind::Sub => Box::new(kernel::SubOp),
+                    BinOpKind::Mul => Box::new(kernel::MulOp),
                 };
 
                 op.apply(&*a.data, &*b.data, &mut c.data);
             }
             Ok([I32(a), I32(b), I32(c)]) => {
-                let op: Box<dyn BinOp<i32>> = match opkind {
-                    BinOpKind::Add => Box::new(AddOp),
-                    BinOpKind::Sub => Box::new(SubOp),
-                    BinOpKind::Mul => Box::new(MulOp),
+                let op: Box<dyn kernel::BinOp<i32>> = match opkind {
+                    BinOpKind::Add => Box::new(kernel::AddOp),
+                    BinOpKind::Sub => Box::new(kernel::SubOp),
+                    BinOpKind::Mul => Box::new(kernel::MulOp),
                 };
 
                 op.apply(&*a.data, &*b.data, &mut c.data);

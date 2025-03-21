@@ -168,6 +168,47 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
     }
 }
 
+use std::ops::{Add, Mul, Neg, Sub};
+pub trait Numeric:
+    Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Neg<Output = Self> + Copy
+{
+}
+impl<T> Numeric for T where
+    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Neg<Output = Self> + Copy
+{
+}
+
+pub trait BinOp<T: Numeric> {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]);
+}
+
+pub struct AddOp;
+impl<T: Numeric> BinOp<T> for AddOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] + b[i];
+        }
+    }
+}
+
+pub struct SubOp;
+impl<T: Numeric> BinOp<T> for SubOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] - b[i];
+        }
+    }
+}
+
+pub struct MulOp;
+impl<T: Numeric> BinOp<T> for MulOp {
+    fn apply(&self, a: &[T], b: &[T], c: &mut [T]) {
+        for i in 0..a.len() {
+            c[i] = a[i] * b[i];
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
