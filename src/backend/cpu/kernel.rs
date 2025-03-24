@@ -3,72 +3,67 @@ use super::ndarray::*;
 use core::fmt::Debug;
 use gemm::{gemm, Parallelism};
 
-pub trait MatMul: Sized {
-    fn matmul(a: &NdArraySlice<Self>, b: &NdArraySlice<Self>, c: &mut NdArrayMutSlice<Self>);
-}
+fn matmul<T: Numeric + 'static>(
+    a: &NdArraySlice<T>,
+    b: &NdArraySlice<T>,
+    c: &mut NdArrayMutSlice<T>,
+) {
+    // Extract dimensions from input slices
+    // For matrix multiplication: (m×k) × (k×n) → (m×n)
+    if a.shape.0.len() != 2 || b.shape.0.len() != 2 || c.shape.0.len() != 2 {
+        panic!("Matrix multiplication requires 2D arrays");
+    }
 
-impl MatMul for f32 {
-    fn matmul(a: &NdArraySlice<Self>, b: &NdArraySlice<Self>, c: &mut NdArrayMutSlice<Self>) {
-        // Extract dimensions from input slices
-        // For matrix multiplication: (m×k) × (k×n) → (m×n)
-        if a.shape.0.len() != 2 || b.shape.0.len() != 2 || c.shape.0.len() != 2 {
-            panic!("Matrix multiplication requires 2D arrays");
-        }
+    let m = a.shape.0[0];
+    let k = a.shape.0[1];
+    let n = b.shape.0[1];
 
-        let m = a.shape.0[0];
-        let k = a.shape.0[1];
-        let n = b.shape.0[1];
+    // Check compatibility
+    if b.shape.0[0] != k {
+        panic!("Incompatible dimensions for matrix multiplication");
+    }
+    if c.shape.0[0] != m || c.shape.0[1] != n {
+        panic!("Output matrix has incorrect dimensions");
+    }
 
-        // Check compatibility
-        if b.shape.0[0] != k {
-            panic!("Incompatible dimensions for matrix multiplication");
-        }
-        if c.shape.0[0] != m || c.shape.0[1] != n {
-            panic!("Output matrix has incorrect dimensions");
-        }
+    // Call gemm with the correct parameters
+    // gemm(m, n, k, alpha, a, rsa, csa, b, rsb, csb, beta, c, rsc, csc)
+    // where:
+    // - m, k, n are dimensions (m×k matrix A, k×n matrix B, m×n matrix C)
+    // - alpha, beta are scaling factors for A*B and C
 
-        // Call sgemm with the correct parameters
-        // sgemm(m, k, n, alpha, a, rsa, csa, b, rsb, csb, beta, c, rsc, csc)
-        // where:
-        // - m, k, n are dimensions (m×k matrix A, k×n matrix B, m×n matrix C)
-        // - alpha, beta are scaling factors for A*B and C
-        // - rsa, csa: row and column strides for matrix A
-        // - rsb, csb: row and column strides for matrix B
-        // - rsc, csc: row and column strides for matrix C
+    // For row-major matrices:
+    // - Row stride = distance between rows (number of elements in a row)
+    // - Column stride = 1 (adjacent elements in memory)
 
-        // For row-major matrices:
-        // - Row stride = distance between rows (number of elements in a row)
-        // - Column stride = 1 (adjacent elements in memory)
-
-        unsafe {
-            gemm(
-                m,                   // m: rows in matrices A and C
-                n,                   // n: cols in matrices B and C
-                k,                   // k: cols in A, rows in B
-                c.data.as_mut_ptr(), // c: pointer to result matrix C
-                1,                   // column stride for C
-                n as isize,          // row stride for C
-                false,               // read C
-                a.data.as_ptr(),     // a: pointer to first matrix A
-                1 as isize,          // column stride for A
-                k as isize,          // row stride for A
-                b.data.as_ptr(),     // b: pointer to second matrix B
-                1 as isize,          // column stride for B
-                n as isize,          // row stride for B
-                0.,                  // alpha scaling factor for A*B
-                1.,                  // beta scaling factor for C
-                false,               // conj C
-                false,               // conj A
-                false,               // conj B
-                Parallelism::None,
-            )
-        }
+    unsafe {
+        gemm(
+            m,                   // m: rows in matrices A and C
+            n,                   // n: cols in matrices B and C
+            k,                   // k: cols in A, rows in B
+            c.data.as_mut_ptr(), // c: pointer to result matrix C
+            1,                   // column stride for C
+            n as isize,          // row stride for C
+            false,               // read C
+            a.data.as_ptr(),     // a: pointer to first matrix A
+            1 as isize,          // column stride for A
+            k as isize,          // row stride for A
+            b.data.as_ptr(),     // b: pointer to second matrix B
+            1 as isize,          // column stride for B
+            n as isize,          // row stride for B
+            T::zero(),           // alpha scaling factor for A*B
+            T::one(),            // beta scaling factor for C
+            false,               // conj C
+            false,               // conj A
+            false,               // conj B
+            Parallelism::None,
+        )
     }
 }
 
 /// Batch matrix multiply (compose) `f : N×...×A×B` with `g : N×...×B×C`, writing the result to `h :
 /// N×...×A×C`. Works with arrays of dimension 2 or greater.
-pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut NdArray<T>) {
+pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mut NdArray<T>) {
     // Assert that shapes of f, g, h have at least 2 dimensions
     if f.shape.0.len() < 2 || g.shape.0.len() < 2 || h.shape.0.len() < 2 {
         panic!("Matrix multiplication requires at least 2D arrays");
@@ -92,7 +87,7 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
         let g_slice = g.slice(&[]);
         let mut h_slice = h.slice_mut(&[]);
 
-        T::matmul(&f_slice, &g_slice, &mut h_slice);
+        matmul(&f_slice, &g_slice, &mut h_slice);
         return;
     }
 
@@ -137,7 +132,7 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
             let g_slice = g.slice(&[i]);
             let mut h_slice = h.slice_mut(&[i]);
 
-            T::matmul(&f_slice, &g_slice, &mut h_slice);
+            matmul(&f_slice, &g_slice, &mut h_slice);
         }
     } else {
         // For multiple batch dimensions, we need to iterate through all combinations
@@ -163,20 +158,13 @@ pub fn batch_matmul<T: MatMul + Debug>(f: &NdArray<T>, g: &NdArray<T>, h: &mut N
             let g_slice = g.slice(&indices);
             let mut h_slice = h.slice_mut(&indices);
 
-            T::matmul(&f_slice, &g_slice, &mut h_slice);
+            matmul(&f_slice, &g_slice, &mut h_slice);
         }
     }
 }
 
-use std::ops::{Add, Mul, Neg, Sub};
-pub trait Numeric:
-    Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Neg<Output = Self> + Copy
-{
-}
-impl<T> Numeric for T where
-    T: Add<Output = T> + Sub<Output = T> + Mul<Output = T> + Neg<Output = Self> + Copy
-{
-}
+pub trait Numeric: num_traits::Num + std::ops::Neg<Output = Self> + Copy + Debug {}
+impl<T> Numeric for T where T: num_traits::Num + std::ops::Neg<Output = Self> + Copy + Debug {}
 
 pub trait BinOp<T: Numeric> {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>);
@@ -206,6 +194,13 @@ impl<T: Numeric> BinOp<T> for MulOp {
         for i in 0..a.data.len() {
             c.data[i] = a.data[i] * b.data[i];
         }
+    }
+}
+
+pub struct MatMulOp;
+impl<T: Numeric + 'static> BinOp<T> for MatMulOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        batch_matmul(a, b, c);
     }
 }
 
@@ -258,7 +253,7 @@ mod tests {
         let mut c_slice = c.slice_mut(&[]);
 
         // Call matmul
-        f32::matmul(&a_slice, &b_slice, &mut c_slice);
+        matmul(&a_slice, &b_slice, &mut c_slice);
 
         // Check the result
         assert_eq!(c.data, vec![58.0, 64.0, 139.0, 154.0]);
