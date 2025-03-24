@@ -1,6 +1,6 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
-use crate::core::{Dtype, Operation, Term};
+use crate::core::{Operation, Term};
 use half::f16;
 use Operation::*;
 use TaggedNdArray::*;
@@ -63,6 +63,7 @@ impl EvalState {
                     Add(_) => Box::new(kernel::AddOp),
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
+                    MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -73,6 +74,7 @@ impl EvalState {
                     Add(_) => Box::new(kernel::AddOp),
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
+                    MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -130,19 +132,7 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            MatrixMultiply {
-                dtype: Dtype::F32, ..
-            } => {
-                let (i, j) = (sources[0], sources[1]);
-                let k = targets[0];
-                if let Ok([F32(f), F32(g), F32(h)]) = self.data[..].get_disjoint_mut([i, j, k]) {
-                    kernel::batch_matmul(f, g, h);
-                } else {
-                    panic!("invalid types!");
-                }
-            }
-
-            Add(_) | Sub(_) | Mul(_) => {
+            Add(_) | Sub(_) | Mul(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Negate(_) => {
