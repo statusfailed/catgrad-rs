@@ -1,6 +1,7 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
 use crate::core::{Dtype, Operation, Term};
+use half::f16;
 use TaggedNdArray::*;
 
 // TODO: this convenience method should live in open_hypergraphs
@@ -57,6 +58,16 @@ impl EvalState {
         let k = targets[0];
 
         match self.data[..].get_disjoint_mut([i, j, k]) {
+            Ok([F16(a), F16(b), F16(c)]) => {
+                let op: Box<dyn kernel::BinOp<f16>> = match operation {
+                    Add(_) => Box::new(kernel::AddOp),
+                    Sub(_) => Box::new(kernel::SubOp),
+                    Mul(_) => Box::new(kernel::MulOp),
+                    _ => panic!("invalid operation"),
+                };
+
+                op.apply(&*a, &*b, c);
+            }
             Ok([F32(a), F32(b), F32(c)]) => {
                 let op: Box<dyn kernel::BinOp<f32>> = match operation {
                     Add(_) => Box::new(kernel::AddOp),
@@ -174,6 +185,25 @@ mod test {
 
     #[test]
     fn test_add() {
+        test_binop_generic::<f16>(
+            Operation::Add(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F16,
+            }),
+            vec![1.0, 2.0, 3.0, 4.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+            vec![10.0, 20.0, 30.0, 40.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+            vec![11.0, 22.0, 33.0, 44.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+        );
+
         test_binop_generic::<f32>(
             Operation::Add(NdArrayType {
                 shape: Shape(vec![2, 2]),
