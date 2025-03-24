@@ -209,6 +209,19 @@ impl<T: Numeric> BinOp<T> for MulOp {
     }
 }
 
+pub trait UnaryOp<T: Numeric> {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>);
+}
+
+pub struct NegOp;
+impl<T: Numeric> UnaryOp<T> for NegOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            b.data[i] = -a.data[i];
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -2,6 +2,7 @@ use super::ndarray::*;
 use crate::backend::cpu::kernel;
 use crate::core::{Dtype, Operation, Term};
 use half::f16;
+use Operation::*;
 use TaggedNdArray::*;
 
 // TODO: this convenience method should live in open_hypergraphs
@@ -53,7 +54,6 @@ impl EvalState {
         targets: &[usize],
         operation: &Operation,
     ) {
-        use Operation::*;
         let (i, j) = (sources[0], sources[1]);
         let k = targets[0];
 
@@ -92,9 +92,43 @@ impl EvalState {
         }
     }
 
+    fn apply_unary_operation(
+        &mut self,
+        sources: &[usize],
+        targets: &[usize],
+        operation: &Operation,
+    ) {
+        match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
+            Ok([F16(a), F16(b)]) => {
+                let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
+                    Negate(_) => Box::new(kernel::NegOp),
+                    _ => panic!("invalid operation"),
+                };
+
+                op.apply(&*a, b);
+            }
+            Ok([F32(a), F32(b)]) => {
+                let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
+                    Negate(_) => Box::new(kernel::NegOp),
+                    _ => panic!("invalid operation"),
+                };
+
+                op.apply(&*a, b);
+            }
+            Ok([I32(a), I32(b)]) => {
+                let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
+                    Negate(_) => Box::new(kernel::NegOp),
+                    _ => panic!("invalid operation"),
+                };
+
+                op.apply(&*a, b);
+            }
+            t => panic!("invalid type: {t:?}"),
+        }
+    }
+
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
-        use Operation::*;
         match op {
             MatrixMultiply {
                 dtype: Dtype::F32, ..
@@ -111,7 +145,9 @@ impl EvalState {
             Add(_) | Sub(_) | Mul(_) => {
                 self.apply_binary_operation(sources, targets, op);
             }
-
+            Negate(_) => {
+                self.apply_unary_operation(sources, targets, op);
+            }
             // this should be ruled out by typechecking
             op => {
                 panic!("unknown operation {:?}", op);
@@ -145,6 +181,68 @@ impl EvalState {
 mod test {
     use super::*;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
+
+    fn test_unarynop_generic<T>(op_type: Operation, x_data: Vec<T>, expected_data: Vec<T>)
+    where
+        TaggedNdArray: From<NdArray<T>>,
+    {
+        let f = op_type.term();
+
+        let x = NdArray {
+            data: x_data,
+            shape: Shape(vec![2, 2]),
+        };
+        let expected = NdArray {
+            data: expected_data,
+            shape: Shape(vec![2, 2]),
+        };
+
+        let mut state = EvalState::new(f);
+
+        // TODO: fix hack - API for EvalState?
+        state.data[0] = x.into();
+
+        let [actual] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        let tagged: TaggedNdArray = expected.into();
+        assert_eq!(&tagged, actual);
+    }
+
+    #[test]
+    fn test_neg() {
+        test_unarynop_generic::<f16>(
+            Operation::Negate(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F16,
+            }),
+            vec![1.0, 2.0, 3.0, 4.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+            vec![-1.0, -2.0, -3.0, -4.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+        );
+        test_unarynop_generic::<f32>(
+            Operation::Negate(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![-1.0, -2.0, -3.0, -4.0],
+        );
+        test_unarynop_generic::<i32>(
+            Operation::Negate(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 2, 3, 4],
+            vec![-1, -2, -3, -4],
+        );
+    }
 
     fn test_binop_generic<T>(
         op_type: Operation,
