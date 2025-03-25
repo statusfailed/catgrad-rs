@@ -104,6 +104,9 @@ impl EvalState {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
                     Negate(_) => Box::new(kernel::NegOp),
+                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                        shape: shape.clone(),
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -112,6 +115,9 @@ impl EvalState {
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
                     Negate(_) => Box::new(kernel::NegOp),
+                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                        shape: shape.clone(),
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -120,6 +126,9 @@ impl EvalState {
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
                     Negate(_) => Box::new(kernel::NegOp),
+                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                        shape: shape.clone(),
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -131,6 +140,9 @@ impl EvalState {
 
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
+        if op.clone().validate().is_none() {
+            panic!("invalid operation");
+        }
         match op {
             Add(_) | Sub(_) | Mul(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
@@ -138,14 +150,17 @@ impl EvalState {
             Negate(_) => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            // this should be ruled out by typechecking
+            Reshape { .. } => {
+                self.apply_unary_operation(sources, targets, op);
+            }
+
             op => {
                 panic!("unknown operation {:?}", op);
             }
         }
     }
 
-    /// mutably evaluate self, returning a reference to output arrays.
+    /// mutably evaluate self with args, returning a reference to output arrays.
     pub fn eval_with(&mut self, args: Vec<TaggedNdArray>) -> Vec<&TaggedNdArray> {
         let sources = &self.term.s.table;
 
@@ -251,7 +266,6 @@ mod test {
         TaggedNdArray: From<NdArray<T>>,
     {
         let f = op_type.term();
-
         let x = NdArray {
             data: x_data,
             shape: Shape(vec![2, 2]),
@@ -406,5 +420,35 @@ mod test {
 
         let tagged: TaggedNdArray = expected.into();
         assert_eq!(&tagged, actual);
+    }
+
+    #[test]
+    fn test_reshape() {
+        let f = Operation::Reshape {
+            x: NdArrayType {
+                shape: Shape(vec![4, 3]),
+                dtype: Dtype::I32,
+            },
+            shape: Shape(vec![2, 6]),
+        }
+        .term();
+
+        let x = NdArray {
+            data: (1..12).collect(),
+            shape: Shape(vec![3, 4]),
+        };
+
+        let expected = NdArray {
+            data: (1..12).collect(),
+            shape: Shape(vec![2, 6]),
+        };
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
     }
 }
