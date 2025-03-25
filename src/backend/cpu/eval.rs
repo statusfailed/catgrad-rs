@@ -146,6 +146,17 @@ impl EvalState {
     }
 
     /// mutably evaluate self, returning a reference to output arrays.
+    pub fn eval_with(&mut self, args: Vec<TaggedNdArray>) -> Vec<&TaggedNdArray> {
+        let sources = &self.term.s.table;
+
+        for (i, arg) in args.iter().enumerate() {
+            self.data[sources[i]] = arg.clone();
+        }
+
+        self.eval()
+    }
+
+    /// mutably evaluate self, returning a reference to output arrays.
     pub fn eval(&mut self) -> Vec<&TaggedNdArray> {
         // unpack the segmented array of sources into a vec of vecs.
         // TODO: this clones the value - provide non-cloning iter, or one that returns slices?
@@ -189,10 +200,7 @@ mod test {
 
         let mut state = EvalState::new(f);
 
-        // TODO: fix hack - API for EvalState?
-        state.data[0] = x.into();
-
-        let [actual] = state.eval()[..] else {
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
@@ -259,11 +267,7 @@ mod test {
 
         let mut state = EvalState::new(f);
 
-        // TODO: fix hack - API for EvalState?
-        state.data[0] = x.into();
-        state.data[1] = y.into();
-
-        let [actual] = state.eval()[..] else {
+        let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
@@ -396,11 +400,7 @@ mod test {
 
         let mut state = EvalState::new(f);
 
-        // TODO: fix hack - API for EvalState?
-        state.data[0] = x.into();
-        state.data[1] = m.into();
-
-        let [actual] = state.eval()[..] else {
+        let [actual] = state.eval_with(vec![x.into(), m.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
