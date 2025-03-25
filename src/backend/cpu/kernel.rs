@@ -1,5 +1,6 @@
 //! Array kernels for CPU
 use super::ndarray::*;
+use crate::core::object::Shape;
 use core::fmt::Debug;
 use gemm::{gemm, Parallelism};
 
@@ -217,10 +218,24 @@ impl<T: Numeric> UnaryOp<T> for NegOp {
     }
 }
 
+pub struct ReshapeOp {
+    pub shape: Shape,
+}
+impl<T: Numeric> UnaryOp<T> for ReshapeOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        assert_eq!(
+            a.shape.size(),
+            self.shape.size(),
+            "ReshapeOp: input shape must be compatible with target shape"
+        );
+        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        b.shape = self.shape.clone();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::object::Shape;
 
     #[test]
     fn test_matmul_f32() {

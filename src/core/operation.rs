@@ -18,8 +18,8 @@ pub enum Operation {
     /// Broadcast a value of shape x to one of shape n+x.
     Broadcast { n: Shape, x: NdArrayType },
 
-    /// Reshape a
-    Reshape { x: NdArrayType, y: NdArrayType },
+    /// Reshape x
+    Reshape { x: NdArrayType, shape: Shape },
 
     /// Create a copy
     Copy(NdArrayType),
@@ -45,8 +45,8 @@ impl Operation {
     pub fn validate(self) -> Option<Self> {
         use Operation::*;
         match &self {
-            Reshape { x, y } => {
-                if x.size() == y.size() {
+            Reshape { x, shape } => {
+                if x.size() == shape.size() {
                     Some(self)
                 } else {
                     None
@@ -83,7 +83,14 @@ impl Operation {
                 (vec![source], vec![target])
             }
 
-            Reshape { x, y } => (vec![x.clone()], vec![y.clone()]),
+            Reshape { x, shape } => {
+                let source = x.clone();
+                let target = NdArrayType {
+                    shape: shape.clone(),
+                    dtype: x.dtype.clone(),
+                };
+                (vec![source], vec![target])
+            }
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
 
