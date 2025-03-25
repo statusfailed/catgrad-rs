@@ -47,10 +47,10 @@ fn matmul<T: Numeric + 'static>(
             n as isize,          // row stride for C
             false,               // read C
             a.data.as_ptr(),     // a: pointer to first matrix A
-            1 as isize,          // column stride for A
+            1,                   // column stride for A
             k as isize,          // row stride for A
             b.data.as_ptr(),     // b: pointer to second matrix B
-            1 as isize,          // column stride for B
+            1,                   // column stride for B
             n as isize,          // row stride for B
             T::zero(),           // alpha scaling factor for A*B
             T::one(),            // beta scaling factor for C
