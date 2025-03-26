@@ -133,6 +133,11 @@ impl<T: Clone + Zero> NdArray<T> {
             shape,
         }
     }
+    pub fn fill(&mut self, value: T) {
+        for i in 0..self.data.len() {
+            self.data[i] = value.clone();
+        }
+    }
 }
 
 /// A disjoint union of typed arrays
