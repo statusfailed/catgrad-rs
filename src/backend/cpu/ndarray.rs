@@ -23,6 +23,15 @@ pub struct NdArrayMutSlice<'a, T> {
 }
 
 impl<T> NdArray<T> {
+    pub fn new(data: Vec<T>, shape: Shape) -> Self {
+        assert_eq!(
+            data.len(),
+            shape.size(),
+            "Data length must match shape size"
+        );
+        NdArray { data, shape }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.shape.size() == 0
     }
@@ -128,10 +137,7 @@ impl<T> NdArray<T> {
 impl<T: Clone + Zero> NdArray<T> {
     pub fn from_shape(shape: Shape) -> Self {
         // TODO: don't really need to initialize to zero; is there a better way here? bytemuck?
-        NdArray {
-            data: vec![T::zero(); shape.size()],
-            shape,
-        }
+        NdArray::new(vec![T::zero(); shape.size()], shape)
     }
 }
 
@@ -194,10 +200,7 @@ mod tests {
     #[test]
     fn test_slice() {
         // Create a 2x3x4 array filled with zeros
-        let mut array = NdArray {
-            data: vec![0.0; 24],
-            shape: Shape(vec![2, 3, 4]),
-        };
+        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
 
         // Fill the array with a simple pattern for testing
         for i in 0..24 {
@@ -227,10 +230,7 @@ mod tests {
         assert_eq!(slice_all.data.len(), 24);
 
         // Test slicing a 4D array
-        let mut array4d = NdArray {
-            data: vec![0.0; 120], // 2x3x4x5
-            shape: Shape(vec![2, 3, 4, 5]),
-        };
+        let mut array4d = NdArray::new(vec![0.0; 120], Shape(vec![2, 3, 4, 5]));
 
         for i in 0..120 {
             array4d.data[i] = i as f32;
@@ -250,10 +250,7 @@ mod tests {
     #[test]
     fn test_slice_mut() {
         // Create a 2x3x4 array filled with zeros
-        let mut array = NdArray {
-            data: vec![0.0; 24],
-            shape: Shape(vec![2, 3, 4]),
-        };
+        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
 
         // Fill the array with a simple pattern for testing
         for i in 0..24 {
@@ -287,10 +284,7 @@ mod tests {
         assert_eq!(slice_all.data.len(), 24);
 
         // Test slicing a 4D array
-        let mut array4d = NdArray {
-            data: vec![0.0; 120], // 2x3x4x5
-            shape: Shape(vec![2, 3, 4, 5]),
-        };
+        let mut array4d = NdArray::new(vec![0.0; 120], Shape(vec![2, 3, 4, 5]));
 
         for i in 0..120 {
             array4d.data[i] = i as f32;

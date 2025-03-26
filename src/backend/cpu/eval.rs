@@ -204,14 +204,8 @@ mod test {
     {
         let f = op_type.term();
 
-        let x = NdArray {
-            data: x_data,
-            shape: Shape(vec![2, 2]),
-        };
-        let expected = NdArray {
-            data: expected_data,
-            shape: Shape(vec![2, 2]),
-        };
+        let x = NdArray::new(x_data, Shape(vec![2, 2]));
+        let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
         let mut state = EvalState::new(f);
 
@@ -266,18 +260,9 @@ mod test {
         TaggedNdArray: From<NdArray<T>>,
     {
         let f = op_type.term();
-        let x = NdArray {
-            data: x_data,
-            shape: Shape(vec![2, 2]),
-        };
-        let y = NdArray {
-            data: y_data,
-            shape: Shape(vec![2, 2]),
-        };
-        let expected = NdArray {
-            data: expected_data,
-            shape: Shape(vec![2, 2]),
-        };
+        let x = NdArray::new(x_data, Shape(vec![2, 2]));
+        let y = NdArray::new(y_data, Shape(vec![2, 2]));
+        let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
         let mut state = EvalState::new(f);
 
@@ -393,22 +378,13 @@ mod test {
         .term();
 
         // a (1×2) matrix
-        let x = NdArray {
-            data: vec![2., 4.],
-            shape: Shape(vec![1, 2]),
-        };
+        let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
 
         // a (2×3) matrix
-        let m = NdArray {
-            data: vec![1., 2., 3., 4., 5., 6.],
-            shape: Shape(vec![2, 3]),
-        };
+        let m = NdArray::new(vec![1., 2., 3., 4., 5., 6.], Shape(vec![2, 3]));
 
         // result should be a 1×3 result
-        let mut expected = NdArray {
-            data: vec![0.; 3],
-            shape: Shape(vec![1, 3]),
-        };
+        let mut expected = NdArray::new(vec![0.; 3], Shape(vec![1, 3]));
 
         kernel::batch_matmul::<f32>(&x, &m, &mut expected);
 
@@ -433,15 +409,9 @@ mod test {
         }
         .term();
 
-        let x = NdArray {
-            data: (1..12).collect(),
-            shape: Shape(vec![3, 4]),
-        };
+        let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
 
-        let expected = NdArray {
-            data: (1..12).collect(),
-            shape: Shape(vec![2, 6]),
-        };
+        let expected = NdArray::new((0..12).collect(), Shape(vec![2, 6]));
 
         let mut state = EvalState::new(f);
 
