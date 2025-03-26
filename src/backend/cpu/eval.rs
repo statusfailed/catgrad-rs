@@ -414,10 +414,7 @@ mod test {
         }
         .term();
 
-        let expected = NdArray {
-            data: vec![2.3; 12],
-            shape: Shape(vec![4, 3]),
-        };
+        let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
         let mut state = EvalState::new(f);
 
