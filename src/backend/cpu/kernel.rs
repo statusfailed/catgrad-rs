@@ -241,22 +241,12 @@ mod tests {
     fn test_matmul_f32() {
         // Create matrices for multiplication
         // A: 2x3 matrix
-        let a = NdArray {
-            data: vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            shape: Shape(vec![2, 3]),
-        };
-
+        let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
         // B: 3x2 matrix
-        let b = NdArray {
-            data: vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
-            shape: Shape(vec![3, 2]),
-        };
+        let b = NdArray::new(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], Shape(vec![3, 2]));
 
         // C: 2x2 matrix for result
-        let mut c = NdArray {
-            data: vec![0.0; 4],
-            shape: Shape(vec![2, 2]),
-        };
+        let mut c = NdArray::new(vec![0.0; 4], Shape(vec![2, 2]));
 
         // Expected result:
         // [1 2 3] × [7  8]  = [58  64]
@@ -278,30 +268,30 @@ mod tests {
     fn test_batch_matmul_f32() {
         // Create 3D arrays for batch matrix multiplication
         // 2 batches of 2x3 matrices
-        let f = NdArray {
-            data: vec![
+        let f = NdArray::new(
+            vec![
                 // Batch 0: 2x3 matrix
                 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, // Batch 1: 2x3 matrix
                 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
             ],
-            shape: Shape(vec![2, 2, 3]),
-        };
+            Shape(vec![2, 2, 3]),
+        );
 
         // 2 batches of 3x2 matrices
-        let g = NdArray {
-            data: vec![
+        let g = NdArray::new(
+            vec![
                 // Batch 0: 3x2 matrix
                 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, // Batch 1: 3x2 matrix
                 7.0, 8.0, 9.0, 10.0, 11.0, 12.0,
             ],
-            shape: Shape(vec![2, 3, 2]),
-        };
+            Shape(vec![2, 3, 2]),
+        );
 
         // Output: 2 batches of 2x2 matrices
-        let mut h = NdArray {
-            data: vec![0.0; 8], // 2 batches * 2 * 2 = 8 elements
-            shape: Shape(vec![2, 2, 2]),
-        };
+        let mut h = NdArray::new(
+            vec![0.0; 8], // 2 batches * 2 * 2 = 8 elements
+            Shape(vec![2, 2, 2]),
+        );
 
         // Expected results:
         // Batch 0: [1 2 3] × [1 2]  = [22 28]
