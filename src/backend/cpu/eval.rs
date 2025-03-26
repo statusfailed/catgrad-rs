@@ -153,7 +153,12 @@ impl EvalState {
             Reshape { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
-
+            Const { x: _, k } => match self.data.get_mut(targets[0]) {
+                Some(F16(a)) => a.fill(f16::from_f32(*k)),
+                Some(F32(a)) => a.fill(*k),
+                Some(I32(a)) => a.fill(*k as i32),
+                _ => panic!("invalid type"),
+            },
             op => {
                 panic!("unknown operation {:?}", op);
             }
@@ -422,6 +427,30 @@ mod test {
         assert_eq!(&tagged, actual);
     }
 
+    #[test]
+    fn test_const() {
+        let f = Operation::Const {
+            x: NdArrayType {
+                shape: Shape(vec![4, 3]),
+                dtype: Dtype::F32,
+            },
+            k: 2.3,
+        }
+        .term();
+
+        let expected = NdArray {
+            data: vec![2.3; 12],
+            shape: Shape(vec![4, 3]),
+        };
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
     #[test]
     fn test_reshape() {
         let f = Operation::Reshape {

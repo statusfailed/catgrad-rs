@@ -15,6 +15,9 @@ pub enum Operation {
         dtype: Dtype,
     },
 
+    /// Const value
+    Const { x: NdArrayType, k: f32 },
+
     /// Broadcast a value of shape x to one of shape n+x.
     Broadcast { n: Shape, x: NdArrayType },
 
@@ -59,6 +62,11 @@ impl Operation {
     pub fn interface(&self) -> Interface {
         use Operation::*;
         match self {
+            Const { x, k: _ } => {
+                let target = x.clone();
+                (vec![], vec![target])
+            }
+
             MatrixMultiply { n, a, b, c, dtype } => {
                 let source0 = NdArrayType {
                     shape: n + a + b,
