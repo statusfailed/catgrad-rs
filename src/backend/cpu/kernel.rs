@@ -233,6 +233,32 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
     }
 }
 
+/// Broadcast input across a new shape.
+/// Ex: Input of shape [4, 5] broadcasted with shape n = [2, 3]
+/// will result in output of shape [2,3,4,5] where the input is repeated 2x3 times.
+pub struct BroadcastOp {
+    pub n: Shape,
+}
+
+impl<T: Numeric> UnaryOp<T> for BroadcastOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        assert_eq!(
+            a.shape.0.len() + self.n.0.len(),
+            b.shape.0.len(),
+            "BroadcastOp: input and output shapes must have compatible dimensions"
+        );
+        assert_eq!(
+            a.shape.size() * self.n.size(),
+            b.shape.size(),
+            "BroadcastOp: output size must be multiple of input size"
+        );
+        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+
+        // Set strides to 0 for the broadcasting dimensions
+        b.strides[..self.n.0.len()].fill(0);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

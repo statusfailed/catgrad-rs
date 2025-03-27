@@ -107,6 +107,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
+                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -118,6 +119,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
+                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -129,6 +131,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
+                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -150,7 +153,7 @@ impl EvalState {
             Negate(_) => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            Reshape { .. } => {
+            Reshape { .. } | Broadcast { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Const { x: _, k } => match self.data.get_mut(targets[0]) {
@@ -424,6 +427,7 @@ mod test {
 
         assert_eq!(actual, &expected.into());
     }
+
     #[test]
     fn test_reshape() {
         let f = Operation::Reshape {
@@ -446,5 +450,38 @@ mod test {
         };
 
         assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_broadcast() {
+        let f = Operation::Broadcast {
+            x: NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::I32,
+            },
+            n: Shape(vec![2, 1]),
+        }
+        .term();
+
+        let x = NdArray::new((30..36).collect(), Shape(vec![2, 3]));
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // check that array is broadcasted across two new dimensions
+        if let TaggedNdArray::I32(actual) = actual {
+            assert_eq!(actual.shape.0, &[2, 1, 2, 3]);
+            assert_eq!(actual.strides, [0, 0, 3, 1]);
+
+            assert_eq!(actual[&[0, 0, 0, 0]], 30);
+            assert_eq!(actual[&[1, 0, 0, 0]], 30);
+            assert_eq!(actual[&[0, 0, 0, 2]], 32);
+            assert_eq!(actual[&[1, 0, 0, 2]], 32);
+            assert_eq!(actual[&[0, 0, 1, 2]], 35);
+            assert_eq!(actual[&[1, 0, 1, 2]], 35);
+        }
     }
 }
