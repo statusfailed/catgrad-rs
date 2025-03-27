@@ -1,4 +1,5 @@
 use crate::core::object::*;
+use std::ops::{Index, IndexMut};
 
 use half::f16;
 use num_traits::Zero;
@@ -141,6 +142,46 @@ impl<T> NdArray<T> {
             data: data_slice,
             shape: slice_shape,
         }
+    }
+
+    /// Calculates the flat index in the data vector for a given multi-dimensional index.
+    /// Panics if the index is out of bounds.
+    fn calculate_flat_index(&self, index: &[usize]) -> usize {
+        if index.len() != self.shape.0.len() {
+            panic!(
+                "Index dimension mismatch: expected {}, got {}",
+                self.shape.0.len(),
+                index.len()
+            );
+        }
+
+        let mut flat_index = 0;
+        for (i, &idx) in index.iter().enumerate() {
+            if idx >= self.shape.0[i] {
+                panic!(
+                    "Index {} out of bounds for dimension {} with size {}",
+                    idx, i, self.shape.0[i]
+                );
+            }
+            flat_index += idx * self.strides[i];
+        }
+        flat_index
+    }
+}
+
+impl<T> Index<&[usize]> for NdArray<T> {
+    type Output = T;
+
+    fn index(&self, index: &[usize]) -> &Self::Output {
+        let flat_index = self.calculate_flat_index(index);
+        &self.data[flat_index]
+    }
+}
+
+impl<T> IndexMut<&[usize]> for NdArray<T> {
+    fn index_mut(&mut self, index: &[usize]) -> &mut Self::Output {
+        let flat_index = self.calculate_flat_index(index);
+        &mut self.data[flat_index]
     }
 }
 
@@ -325,5 +366,57 @@ mod tests {
         for i in 0..20 {
             assert_eq!(slice4d.data[i], i as f32);
         }
+    }
+
+    #[test]
+    fn test_indexing() {
+        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
+        // Fill with 0..23
+        for i in 0..24 {
+            array.data[i] = i as f32;
+        }
+
+        // Test reading
+        assert_eq!(array[&[0, 0, 0]], 0.0);
+        assert_eq!(array[&[0, 1, 2]], 6.0); // 0*12 + 1*4 + 2*1 = 6
+        assert_eq!(array[&[1, 0, 0]], 12.0); // 1*12 + 0*4 + 0*1 = 12
+        assert_eq!(array[&[1, 2, 3]], 23.0); // 1*12 + 2*4 + 3*1 = 12 + 8 + 3 = 23
+
+        // Test writing
+        array[&[0, 1, 2]] = 99.0;
+        assert_eq!(array.data[6], 99.0);
+        assert_eq!(array[&[0, 1, 2]], 99.0);
+
+        array[&[1, 2, 3]] = -1.0;
+        assert_eq!(array.data[23], -1.0);
+        assert_eq!(array[&[1, 2, 3]], -1.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_indexing_out_of_bounds_dim() {
+        let array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
+        let _ = array[&[0, 0, 4]]; // Index 4 is out of bounds for the last dimension
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_indexing_out_of_bounds_mut() {
+        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
+        array[&[2, 0, 0]] = 5.0; // Index 2 is out of bounds for the first dimension
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_indexing_wrong_ndim() {
+        let array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
+        let _ = array[&[0, 0]]; // Incorrect number of dimensions
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_indexing_wrong_ndim_mut() {
+        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
+        array[&[1, 1]] = 5.0; // Incorrect number of dimensions
     }
 }
