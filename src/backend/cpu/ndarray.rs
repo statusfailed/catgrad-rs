@@ -6,8 +6,9 @@ use num_traits::Zero;
 /// N-dimensional arrays of elements T with a given shape.
 #[derive(PartialEq, Debug, Clone)]
 pub struct NdArray<T> {
-    pub data: Vec<T>, // raw data of the array
-    pub shape: Shape, // shape information (erasable?)
+    pub data: Vec<T>,        // raw data of the array
+    pub shape: Shape,        // shape information (erasable?)
+    pub strides: Vec<usize>, // strides for each dimension
 }
 
 /// Immutable slice into an NdArray
@@ -22,6 +23,15 @@ pub struct NdArrayMutSlice<'a, T> {
     pub shape: Shape,
 }
 
+fn compute_strides(shape: &Shape) -> Vec<usize> {
+    let mut strides = vec![1];
+    for dim in shape.0.iter().skip(1).rev() {
+        strides.push(strides.last().unwrap() * dim);
+    }
+    strides.reverse();
+    strides
+}
+
 impl<T> NdArray<T> {
     pub fn new(data: Vec<T>, shape: Shape) -> Self {
         assert_eq!(
@@ -29,7 +39,11 @@ impl<T> NdArray<T> {
             shape.size(),
             "Data length must match shape size"
         );
-        NdArray { data, shape }
+        Self {
+            data,
+            strides: compute_strides(&shape),
+            shape,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -62,21 +76,17 @@ impl<T> NdArray<T> {
             return (0, self.shape.clone());
         }
 
-        // Compute the start offset in the flattened array
         let mut start_index = 0;
-        let mut stride = 1;
 
         // Start with the innermost dimension
-        for i in (0..self.shape.0.len()).rev() {
+        for i in 0..self.shape.0.len() {
             if i >= indices.len() {
                 // This dimension is part of the slice, we start at index 0
                 // No need to add anything to start_index
             } else {
                 // This dimension is fixed by the provided indices
-                start_index += indices[i] * stride;
+                start_index += indices[i] * self.strides[i];
             }
-            // Update stride for the next (more significant) dimension
-            stride *= self.shape.0[i];
         }
 
         // Compute the shape of the resulting slice
@@ -201,6 +211,17 @@ impl From<NdArray<i32>> for TaggedNdArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_strides() {
+        let shape = Shape(vec![2, 3, 4]);
+        let strides = compute_strides(&shape);
+        assert_eq!(strides, vec![12, 4, 1]);
+
+        let shape = Shape(vec![6]);
+        let strides = compute_strides(&shape);
+        assert_eq!(strides, vec![1]);
+    }
 
     #[test]
     fn test_slice() {
