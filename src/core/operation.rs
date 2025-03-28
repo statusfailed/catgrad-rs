@@ -24,6 +24,12 @@ pub enum Operation {
     /// Reshape x
     Reshape { x: NdArrayType, shape: Shape },
 
+    /// Transpose (swap) two dimensions of a tensor
+    Transpose {
+        x: NdArrayType,
+        dim0: usize,
+        dim1: usize,
+    },
     /// Create a copy
     Copy(NdArrayType),
 
@@ -50,6 +56,14 @@ impl Operation {
         match &self {
             Reshape { x, shape } => {
                 if x.size() == shape.size() {
+                    Some(self)
+                } else {
+                    None
+                }
+            }
+            Transpose { x, dim0, dim1 } => {
+                // Validate that dimensions are within bounds
+                if *dim0 < x.shape.0.len() && *dim1 < x.shape.0.len() {
                     Some(self)
                 } else {
                     None
@@ -97,6 +111,21 @@ impl Operation {
                     shape: shape.clone(),
                     dtype: x.dtype.clone(),
                 };
+                (vec![source], vec![target])
+            }
+
+            Transpose { x, dim0, dim1 } => {
+                let source = x.clone();
+
+                // Create new shape with swapped dimensions
+                let mut new_shape = x.shape.0.clone();
+                new_shape.swap(*dim0, *dim1);
+
+                let target = NdArrayType {
+                    shape: Shape(new_shape),
+                    dtype: x.dtype.clone(),
+                };
+
                 (vec![source], vec![target])
             }
 

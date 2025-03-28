@@ -259,6 +259,36 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
     }
 }
 
+pub struct TransposeOp {
+    pub dim0: usize,
+    pub dim1: usize,
+}
+
+impl<T: Numeric> UnaryOp<T> for TransposeOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        // Validate dimensions
+        assert!(
+            self.dim0 < a.shape.0.len() && self.dim1 < a.shape.0.len(),
+            "TransposeOp: dimensions must be valid for input shape"
+        );
+
+        // Create new shape with swapped dimensions
+        let mut new_shape = a.shape.0.clone();
+        new_shape.swap(self.dim0, self.dim1);
+
+        b.shape = Shape(new_shape);
+
+        // Create new strides with swapped dimensions
+        let mut new_strides = a.strides.clone();
+        new_strides.swap(self.dim0, self.dim1);
+        b.strides = new_strides;
+
+        // Copy the data - we won't actually move anything in memory,
+        // just change how we index into it
+        b.data = a.data.clone();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
