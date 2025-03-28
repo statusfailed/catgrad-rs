@@ -108,6 +108,10 @@ impl EvalState {
                         shape: shape.clone(),
                     }),
                     Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                        dim0: *dim0,
+                        dim1: *dim1,
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -120,6 +124,10 @@ impl EvalState {
                         shape: shape.clone(),
                     }),
                     Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                        dim0: *dim0,
+                        dim1: *dim1,
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -132,6 +140,10 @@ impl EvalState {
                         shape: shape.clone(),
                     }),
                     Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                        dim0: *dim0,
+                        dim1: *dim1,
+                    }),
                     _ => panic!("invalid operation"),
                 };
 
@@ -150,7 +162,7 @@ impl EvalState {
             Add(_) | Sub(_) | Mul(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Negate(_) | Reshape { .. } | Broadcast { .. } => {
+            Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
@@ -491,6 +503,38 @@ mod test {
             assert_eq!(actual[&[1, 0, 0, 2]], 32);
             assert_eq!(actual[&[0, 0, 1, 2]], 35);
             assert_eq!(actual[&[1, 0, 1, 2]], 35);
+        }
+    }
+    #[test]
+    fn test_transpose() {
+        let f = Operation::Transpose {
+            x: NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::F32,
+            },
+            dim0: 0,
+            dim1: 1,
+        }
+        .term();
+
+        // Create a 2x3 matrix
+        let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
+
+        let mut state = EvalState::new(f);
+        let [actual] = state.eval_with(vec![input.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+        match actual {
+            TaggedNdArray::F32(array) => {
+                assert_eq!(array.shape, Shape(vec![3, 2]));
+                assert_eq!(array[&[0, 0]], 1.0);
+                assert_eq!(array[&[0, 1]], 4.0);
+                assert_eq!(array[&[1, 0]], 2.0);
+                assert_eq!(array[&[1, 1]], 5.0);
+                assert_eq!(array[&[2, 0]], 3.0);
+                assert_eq!(array[&[2, 1]], 6.0);
+            }
+            _ => panic!("Expected F32 array"),
         }
     }
 
