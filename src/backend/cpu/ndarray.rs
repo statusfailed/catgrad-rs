@@ -168,7 +168,22 @@ impl<T> NdArray<T> {
         flat_index
     }
 }
+impl<T: Clone> NdArray<T> {
+    /// Copy data from another NdArray into this one.
+    /// Panics if the shapes don't match.
+    pub fn copy_from(&mut self, other: &NdArray<T>) {
+        // Check that shapes match
+        if self.shape != other.shape {
+            panic!(
+                "Shape mismatch in copy_from: destination shape {:?} != source shape {:?}",
+                self.shape, other.shape
+            );
+        }
 
+        // Copy the data
+        self.data.clone_from_slice(&other.data);
+    }
+}
 impl<T> Index<&[usize]> for NdArray<T> {
     type Output = T;
 

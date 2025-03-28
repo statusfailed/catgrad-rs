@@ -150,21 +150,30 @@ impl EvalState {
             Add(_) | Sub(_) | Mul(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Negate(_) => {
+            Negate(_) | Reshape { .. } | Broadcast { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            Reshape { .. } | Broadcast { .. } => {
-                self.apply_unary_operation(sources, targets, op);
-            }
+            Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
+                Ok([F32(a), F32(b), F32(c)]) => {
+                    b.copy_from(a);
+                    c.copy_from(a);
+                }
+                Ok([F16(a), F16(b), F16(c)]) => {
+                    b.copy_from(a);
+                    c.copy_from(a);
+                }
+                Ok([I32(a), I32(b), I32(c)]) => {
+                    b.copy_from(a);
+                    c.copy_from(a);
+                }
+                _ => panic!("invalid types"),
+            },
             Const { x: _, k } => match self.data.get_mut(targets[0]) {
                 Some(F16(a)) => a.fill(f16::from_f32(*k)),
                 Some(F32(a)) => a.fill(*k),
                 Some(I32(a)) => a.fill(*k as i32),
                 _ => panic!("invalid type"),
             },
-            op => {
-                panic!("unknown operation {:?}", op);
-            }
         }
     }
 
@@ -483,5 +492,27 @@ mod test {
             assert_eq!(actual[&[0, 0, 1, 2]], 35);
             assert_eq!(actual[&[1, 0, 1, 2]], 35);
         }
+    }
+
+    #[test]
+    fn test_copy_from() {
+        let f = Operation::Copy(NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        })
+        .term();
+
+        let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
+
+        let tagged: TaggedNdArray = x.into();
+
+        let mut state = EvalState::new(f);
+
+        let [copy1, copy2] = state.eval_with(vec![tagged.clone()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(copy1, &tagged);
+        assert_eq!(copy2, &tagged);
     }
 }
