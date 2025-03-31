@@ -198,6 +198,15 @@ impl<T: Numeric> BinOp<T> for MulOp {
     }
 }
 
+pub struct DivOp;
+impl<T: Numeric> BinOp<T> for DivOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i] / b.data[i];
+        }
+    }
+}
+
 pub struct MatMulOp;
 impl<T: Numeric + 'static> BinOp<T> for MatMulOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {

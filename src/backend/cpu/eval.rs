@@ -63,6 +63,7 @@ impl EvalState {
                     Add(_) => Box::new(kernel::AddOp),
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
+                    Div(_) => Box::new(kernel::DivOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -74,6 +75,7 @@ impl EvalState {
                     Add(_) => Box::new(kernel::AddOp),
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
+                    Div(_) => Box::new(kernel::DivOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -85,6 +87,7 @@ impl EvalState {
                     Add(_) => Box::new(kernel::AddOp),
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
+                    Div(_) => Box::new(kernel::DivOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -159,7 +162,7 @@ impl EvalState {
             panic!("invalid operation");
         }
         match op {
-            Add(_) | Sub(_) | Mul(_) | MatrixMultiply { .. } => {
+            Add(_) | Sub(_) | Mul(_) | Div(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
@@ -392,6 +395,31 @@ mod test {
             vec![2, 3, 4, 5],
             vec![10, 20, 30, 40],
             vec![20, 60, 120, 200],
+        );
+    }
+
+    #[test]
+    fn test_div() {
+        // Test multiplication with F32
+        test_binop_generic::<f32>(
+            Operation::Div(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![2.0, 4.0, 6.0, 8.0],
+            vec![2.0, 2.0, 2.0, 2.0],
+            vec![1.0, 2.0, 3.0, 4.0],
+        );
+
+        // Test multiplication with I32
+        test_binop_generic::<i32>(
+            Operation::Div(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![2, 4, 6, 8],
+            vec![2, 2, 2, 2],
+            vec![1, 2, 3, 4],
         );
     }
 
