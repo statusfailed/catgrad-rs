@@ -199,6 +199,7 @@ impl EvalState {
     pub fn eval_with(&mut self, args: Vec<TaggedNdArray>) -> Vec<&TaggedNdArray> {
         let sources = &self.term.s.table;
 
+        assert_eq!(args.len(), sources.len(), "Not all sources were added.");
         for (i, arg) in args.iter().enumerate() {
             self.data[sources[i]] = arg.clone();
         }
