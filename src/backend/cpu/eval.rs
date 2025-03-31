@@ -64,6 +64,7 @@ impl EvalState {
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
                     Div(_) => Box::new(kernel::DivOp),
+                    Pow(_) => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -76,6 +77,7 @@ impl EvalState {
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
                     Div(_) => Box::new(kernel::DivOp),
+                    Pow(_) => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -88,6 +90,7 @@ impl EvalState {
                     Sub(_) => Box::new(kernel::SubOp),
                     Mul(_) => Box::new(kernel::MulOp),
                     Div(_) => Box::new(kernel::DivOp),
+                    Pow(_) => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -162,7 +165,7 @@ impl EvalState {
             panic!("invalid operation");
         }
         match op {
-            Add(_) | Sub(_) | Mul(_) | Div(_) | MatrixMultiply { .. } => {
+            Add(_) | Sub(_) | Mul(_) | Div(_) | Pow(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
@@ -400,7 +403,7 @@ mod test {
 
     #[test]
     fn test_div() {
-        // Test multiplication with F32
+        // Test division with F32
         test_binop_generic::<f32>(
             Operation::Div(NdArrayType {
                 shape: Shape(vec![2, 2]),
@@ -411,7 +414,7 @@ mod test {
             vec![1.0, 2.0, 3.0, 4.0],
         );
 
-        // Test multiplication with I32
+        // Test division with I32
         test_binop_generic::<i32>(
             Operation::Div(NdArrayType {
                 shape: Shape(vec![2, 2]),
@@ -420,6 +423,51 @@ mod test {
             vec![2, 4, 6, 8],
             vec![2, 2, 2, 2],
             vec![1, 2, 3, 4],
+        );
+    }
+
+    #[test]
+    fn test_pow() {
+        // Test raising to a power with F32
+        test_binop_generic::<f32>(
+            Operation::Pow(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![2.0, 4.0, 6.0, 8.0],
+            vec![2.0, 2.0, 2.0, 2.0],
+            vec![4.0, 16.0, 36.0, 64.0],
+        );
+
+        // Test raising to a power with F16
+        test_binop_generic::<f16>(
+            Operation::Pow(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F16,
+            }),
+            vec![2.0, 4.0, 6.0, 8.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+            vec![2.0, 2.0, 2.0, 2.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+            vec![4.0, 16.0, 36.0, 64.0]
+                .iter()
+                .map(|&x| f16::from_f32(x))
+                .collect(),
+        );
+
+        // Test raising to a power with I32
+        test_binop_generic::<i32>(
+            Operation::Pow(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![2, 4, 6, 8],
+            vec![2, 2, 2, 2],
+            vec![4, 16, 36, 64],
         );
     }
 

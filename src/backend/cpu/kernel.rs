@@ -207,6 +207,34 @@ impl<T: Numeric> BinOp<T> for DivOp {
     }
 }
 
+pub struct PowOp;
+
+// TODO: Maybe this can be done with less duplication by using num_traits::Pow?
+impl BinOp<i32> for PowOp {
+    fn apply(&self, a: &NdArray<i32>, b: &NdArray<i32>, c: &mut NdArray<i32>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i].pow(b.data[i] as u32);
+        }
+    }
+}
+
+use num_traits::Float;
+impl BinOp<half::f16> for PowOp {
+    fn apply(&self, a: &NdArray<half::f16>, b: &NdArray<half::f16>, c: &mut NdArray<half::f16>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i].powf(b.data[i]);
+        }
+    }
+}
+
+impl BinOp<f32> for PowOp {
+    fn apply(&self, a: &NdArray<f32>, b: &NdArray<f32>, c: &mut NdArray<f32>) {
+        for i in 0..a.data.len() {
+            c.data[i] = a.data[i].powf(b.data[i]);
+        }
+    }
+}
+
 pub struct MatMulOp;
 impl<T: Numeric + 'static> BinOp<T> for MatMulOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {

@@ -45,6 +45,9 @@ pub enum Operation {
     /// Pointwise division of two values of similar shapes
     Div(NdArrayType),
 
+    /// Pointwise raising to power of two values of similar shapes
+    Pow(NdArrayType),
+
     /// Pointwise negation of value
     Negate(NdArrayType),
 }
@@ -134,7 +137,9 @@ impl Operation {
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
 
-            Add(x) | Sub(x) | Mul(x) | Div(x) => (vec![x.clone(), x.clone()], vec![x.clone()]),
+            Add(x) | Sub(x) | Mul(x) | Div(x) | Pow(x) => {
+                (vec![x.clone(), x.clone()], vec![x.clone()])
+            }
 
             Negate(x) => (vec![x.clone()], vec![x.clone()]),
         }
