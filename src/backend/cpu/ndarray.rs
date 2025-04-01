@@ -9,25 +9,27 @@ use num_traits::Zero;
 pub struct NdArray<T> {
     pub data: Vec<T>,        // raw data of the array
     pub shape: Shape,        // shape information (erasable?)
-    pub strides: Vec<usize>, // strides for each dimension
+    pub strides: Vec<isize>, // strides for each dimension
 }
 
 /// Immutable slice into an NdArray
 pub struct NdArraySlice<'a, T> {
     pub data: &'a [T],
     pub shape: Shape,
+    pub strides: Vec<isize>, // strides for each dimension
 }
 
 /// Mutable slice into an NdArray
 pub struct NdArrayMutSlice<'a, T> {
     pub data: &'a mut [T],
     pub shape: Shape,
+    pub strides: Vec<isize>,
 }
 
-fn compute_strides(shape: &Shape) -> Vec<usize> {
-    let mut strides = vec![1];
+fn compute_strides(shape: &Shape) -> Vec<isize> {
+    let mut strides: Vec<isize> = vec![1];
     for dim in shape.0.iter().skip(1).rev() {
-        strides.push(strides.last().unwrap() * dim);
+        strides.push(strides.last().unwrap() * (*dim as isize));
     }
     strides.reverse();
     strides
@@ -57,7 +59,7 @@ impl<T> NdArray<T> {
 
     /// Compute slice indices for fixed first n dimension.
     /// Returns (start_index, slice_shape)
-    fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape) {
+    fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape, Vec<isize>) {
         if indices.len() > self.shape.0.len() {
             panic!("Too many indices provided");
         }
@@ -74,7 +76,7 @@ impl<T> NdArray<T> {
 
         // If no indices provided, use the whole array
         if indices.is_empty() {
-            return (0, self.shape.clone());
+            return (0, self.shape.clone(), self.strides.clone());
         }
 
         let mut start_index = 0;
@@ -86,14 +88,15 @@ impl<T> NdArray<T> {
                 // No need to add anything to start_index
             } else {
                 // This dimension is fixed by the provided indices
-                start_index += indices[i] * self.strides[i];
+                start_index += indices[i] * (self.strides[i] as usize);
             }
         }
 
         // Compute the shape of the resulting slice
         let slice_shape = Shape(self.shape.0[indices.len()..].to_vec());
+        let slice_strides = self.strides[indices.len()..].to_vec();
 
-        (start_index, slice_shape)
+        (start_index, slice_shape, slice_strides)
     }
 
     /// Creates an immutable slice from the array by fixing the first n dimensions
@@ -108,7 +111,7 @@ impl<T> NdArray<T> {
     /// let slice = array.slice(&[0, 1]); // Slice with shape [4, 5]
     /// ```
     pub fn slice<'a>(&'a self, indices: &[usize]) -> NdArraySlice<'a, T> {
-        let (start_index, slice_shape) = self.calculate_slice_info(indices);
+        let (start_index, slice_shape, slice_strides) = self.calculate_slice_info(indices);
         let slice_len = slice_shape.size();
 
         // Create slice from data
@@ -117,6 +120,7 @@ impl<T> NdArray<T> {
         NdArraySlice {
             data: data_slice,
             shape: slice_shape,
+            strides: slice_strides,
         }
     }
 
@@ -132,7 +136,7 @@ impl<T> NdArray<T> {
     /// let slice = array.slice_mut(&[0, 1]); // Slice with shape [4, 5]
     /// ```
     pub fn slice_mut<'a>(&'a mut self, indices: &[usize]) -> NdArrayMutSlice<'a, T> {
-        let (start_index, slice_shape) = self.calculate_slice_info(indices);
+        let (start_index, slice_shape, slice_strides) = self.calculate_slice_info(indices);
         let slice_len = slice_shape.size();
 
         // Create slice from data
@@ -141,6 +145,7 @@ impl<T> NdArray<T> {
         NdArrayMutSlice {
             data: data_slice,
             shape: slice_shape,
+            strides: slice_strides,
         }
     }
 
@@ -163,7 +168,7 @@ impl<T> NdArray<T> {
                     idx, i, self.shape.0[i]
                 );
             }
-            flat_index += idx * self.strides[i];
+            flat_index += idx * (self.strides[i] as usize);
         }
         flat_index
     }
