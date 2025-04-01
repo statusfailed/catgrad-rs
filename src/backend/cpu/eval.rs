@@ -199,7 +199,13 @@ impl EvalState {
     pub fn eval_with(&mut self, args: Vec<TaggedNdArray>) -> Vec<&TaggedNdArray> {
         let sources = &self.term.s.table;
 
-        assert_eq!(args.len(), sources.len(), "Not all sources were added.");
+        assert_eq!(
+            args.len(),
+            sources.len(),
+            "Expected {} arguments but got {}.",
+            sources.len(),
+            args.len()
+        );
         for (i, arg) in args.iter().enumerate() {
             self.data[sources[i]] = arg.clone();
         }
@@ -311,6 +317,24 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn test_eval_with_argcount() {
+        let f = Operation::Add(NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        })
+        .term();
+
+        let x = NdArray::new(vec![0.; 4], Shape(vec![2, 2]));
+        let mut state = EvalState::new(f);
+
+        // Passing a single argument into a binary
+        let [_] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+    }
+
+    #[test]
     fn test_add() {
         test_binop_generic::<f16>(
             Operation::Add(NdArrayType {
@@ -352,6 +376,7 @@ mod test {
             vec![11, 22, 33, 44],
         );
     }
+
     #[test]
     fn test_sub() {
         // Test subtraction with F32
