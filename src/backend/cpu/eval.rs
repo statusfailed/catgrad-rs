@@ -498,7 +498,7 @@ mod test {
     }
 
     #[test]
-    fn test_mat_mul() {
+    fn test_matmul() {
         let f = Operation::MatrixMultiply {
             n: Shape::empty(),
             a: 1,
@@ -522,6 +522,43 @@ mod test {
         let mut state = EvalState::new(f);
 
         let [actual] = state.eval_with(vec![x.into(), m.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        let tagged: TaggedNdArray = expected.into();
+        assert_eq!(&tagged, actual);
+    }
+
+    #[test]
+    fn test_matmul_transposed() {
+        let f = Operation::MatrixMultiply {
+            n: Shape::empty(),
+            a: 1,
+            b: 2,
+            c: 3,
+            dtype: Dtype::F32,
+        }
+        .term();
+
+        // a (1×2) matrix
+        let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
+
+        // a (2×3) matrix
+        let m = NdArray::new(vec![1., 2., 3., 4., 5., 6.], Shape(vec![2, 3]));
+
+        // Transposed equivalent of m
+        let mut mt = NdArray::new(vec![1., 4., 2., 5., 3., 6.], Shape(vec![3, 2]));
+        mt.shape = Shape(vec![2, 3]);
+        mt.strides = vec![1, 2];
+
+        // result should be a 1×3 result
+        let mut expected = NdArray::new(vec![0.; 3], Shape(vec![1, 3]));
+
+        kernel::batch_matmul::<f32>(&x, &m, &mut expected);
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval_with(vec![x.into(), mt.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
