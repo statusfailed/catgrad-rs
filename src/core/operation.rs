@@ -158,3 +158,7 @@ impl Operation {
         )
     }
 }
+
+pub fn identity(t: Type) -> Term {
+    OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
+}
