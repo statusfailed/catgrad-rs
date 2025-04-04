@@ -2,6 +2,7 @@ use super::ndarray::*;
 use crate::backend::cpu::kernel;
 use crate::core::{Operation, Term};
 use half::f16;
+use std::collections::HashMap;
 use Operation::*;
 use TaggedNdArray::*;
 
@@ -37,6 +38,7 @@ fn allocate(f: &Term) -> Vec<TaggedNdArray> {
 pub struct EvalState {
     term: Term,
     data: Vec<TaggedNdArray>,
+    parameters: Option<HashMap<String, TaggedNdArray>>,
 }
 
 impl EvalState {
@@ -45,7 +47,12 @@ impl EvalState {
         Self {
             data: allocate(&f),
             term: f,
+            parameters: None,
         }
+    }
+
+    pub fn set_parameters(&mut self, parameters: HashMap<String, TaggedNdArray>) {
+        self.parameters = Some(parameters);
     }
 
     fn apply_binary_operation(
@@ -192,6 +199,26 @@ impl EvalState {
                 Some(I32(a)) => a.fill(*k as i32),
                 _ => panic!("invalid type"),
             },
+            Parameter { x: _, name } => {
+                // TODO:
+                // - The matching here is very ugly and incomplete
+                // - The parameters are being copied instead of referenced.
+                if let Some(parameters) = self.parameters.as_mut() {
+                    match self.data.get_mut(targets[0]) {
+                        Some(F32(a)) => {
+                            let p = parameters.get(name);
+                            if let Some(TaggedNdArray::F32(x)) = p {
+                                a.copy_from(x);
+                            } else {
+                                panic!("Parameters loaded, parameter '{name}'::F32 not found.")
+                            }
+                        }
+                        _ => panic!("Invalid type for parameter '{name}'"),
+                    }
+                } else {
+                    panic!("Parameters not loaded, requested parameter '{name}'");
+                }
+            }
         }
     }
 
@@ -586,6 +613,95 @@ mod test {
         };
 
         assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_parameter() {
+        let typ = NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        };
+
+        let param_a = Operation::Parameter {
+            x: typ.clone(),
+            name: "param_a".to_string(),
+        }
+        .term();
+
+        let param_b = Operation::Parameter {
+            x: typ.clone(),
+            name: "param_b".to_string(),
+        }
+        .term();
+
+        let add = Operation::Add(NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        })
+        .term();
+
+        let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
+        let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));
+
+        let mut parameters = HashMap::new();
+        parameters.insert("param_a".to_string(), a.into());
+        parameters.insert("param_b".to_string(), b.into());
+
+        let expected = NdArray::new(vec![0., 4., 0., 8.], Shape(vec![2, 2]));
+
+        let f = (&(&param_a | &param_b) >> &add).unwrap();
+        let mut state = EvalState::new(f);
+        state.set_parameters(parameters);
+
+        let [actual] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_missing_parameter() {
+        let typ = NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F16,
+        };
+
+        let param_a = Operation::Parameter {
+            x: typ.clone(),
+            name: "param_a".to_string(),
+        }
+        .term();
+
+        let mut state = EvalState::new(param_a);
+        let parameters = HashMap::new();
+        state.set_parameters(parameters);
+
+        let [_] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_missing_parameters() {
+        let typ = NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        };
+
+        let param_a = Operation::Parameter {
+            x: typ.clone(),
+            name: "param_a".to_string(),
+        }
+        .term();
+
+        let mut state = EvalState::new(param_a);
+
+        let [_] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
     }
 
     #[test]
