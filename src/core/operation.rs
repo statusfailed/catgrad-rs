@@ -50,6 +50,9 @@ pub enum Operation {
 
     /// Pointwise negation of value
     Negate(NdArrayType),
+
+    /// Inputs injected at runtime (model parameters)
+    Parameter { x: NdArrayType, name: String },
 }
 
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
@@ -82,7 +85,7 @@ impl Operation {
     pub fn interface(&self) -> Interface {
         use Operation::*;
         match self {
-            Const { x, k: _ } => {
+            Const { x, k: _ } | Parameter { x, name: _ } => {
                 let target = x.clone();
                 (vec![], vec![target])
             }
@@ -154,4 +157,8 @@ impl Operation {
             SemifiniteFunction::new(VecArray(t)),
         )
     }
+}
+
+pub fn identity(t: Type) -> Term {
+    OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
 }
