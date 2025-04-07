@@ -118,6 +118,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
+                    Max(_) => Box::new(kernel::MaxOp),
+                    Sum(_) => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -134,6 +136,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
+                    Max(_) => Box::new(kernel::MaxOp),
+                    Sum(_) => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -150,6 +154,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
+                    Max(_) => Box::new(kernel::MaxOp),
+                    Sum(_) => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -168,7 +174,7 @@ impl EvalState {
             Add(_) | Sub(_) | Mul(_) | Div(_) | Pow(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
+            Sum(_) | Max(_) | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
@@ -697,5 +703,47 @@ mod test {
 
         assert_eq!(copy1, &tagged);
         assert_eq!(copy2, &tagged);
+    }
+
+    #[test]
+    fn test_max() {
+        let f = Operation::Max(NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        })
+        .term();
+
+        let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
+
+        let expected = NdArray::new(vec![2.0, 4.0], Shape(vec![2]));
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_sum() {
+        let f = Operation::Sum(NdArrayType {
+            shape: Shape(vec![2, 3]),
+            dtype: Dtype::F32,
+        })
+        .term();
+
+        let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
+
+        let expected = NdArray::new(vec![6.0, 15.0], Shape(vec![2]));
+
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
     }
 }
