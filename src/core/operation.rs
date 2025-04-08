@@ -55,7 +55,7 @@ pub enum Operation {
     Pow,
 
     /// Pointwise negation of value
-    Negate(NdArrayType),
+    Negate,
 
     /// Inputs injected at runtime (model parameters)
     Parameter { x: NdArrayType, name: String },
@@ -146,8 +146,6 @@ impl Operation {
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
 
-            Negate(x) => (vec![x.clone()], vec![x.clone()]),
-
             _ => panic!("Not implemented"),
         }
     }
@@ -173,6 +171,18 @@ impl Operation {
             SemifiniteFunction::new(VecArray(vec![source])),
             SemifiniteFunction::new(VecArray(vec![target])),
         )
+    }
+
+    fn unop(x: NdArrayType, op: Operation) -> Term {
+        OpenHypergraph::singleton(
+            op,
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+        )
+    }
+
+    pub fn negate(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Negate)
     }
 
     fn binop(x: NdArrayType, op: Operation) -> Term {

@@ -116,7 +116,7 @@ impl EvalState {
         match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
+                    Negate => Box::new(kernel::NegOp),
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
@@ -134,7 +134,7 @@ impl EvalState {
             }
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
+                    Negate => Box::new(kernel::NegOp),
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
@@ -152,7 +152,7 @@ impl EvalState {
             }
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
+                    Negate => Box::new(kernel::NegOp),
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
@@ -181,7 +181,7 @@ impl EvalState {
             Add | Sub | Mul | Div | Pow | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum | Max | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
@@ -273,16 +273,14 @@ mod test {
     use super::*;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
 
-    fn test_unarynop_generic<T>(op_type: Operation, x_data: Vec<T>, expected_data: Vec<T>)
+    fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let f = op_type.term();
-
         let x = NdArray::new(x_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::new(op);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -295,7 +293,7 @@ mod test {
     #[test]
     fn test_neg() {
         test_unarynop_generic::<f16>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -309,7 +307,7 @@ mod test {
                 .collect(),
         );
         test_unarynop_generic::<f32>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -317,7 +315,7 @@ mod test {
             vec![-1.0, -2.0, -3.0, -4.0],
         );
         test_unarynop_generic::<i32>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
