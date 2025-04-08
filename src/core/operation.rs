@@ -60,38 +60,27 @@ pub enum Operation {
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
-    pub fn interface(&self) -> Interface {
-        use Operation::*;
-        match self {
-            MatrixMultiply { n, a, b, c, dtype } => {
-                let source0 = NdArrayType {
-                    shape: n + a + b,
-                    dtype: dtype.clone(),
-                };
+    // Make an OpenHypergraph for the MatrixMultiply operation
+    pub fn matmul(n: Shape, a: usize, b: usize, c: usize, dtype: Dtype) -> Term {
+        let source0 = NdArrayType {
+            shape: &n + &a + &b,
+            dtype: dtype.clone(),
+        };
 
-                let source1 = NdArrayType {
-                    shape: n + b + c,
-                    dtype: dtype.clone(),
-                };
+        let source1 = NdArrayType {
+            shape: &n + &b + &c,
+            dtype: dtype.clone(),
+        };
 
-                let target = NdArrayType {
-                    shape: n + a + c,
-                    dtype: dtype.clone(),
-                };
-                (vec![source0, source1], vec![target])
-            }
+        let target = NdArrayType {
+            shape: &n + &a + &c,
+            dtype: dtype.clone(),
+        };
 
-            _ => panic!("Not implemented"),
-        }
-    }
-
-    // Make an OpenHypergraph from this operation
-    pub fn term(self) -> Term {
-        let (s, t) = self.interface();
         OpenHypergraph::singleton(
-            self,
-            SemifiniteFunction::new(VecArray(s)),
-            SemifiniteFunction::new(VecArray(t)),
+            Operation::MatrixMultiply { n, a, b, c, dtype },
+            SemifiniteFunction::new(VecArray(vec![source0, source1])),
+            SemifiniteFunction::new(VecArray(vec![target])),
         )
     }
 

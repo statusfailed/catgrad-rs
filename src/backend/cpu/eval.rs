@@ -521,14 +521,7 @@ mod test {
 
     #[test]
     fn test_matmul() {
-        let f = Operation::MatrixMultiply {
-            n: Shape::empty(),
-            a: 1,
-            b: 2,
-            c: 3,
-            dtype: Dtype::F32,
-        }
-        .term();
+        let f = Operation::matmul(Shape::empty(), 1, 2, 3, Dtype::F32);
 
         // a (1×2) matrix
         let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
@@ -553,14 +546,7 @@ mod test {
 
     #[test]
     fn test_matmul_transposed() {
-        let f = Operation::MatrixMultiply {
-            n: Shape::empty(),
-            a: 1,
-            b: 2,
-            c: 3,
-            dtype: Dtype::F32,
-        }
-        .term();
+        let f = Operation::matmul(Shape::empty(), 1, 2, 3, Dtype::F32);
 
         // a (1×2) matrix
         let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
