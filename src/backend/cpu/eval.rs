@@ -67,11 +67,11 @@ impl EvalState {
         match self.data[..].get_disjoint_mut([i, j, k]) {
             Ok([F16(a), F16(b), F16(c)]) => {
                 let op: Box<dyn kernel::BinOp<f16>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -80,11 +80,11 @@ impl EvalState {
             }
             Ok([F32(a), F32(b), F32(c)]) => {
                 let op: Box<dyn kernel::BinOp<f32>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -93,11 +93,11 @@ impl EvalState {
             }
             Ok([I32(a), I32(b), I32(c)]) => {
                 let op: Box<dyn kernel::BinOp<i32>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -178,7 +178,7 @@ impl EvalState {
             panic!("invalid operation");
         }
         match op {
-            Add(_) | Sub(_) | Mul(_) | Div(_) | Pow(_) | MatrixMultiply { .. } => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Sum | Max | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
@@ -326,20 +326,15 @@ mod test {
         );
     }
 
-    fn test_binop_generic<T>(
-        op_type: Operation,
-        x_data: Vec<T>,
-        y_data: Vec<T>,
-        expected_data: Vec<T>,
-    ) where
+    fn test_binop_generic<T>(op: Term, x_data: Vec<T>, y_data: Vec<T>, expected_data: Vec<T>)
+    where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let f = op_type.term();
         let x = NdArray::new(x_data, Shape(vec![2, 2]));
         let y = NdArray::new(y_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::new(op);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -352,11 +347,10 @@ mod test {
     #[test]
     #[should_panic]
     fn test_eval_with_argcount() {
-        let f = Operation::Add(NdArrayType {
+        let f = Operation::add(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![0.; 4], Shape(vec![2, 2]));
         let mut state = EvalState::new(f);
@@ -370,7 +364,7 @@ mod test {
     #[test]
     fn test_add() {
         test_binop_generic::<f16>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -389,7 +383,7 @@ mod test {
         );
 
         test_binop_generic::<f32>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -400,7 +394,7 @@ mod test {
 
         // Test for I32
         test_binop_generic::<i32>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -414,7 +408,7 @@ mod test {
     fn test_sub() {
         // Test subtraction with F32
         test_binop_generic::<f32>(
-            Operation::Sub(NdArrayType {
+            Operation::sub(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -425,7 +419,7 @@ mod test {
 
         // Test subtraction with I32
         test_binop_generic::<i32>(
-            Operation::Sub(NdArrayType {
+            Operation::sub(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -439,7 +433,7 @@ mod test {
     fn test_mul() {
         // Test multiplication with F32
         test_binop_generic::<f32>(
-            Operation::Mul(NdArrayType {
+            Operation::mul(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -450,7 +444,7 @@ mod test {
 
         // Test multiplication with I32
         test_binop_generic::<i32>(
-            Operation::Mul(NdArrayType {
+            Operation::mul(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -464,7 +458,7 @@ mod test {
     fn test_div() {
         // Test division with F32
         test_binop_generic::<f32>(
-            Operation::Div(NdArrayType {
+            Operation::div(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -475,7 +469,7 @@ mod test {
 
         // Test division with I32
         test_binop_generic::<i32>(
-            Operation::Div(NdArrayType {
+            Operation::div(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -489,7 +483,7 @@ mod test {
     fn test_pow() {
         // Test raising to a power with F32
         test_binop_generic::<f32>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -500,7 +494,7 @@ mod test {
 
         // Test raising to a power with F16
         test_binop_generic::<f16>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -520,7 +514,7 @@ mod test {
 
         // Test raising to a power with I32
         test_binop_generic::<i32>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -640,11 +634,10 @@ mod test {
         }
         .term();
 
-        let add = Operation::Add(NdArrayType {
+        let add = Operation::add(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
         let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));

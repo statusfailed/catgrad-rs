@@ -40,19 +40,19 @@ pub enum Operation {
     Copy(NdArrayType),
 
     /// Pointwise addition of two values of similar shapes
-    Add(NdArrayType),
+    Add,
 
     /// Pointwise subtraction of two values of similar shapes
-    Sub(NdArrayType),
+    Sub,
 
     /// Pointwise multiplication of two values of similar shapes
-    Mul(NdArrayType),
+    Mul,
 
     /// Pointwise division of two values of similar shapes
-    Div(NdArrayType),
+    Div,
 
     /// Pointwise raising to power of two values of similar shapes
-    Pow(NdArrayType),
+    Pow,
 
     /// Pointwise negation of value
     Negate(NdArrayType),
@@ -146,10 +146,6 @@ impl Operation {
 
             Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
 
-            Add(x) | Sub(x) | Mul(x) | Div(x) | Pow(x) => {
-                (vec![x.clone(), x.clone()], vec![x.clone()])
-            }
-
             Negate(x) => (vec![x.clone()], vec![x.clone()]),
 
             _ => panic!("Not implemented"),
@@ -177,6 +173,34 @@ impl Operation {
             SemifiniteFunction::new(VecArray(vec![source])),
             SemifiniteFunction::new(VecArray(vec![target])),
         )
+    }
+
+    fn binop(x: NdArrayType, op: Operation) -> Term {
+        OpenHypergraph::singleton(
+            op,
+            SemifiniteFunction::new(VecArray(vec![x.clone(), x.clone()])),
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+        )
+    }
+
+    pub fn add(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Add)
+    }
+
+    pub fn sub(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Sub)
+    }
+
+    pub fn mul(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Mul)
+    }
+
+    pub fn div(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Div)
+    }
+
+    pub fn pow(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Pow)
     }
 
     // Make an OpenHypergraph for a Sum operation
