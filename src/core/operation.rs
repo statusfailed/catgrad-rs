@@ -19,10 +19,10 @@ pub enum Operation {
     Const { x: NdArrayType, k: f32 },
 
     /// Max value across last dimension
-    Max(NdArrayType),
+    Max,
 
     /// Sum value across last dimension
-    Sum(NdArrayType),
+    Sum,
 
     /// Broadcast a value of shape x to one of shape n+x.
     Broadcast { n: Shape, x: NdArrayType },
@@ -96,14 +96,6 @@ impl Operation {
                 (vec![], vec![target])
             }
 
-            Max(x) | Sum(x) => {
-                let source = x.clone();
-                let target = NdArrayType {
-                    shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
-                    dtype: x.dtype.clone(),
-                };
-                (vec![source], vec![target])
-            }
             MatrixMultiply { n, a, b, c, dtype } => {
                 let source0 = NdArrayType {
                     shape: n + a + b,
@@ -159,6 +151,8 @@ impl Operation {
             }
 
             Negate(x) => (vec![x.clone()], vec![x.clone()]),
+
+            _ => panic!("Not implemented"),
         }
     }
 
@@ -170,6 +164,29 @@ impl Operation {
             SemifiniteFunction::new(VecArray(s)),
             SemifiniteFunction::new(VecArray(t)),
         )
+    }
+
+    fn reduce(x: NdArrayType, op: Operation) -> Term {
+        let source = x.clone();
+        let target = NdArrayType {
+            shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
+            dtype: x.dtype.clone(),
+        };
+        OpenHypergraph::singleton(
+            op,
+            SemifiniteFunction::new(VecArray(vec![source])),
+            SemifiniteFunction::new(VecArray(vec![target])),
+        )
+    }
+
+    // Make an OpenHypergraph for a Sum operation
+    pub fn sum(x: NdArrayType) -> Term {
+        Operation::reduce(x, Operation::Sum)
+    }
+
+    // Make an OpenHypergraph for a Max operation
+    pub fn max(x: NdArrayType) -> Term {
+        Operation::reduce(x, Operation::Max)
     }
 }
 

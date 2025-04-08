@@ -125,8 +125,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -143,8 +143,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -161,8 +161,8 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -181,7 +181,7 @@ impl EvalState {
             Add(_) | Sub(_) | Mul(_) | Div(_) | Pow(_) | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum(_) | Max(_) | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
@@ -823,11 +823,10 @@ mod test {
 
     #[test]
     fn test_max() {
-        let f = Operation::Max(NdArrayType {
+        let f = Operation::max(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
@@ -844,11 +843,10 @@ mod test {
 
     #[test]
     fn test_sum() {
-        let f = Operation::Sum(NdArrayType {
+        let f = Operation::sum(NdArrayType {
             shape: Shape(vec![2, 3]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
 
