@@ -24,18 +24,14 @@ pub enum Operation {
     /// Sum value across last dimension
     Sum,
 
-    /// Broadcast a value of shape x to one of shape n+x.
+    /// Broadcast a value to one of shape n+x.
     Broadcast(Shape),
 
-    /// Reshape x
-    Reshape { x: NdArrayType, shape: Shape },
+    /// Reshape a value
+    Reshape(Shape),
 
     /// Transpose (swap) two dimensions of a tensor
-    Transpose {
-        x: NdArrayType,
-        dim0: usize,
-        dim1: usize,
-    },
+    Transpose { dim0: usize, dim1: usize },
     /// Create a copy
     Copy,
 
@@ -64,30 +60,6 @@ pub enum Operation {
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
-    /// Check an operation is *valid* - e.g., for Reshape the input and output types must be
-    /// isomorphic.
-    pub fn validate(self) -> Option<Self> {
-        use Operation::*;
-        match &self {
-            Reshape { x, shape } => {
-                if x.size() == shape.size() {
-                    Some(self)
-                } else {
-                    None
-                }
-            }
-            Transpose { x, dim0, dim1 } => {
-                // Validate that dimensions are within bounds
-                if *dim0 < x.shape.0.len() && *dim1 < x.shape.0.len() {
-                    Some(self)
-                } else {
-                    None
-                }
-            }
-            _ => Some(self),
-        }
-    }
-
     pub fn interface(&self) -> Interface {
         use Operation::*;
         match self {
@@ -107,30 +79,6 @@ impl Operation {
                     dtype: dtype.clone(),
                 };
                 (vec![source0, source1], vec![target])
-            }
-
-            Reshape { x, shape } => {
-                let source = x.clone();
-                let target = NdArrayType {
-                    shape: shape.clone(),
-                    dtype: x.dtype.clone(),
-                };
-                (vec![source], vec![target])
-            }
-
-            Transpose { x, dim0, dim1 } => {
-                let source = x.clone();
-
-                // Create new shape with swapped dimensions
-                let mut new_shape = x.shape.0.clone();
-                new_shape.swap(*dim0, *dim1);
-
-                let target = NdArrayType {
-                    shape: Shape(new_shape),
-                    dtype: x.dtype.clone(),
-                };
-
-                (vec![source], vec![target])
             }
 
             _ => panic!("Not implemented"),
@@ -153,6 +101,39 @@ impl Operation {
         let target = n.clone() + &x;
         OpenHypergraph::singleton(
             Operation::Broadcast(n),
+            SemifiniteFunction::new(VecArray(vec![source])),
+            SemifiniteFunction::new(VecArray(vec![target])),
+        )
+    }
+
+    // Make an OpenHypergraph for the Transpose operation
+    pub fn transpose(x: NdArrayType, dim0: usize, dim1: usize) -> Term {
+        let source = x.clone();
+
+        // Create new shape with swapped dimensions
+        let mut new_shape = x.shape.0.clone();
+        new_shape.swap(dim0, dim1);
+
+        let target = NdArrayType {
+            shape: Shape(new_shape),
+            dtype: x.dtype.clone(),
+        };
+        OpenHypergraph::singleton(
+            Operation::Transpose { dim0, dim1 },
+            SemifiniteFunction::new(VecArray(vec![source])),
+            SemifiniteFunction::new(VecArray(vec![target])),
+        )
+    }
+
+    // Make an OpenHypergraph for the Reshape operation
+    pub fn reshape(x: NdArrayType, shape: Shape) -> Term {
+        let source = x.clone();
+        let target = NdArrayType {
+            shape: shape.clone(),
+            dtype: x.dtype.clone(),
+        };
+        OpenHypergraph::singleton(
+            Operation::Reshape(shape),
             SemifiniteFunction::new(VecArray(vec![source])),
             SemifiniteFunction::new(VecArray(vec![target])),
         )

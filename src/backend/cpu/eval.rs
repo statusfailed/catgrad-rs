@@ -117,11 +117,11 @@ impl EvalState {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
@@ -135,11 +135,11 @@ impl EvalState {
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
@@ -153,11 +153,11 @@ impl EvalState {
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
@@ -174,9 +174,6 @@ impl EvalState {
 
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
-        if op.clone().validate().is_none() {
-            panic!("invalid operation");
-        }
         match op {
             Add | Sub | Mul | Div | Pow | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
@@ -685,14 +682,13 @@ mod test {
 
     #[test]
     fn test_reshape() {
-        let f = Operation::Reshape {
-            x: NdArrayType {
+        let f = Operation::reshape(
+            NdArrayType {
                 shape: Shape(vec![4, 3]),
                 dtype: Dtype::I32,
             },
-            shape: Shape(vec![2, 6]),
-        }
-        .term();
+            Shape(vec![2, 6]),
+        );
 
         let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
 
@@ -740,15 +736,14 @@ mod test {
     }
     #[test]
     fn test_transpose() {
-        let f = Operation::Transpose {
-            x: NdArrayType {
+        let f = Operation::transpose(
+            NdArrayType {
                 shape: Shape(vec![2, 3]),
                 dtype: Dtype::F32,
             },
-            dim0: 0,
-            dim1: 1,
-        }
-        .term();
+            0,
+            1,
+        );
 
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
