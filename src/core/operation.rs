@@ -25,7 +25,7 @@ pub enum Operation {
     Sum,
 
     /// Broadcast a value of shape x to one of shape n+x.
-    Broadcast { n: Shape, x: NdArrayType },
+    Broadcast(Shape),
 
     /// Reshape x
     Reshape { x: NdArrayType, shape: Shape },
@@ -109,12 +109,6 @@ impl Operation {
                 (vec![source0, source1], vec![target])
             }
 
-            Broadcast { n, x } => {
-                let source = x.clone();
-                let target = n + x;
-                (vec![source], vec![target])
-            }
-
             Reshape { x, shape } => {
                 let source = x.clone();
                 let target = NdArrayType {
@@ -150,6 +144,17 @@ impl Operation {
             self,
             SemifiniteFunction::new(VecArray(s)),
             SemifiniteFunction::new(VecArray(t)),
+        )
+    }
+
+    // Make an OpenHypergraph for the Broadcast operation
+    pub fn broadcast(x: NdArrayType, n: Shape) -> Term {
+        let source = x.clone();
+        let target = n.clone() + &x;
+        OpenHypergraph::singleton(
+            Operation::Broadcast(n),
+            SemifiniteFunction::new(VecArray(vec![source])),
+            SemifiniteFunction::new(VecArray(vec![target])),
         )
     }
 

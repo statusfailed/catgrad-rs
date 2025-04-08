@@ -120,7 +120,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
@@ -138,7 +138,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
@@ -156,7 +156,7 @@ impl EvalState {
                     Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
@@ -709,14 +709,13 @@ mod test {
 
     #[test]
     fn test_broadcast() {
-        let f = Operation::Broadcast {
-            x: NdArrayType {
+        let f = Operation::broadcast(
+            NdArrayType {
                 shape: Shape(vec![2, 3]),
                 dtype: Dtype::I32,
             },
-            n: Shape(vec![2, 1]),
-        }
-        .term();
+            Shape(vec![2, 1]),
+        );
 
         let x = NdArray::new((30..36).collect(), Shape(vec![2, 3]));
 
