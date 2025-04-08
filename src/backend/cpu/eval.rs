@@ -184,7 +184,7 @@ impl EvalState {
             Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
+            Copy => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
                 Ok([F32(a), F32(b), F32(c)]) => {
                     b.copy_from(a);
                     c.copy_from(a);
@@ -199,13 +199,13 @@ impl EvalState {
                 }
                 _ => panic!("invalid types"),
             },
-            Const { x: _, k } => match self.data.get_mut(targets[0]) {
+            Const(k) => match self.data.get_mut(targets[0]) {
                 Some(F16(a)) => a.fill(f16::from_f32(*k)),
                 Some(F32(a)) => a.fill(*k),
                 Some(I32(a)) => a.fill(*k as i32),
                 _ => panic!("invalid type"),
             },
-            Parameter { x: _, name } => {
+            Parameter(name) => {
                 // TODO:
                 // - The matching here is very ugly and incomplete
                 // - The parameters are being copied instead of referenced.
@@ -593,14 +593,13 @@ mod test {
 
     #[test]
     fn test_const() {
-        let f = Operation::Const {
-            x: NdArrayType {
+        let f = Operation::constop(
+            NdArrayType {
                 shape: Shape(vec![4, 3]),
                 dtype: Dtype::F32,
             },
-            k: 2.3,
-        }
-        .term();
+            2.3,
+        );
 
         let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
@@ -620,17 +619,8 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
-
-        let param_b = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_b".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_b = Operation::parameter(typ.clone(), "param_b");
 
         let add = Operation::add(NdArrayType {
             shape: Shape(vec![2, 2]),
@@ -665,11 +655,7 @@ mod test {
             dtype: Dtype::F16,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
 
         let mut state = EvalState::new(param_a);
         let parameters = HashMap::new();
@@ -688,11 +674,7 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
 
         let mut state = EvalState::new(param_a);
 
@@ -792,11 +774,10 @@ mod test {
 
     #[test]
     fn test_copy_from() {
-        let f = Operation::Copy(NdArrayType {
+        let f = Operation::copy(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 

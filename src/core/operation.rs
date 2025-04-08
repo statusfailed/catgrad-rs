@@ -16,7 +16,7 @@ pub enum Operation {
     },
 
     /// Const value
-    Const { x: NdArrayType, k: f32 },
+    Const(f32),
 
     /// Max value across last dimension
     Max,
@@ -37,7 +37,7 @@ pub enum Operation {
         dim1: usize,
     },
     /// Create a copy
-    Copy(NdArrayType),
+    Copy,
 
     /// Pointwise addition of two values of similar shapes
     Add,
@@ -58,7 +58,7 @@ pub enum Operation {
     Negate,
 
     /// Inputs injected at runtime (model parameters)
-    Parameter { x: NdArrayType, name: String },
+    Parameter(String),
 }
 
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
@@ -91,11 +91,6 @@ impl Operation {
     pub fn interface(&self) -> Interface {
         use Operation::*;
         match self {
-            Const { x, k: _ } | Parameter { x, name: _ } => {
-                let target = x.clone();
-                (vec![], vec![target])
-            }
-
             MatrixMultiply { n, a, b, c, dtype } => {
                 let source0 = NdArrayType {
                     shape: n + a + b,
@@ -144,8 +139,6 @@ impl Operation {
                 (vec![source], vec![target])
             }
 
-            Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
-
             _ => panic!("Not implemented"),
         }
     }
@@ -160,7 +153,17 @@ impl Operation {
         )
     }
 
-    fn reduce(x: NdArrayType, op: Operation) -> Term {
+    // Make an OpenHypergraph for the Copy operation
+    pub fn copy(x: NdArrayType) -> Term {
+        OpenHypergraph::singleton(
+            Operation::Copy,
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+            SemifiniteFunction::new(VecArray(vec![x.clone(), x.clone()])),
+        )
+    }
+
+    // Make an OpenHypergraph for the given operation
+    fn reduceop(x: NdArrayType, op: Operation) -> Term {
         let source = x.clone();
         let target = NdArrayType {
             shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
@@ -173,6 +176,7 @@ impl Operation {
         )
     }
 
+    // Make an OpenHypergraph for the given operation
     fn unop(x: NdArrayType, op: Operation) -> Term {
         OpenHypergraph::singleton(
             op,
@@ -181,10 +185,30 @@ impl Operation {
         )
     }
 
+    // Make an OpenHypergraph for the Parameter operation
+    pub fn parameter(x: NdArrayType, name: &str) -> Term {
+        OpenHypergraph::singleton(
+            Operation::Parameter(name.to_string()),
+            SemifiniteFunction::new(VecArray(vec![])),
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+        )
+    }
+
+    // Make an OpenHypergraph for the Const operation
+    pub fn constop(x: NdArrayType, k: f32) -> Term {
+        OpenHypergraph::singleton(
+            Operation::Const(k),
+            SemifiniteFunction::new(VecArray(vec![])),
+            SemifiniteFunction::new(VecArray(vec![x.clone()])),
+        )
+    }
+
+    // Make an OpenHypergraph for the Negate operation
     pub fn negate(x: NdArrayType) -> Term {
         Operation::unop(x, Operation::Negate)
     }
 
+    // Make an OpenHypergraph for the given binary operation
     fn binop(x: NdArrayType, op: Operation) -> Term {
         OpenHypergraph::singleton(
             op,
@@ -193,34 +217,39 @@ impl Operation {
         )
     }
 
+    // Make an OpenHypergraph for the Add operation
     pub fn add(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Add)
     }
 
+    // Make an OpenHypergraph for the Sub operation
     pub fn sub(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Sub)
     }
 
+    // Make an OpenHypergraph for the Mul operation
     pub fn mul(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Mul)
     }
 
+    // Make an OpenHypergraph for the Div operation
     pub fn div(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Div)
     }
 
+    // Make an OpenHypergraph for the Pow operation
     pub fn pow(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Pow)
     }
 
     // Make an OpenHypergraph for a Sum operation
     pub fn sum(x: NdArrayType) -> Term {
-        Operation::reduce(x, Operation::Sum)
+        Operation::reduceop(x, Operation::Sum)
     }
 
     // Make an OpenHypergraph for a Max operation
     pub fn max(x: NdArrayType) -> Term {
-        Operation::reduce(x, Operation::Max)
+        Operation::reduceop(x, Operation::Max)
     }
 }
 
