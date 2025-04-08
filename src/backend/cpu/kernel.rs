@@ -164,8 +164,14 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
     }
 }
 
-pub trait Numeric: num_traits::Num + std::ops::Neg<Output = Self> + Copy + Debug {}
-impl<T> Numeric for T where T: num_traits::Num + std::ops::Neg<Output = Self> + Copy + Debug {}
+pub trait Numeric:
+    num_traits::Num + num_traits::Bounded + std::ops::Neg<Output = Self> + Copy + Debug
+{
+}
+impl<T> Numeric for T where
+    T: num_traits::Num + num_traits::Bounded + std::ops::Neg<Output = Self> + Copy + Debug
+{
+}
 
 pub trait BinOp<T: Numeric> {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>);
@@ -267,6 +273,33 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
         );
         b.data = a.data.clone(); //TODO: reuse vec instead of copy
         b.shape = self.shape.clone();
+    }
+}
+
+// Max and Sum could have a more generic FoldOp trait but for now
+// they work well as UnaryOps.
+
+pub struct MaxOp;
+
+impl<T: Numeric + PartialOrd> UnaryOp<T> for MaxOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        let last_dim = a.shape.0[a.shape.0.len() - 1];
+        for (i, chunk) in a.data.chunks(last_dim).enumerate() {
+            b.data[i] = chunk
+                .iter()
+                .fold(T::min_value(), |acc, &x| if acc > x { acc } else { x })
+        }
+    }
+}
+
+pub struct SumOp;
+
+impl<T: Numeric + PartialOrd + std::iter::Sum> UnaryOp<T> for SumOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        let last_dim = a.shape.0[a.shape.0.len() - 1];
+        for (i, chunk) in a.data.chunks(last_dim).enumerate() {
+            b.data[i] = chunk.iter().copied().sum();
+        }
     }
 }
 

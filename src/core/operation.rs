@@ -18,6 +18,12 @@ pub enum Operation {
     /// Const value
     Const { x: NdArrayType, k: f32 },
 
+    /// Max value across last dimension
+    Max(NdArrayType),
+
+    /// Sum value across last dimension
+    Sum(NdArrayType),
+
     /// Broadcast a value of shape x to one of shape n+x.
     Broadcast { n: Shape, x: NdArrayType },
 
@@ -90,6 +96,14 @@ impl Operation {
                 (vec![], vec![target])
             }
 
+            Max(x) | Sum(x) => {
+                let source = x.clone();
+                let target = NdArrayType {
+                    shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
+                    dtype: x.dtype.clone(),
+                };
+                (vec![source], vec![target])
+            }
             MatrixMultiply { n, a, b, c, dtype } => {
                 let source0 = NdArrayType {
                     shape: n + a + b,
