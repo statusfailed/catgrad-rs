@@ -5,7 +5,7 @@ edition = "2021"
 rust-version = "1.86"
 
 [dependencies]
-open-hypergraphs = "0.1.5"
+open-hypergraphs = "0.1.6"
 num-traits = "0.2.19"
 gemm = "0.18.2"
 half = "2.5.0"
