@@ -351,9 +351,7 @@ mod test {
         let mut state = EvalState::new(f);
 
         // Passing a single argument into a binary
-        let [_] = state.eval_with(vec![x.into()])[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval_with(vec![x.into()]);
     }
 
     #[test]
@@ -644,9 +642,7 @@ mod test {
         let parameters = HashMap::new();
         state.set_parameters(parameters);
 
-        let [_] = state.eval()[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval();
     }
 
     #[test]
@@ -661,9 +657,7 @@ mod test {
 
         let mut state = EvalState::new(param_a);
 
-        let [_] = state.eval()[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval();
     }
 
     #[test]
@@ -687,6 +681,24 @@ mod test {
         };
 
         assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_reshape_invalid_shape() {
+        let f = Operation::reshape(
+            NdArrayType {
+                shape: Shape(vec![4, 3]),
+                dtype: Dtype::I32,
+            },
+            Shape(vec![2, 4]),
+        );
+
+        let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
+
+        let mut state = EvalState::new(f);
+
+        state.eval_with(vec![x.into()]);
     }
 
     #[test]
@@ -720,6 +732,7 @@ mod test {
             assert_eq!(actual[&[1, 0, 1, 2]], 35);
         }
     }
+
     #[test]
     fn test_transpose() {
         let f = Operation::transpose(
@@ -750,6 +763,25 @@ mod test {
             }
             _ => panic!("Expected F32 array"),
         }
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_transpose_invalid_dim() {
+        let f = Operation::transpose(
+            NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::F32,
+            },
+            0,
+            2,
+        );
+
+        // Create a 2x3 matrix
+        let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
+
+        let mut state = EvalState::new(f);
+        state.eval_with(vec![input.into()]);
     }
 
     #[test]

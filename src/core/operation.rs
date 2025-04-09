@@ -103,6 +103,14 @@ impl Operation {
 
     // Make an OpenHypergraph for the Transpose operation
     pub fn transpose(x: NdArrayType, dim0: usize, dim1: usize) -> Term {
+        assert!(
+            dim0 < x.shape.0.len(),
+            "Transpose dimension dim0 invalid: {dim0}"
+        );
+        assert!(
+            dim1 < x.shape.0.len(),
+            "Transpose dimension dim1 invalid: {dim0}"
+        );
         let source = x.clone();
 
         // Create new shape with swapped dimensions
@@ -120,6 +128,13 @@ impl Operation {
 
     // Make an OpenHypergraph for the Reshape operation
     pub fn reshape(x: NdArrayType, shape: Shape) -> Term {
+        assert_eq!(
+            x.size(),
+            shape.size(),
+            "Reshape from {:?} to {:?} must preserve total size.",
+            x.shape,
+            shape
+        );
         let source = x.clone();
         let target = NdArrayType {
             shape: shape.clone(),
