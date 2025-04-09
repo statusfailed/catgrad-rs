@@ -63,12 +63,7 @@ pub type StrictTerm = OpenHypergraph<PrimitiveType, Operation>;
 impl Operation {
     // Make an OpenHypergraph from an operation, sources and targets
     pub fn term(op: Operation, s: Vec<NdArrayType>, t: Vec<NdArrayType>) -> Term {
-        let strict_oh = OpenHypergraph::singleton(
-            op,
-            SemifiniteFunction::new(VecArray(s)),
-            SemifiniteFunction::new(VecArray(t)),
-        );
-        open_hypergraphs::lax::OpenHypergraph::from_strict(strict_oh)
+        open_hypergraphs::lax::OpenHypergraph::singleton(op, s, t)
     }
 
     pub fn identity(t: Type) -> Term {

@@ -43,7 +43,6 @@ pub struct EvalState {
 
 impl EvalState {
     /// Preallocate arrays for each node in a term
-
     pub fn new(f: StrictTerm) -> Self {
         Self {
             data: allocate(&f),
