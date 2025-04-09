@@ -73,17 +73,17 @@ impl Operation {
     pub fn matmul(n: Shape, a: usize, b: usize, c: usize, dtype: Dtype) -> Term {
         let source0 = NdArrayType {
             shape: &n + &a + &b,
-            dtype: dtype.clone(),
+            dtype,
         };
 
         let source1 = NdArrayType {
             shape: &n + &b + &c,
-            dtype: dtype.clone(),
+            dtype,
         };
 
         let target = NdArrayType {
             shape: &n + &a + &c,
-            dtype: dtype.clone(),
+            dtype,
         };
 
         Operation::term(
@@ -119,7 +119,7 @@ impl Operation {
 
         let target = NdArrayType {
             shape: Shape(new_shape),
-            dtype: x.dtype.clone(),
+            dtype: x.dtype,
         };
 
         let op = Operation::Transpose { dim0, dim1 };
@@ -138,7 +138,7 @@ impl Operation {
         let source = x.clone();
         let target = NdArrayType {
             shape: shape.clone(),
-            dtype: x.dtype.clone(),
+            dtype: x.dtype,
         };
         let op = Operation::Reshape(shape);
         Operation::term(op, vec![source], vec![target])
@@ -155,7 +155,7 @@ impl Operation {
         let source = x.clone();
         let target = NdArrayType {
             shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
-            dtype: x.dtype.clone(),
+            dtype: x.dtype,
         };
         Operation::term(op, vec![source], vec![target])
     }

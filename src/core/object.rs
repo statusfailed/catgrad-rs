@@ -7,7 +7,7 @@ pub type Nat = usize;
 // Generating Objects
 
 /// Dtypes supported by N-dimensional arrays.
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Dtype {
     F16,
     F32,
@@ -52,7 +52,7 @@ impl NdArrayType {
 
         Some(NdArrayType {
             shape: self.shape.concatenate(&other.shape),
-            dtype: self.dtype.clone(),
+            dtype: self.dtype,
         })
     }
 }
@@ -123,7 +123,7 @@ impl<'a> Add<&'a NdArrayType> for &'a Shape {
     fn add(self, other: &'a NdArrayType) -> Self::Output {
         NdArrayType {
             shape: self.concatenate(&other.shape),
-            dtype: other.dtype.clone(),
+            dtype: other.dtype,
         }
     }
 }
@@ -135,7 +135,7 @@ impl<'a> Add<&'a NdArrayType> for Shape {
     fn add(self, other: &'a NdArrayType) -> Self::Output {
         NdArrayType {
             shape: Shape(self.0.iter().chain(other.shape.0.iter()).cloned().collect()),
-            dtype: other.dtype.clone(),
+            dtype: other.dtype,
         }
     }
 }
