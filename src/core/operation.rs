@@ -60,6 +60,15 @@ pub enum Operation {
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
+    // Make an OpenHypergraph from an operation, sources and targets
+    pub fn term(op: Operation, s: Vec<NdArrayType>, t: Vec<NdArrayType>) -> Term {
+        OpenHypergraph::singleton(
+            op,
+            SemifiniteFunction::new(VecArray(s)),
+            SemifiniteFunction::new(VecArray(t)),
+        )
+    }
+
     // Make an OpenHypergraph for the MatrixMultiply operation
     pub fn matmul(n: Shape, a: usize, b: usize, c: usize, dtype: Dtype) -> Term {
         let source0 = NdArrayType {
@@ -77,10 +86,10 @@ impl Operation {
             dtype: dtype.clone(),
         };
 
-        OpenHypergraph::singleton(
+        Operation::term(
             Operation::MatrixMultiply { n, a, b, c, dtype },
-            SemifiniteFunction::new(VecArray(vec![source0, source1])),
-            SemifiniteFunction::new(VecArray(vec![target])),
+            vec![source0, source1],
+            vec![target],
         )
     }
 
@@ -88,11 +97,8 @@ impl Operation {
     pub fn broadcast(x: NdArrayType, n: Shape) -> Term {
         let source = x.clone();
         let target = n.clone() + &x;
-        OpenHypergraph::singleton(
-            Operation::Broadcast(n),
-            SemifiniteFunction::new(VecArray(vec![source])),
-            SemifiniteFunction::new(VecArray(vec![target])),
-        )
+        let op = Operation::Broadcast(n);
+        Operation::term(op, vec![source], vec![target])
     }
 
     // Make an OpenHypergraph for the Transpose operation
@@ -107,11 +113,9 @@ impl Operation {
             shape: Shape(new_shape),
             dtype: x.dtype.clone(),
         };
-        OpenHypergraph::singleton(
-            Operation::Transpose { dim0, dim1 },
-            SemifiniteFunction::new(VecArray(vec![source])),
-            SemifiniteFunction::new(VecArray(vec![target])),
-        )
+
+        let op = Operation::Transpose { dim0, dim1 };
+        Operation::term(op, vec![source], vec![target])
     }
 
     // Make an OpenHypergraph for the Reshape operation
@@ -121,20 +125,14 @@ impl Operation {
             shape: shape.clone(),
             dtype: x.dtype.clone(),
         };
-        OpenHypergraph::singleton(
-            Operation::Reshape(shape),
-            SemifiniteFunction::new(VecArray(vec![source])),
-            SemifiniteFunction::new(VecArray(vec![target])),
-        )
+        let op = Operation::Reshape(shape);
+        Operation::term(op, vec![source], vec![target])
     }
 
     // Make an OpenHypergraph for the Copy operation
     pub fn copy(x: NdArrayType) -> Term {
-        OpenHypergraph::singleton(
-            Operation::Copy,
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-            SemifiniteFunction::new(VecArray(vec![x.clone(), x.clone()])),
-        )
+        let op = Operation::Copy;
+        Operation::term(op, vec![x.clone()], vec![x.clone(), x.clone()])
     }
 
     // Make an OpenHypergraph for the given operation
@@ -144,38 +142,24 @@ impl Operation {
             shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
             dtype: x.dtype.clone(),
         };
-        OpenHypergraph::singleton(
-            op,
-            SemifiniteFunction::new(VecArray(vec![source])),
-            SemifiniteFunction::new(VecArray(vec![target])),
-        )
+        Operation::term(op, vec![source], vec![target])
     }
 
     // Make an OpenHypergraph for the given operation
     fn unop(x: NdArrayType, op: Operation) -> Term {
-        OpenHypergraph::singleton(
-            op,
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-        )
+        Operation::term(op, vec![x.clone()], vec![x.clone()])
     }
 
     // Make an OpenHypergraph for the Parameter operation
     pub fn parameter(x: NdArrayType, name: &str) -> Term {
-        OpenHypergraph::singleton(
-            Operation::Parameter(name.to_string()),
-            SemifiniteFunction::new(VecArray(vec![])),
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-        )
+        let op = Operation::Parameter(name.to_string());
+        Operation::term(op, vec![], vec![x.clone()])
     }
 
     // Make an OpenHypergraph for the Const operation
     pub fn constop(x: NdArrayType, k: f32) -> Term {
-        OpenHypergraph::singleton(
-            Operation::Const(k),
-            SemifiniteFunction::new(VecArray(vec![])),
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-        )
+        let op = Operation::Const(k);
+        Operation::term(op, vec![], vec![x.clone()])
     }
 
     // Make an OpenHypergraph for the Negate operation
@@ -185,11 +169,7 @@ impl Operation {
 
     // Make an OpenHypergraph for the given binary operation
     fn binop(x: NdArrayType, op: Operation) -> Term {
-        OpenHypergraph::singleton(
-            op,
-            SemifiniteFunction::new(VecArray(vec![x.clone(), x.clone()])),
-            SemifiniteFunction::new(VecArray(vec![x.clone()])),
-        )
+        Operation::term(op, vec![x.clone(), x.clone()], vec![x.clone()])
     }
 
     // Make an OpenHypergraph for the Add operation
@@ -226,8 +206,8 @@ impl Operation {
     pub fn max(x: NdArrayType) -> Term {
         Operation::reduceop(x, Operation::Max)
     }
-}
 
-pub fn identity(t: Type) -> Term {
-    OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
+    pub fn identity(t: Type) -> Term {
+        OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
+    }
 }
