@@ -16,163 +16,213 @@ pub enum Operation {
     },
 
     /// Const value
-    Const { x: NdArrayType, k: f32 },
+    Const(f32),
 
     /// Max value across last dimension
-    Max(NdArrayType),
+    Max,
 
     /// Sum value across last dimension
-    Sum(NdArrayType),
+    Sum,
 
-    /// Broadcast a value of shape x to one of shape n+x.
-    Broadcast { n: Shape, x: NdArrayType },
+    /// Broadcast a value to one of shape n+x.
+    Broadcast(Shape),
 
-    /// Reshape x
-    Reshape { x: NdArrayType, shape: Shape },
+    /// Reshape a value
+    Reshape(Shape),
 
     /// Transpose (swap) two dimensions of a tensor
-    Transpose {
-        x: NdArrayType,
-        dim0: usize,
-        dim1: usize,
-    },
+    Transpose { dim0: usize, dim1: usize },
     /// Create a copy
-    Copy(NdArrayType),
+    Copy,
 
     /// Pointwise addition of two values of similar shapes
-    Add(NdArrayType),
+    Add,
 
     /// Pointwise subtraction of two values of similar shapes
-    Sub(NdArrayType),
+    Sub,
 
     /// Pointwise multiplication of two values of similar shapes
-    Mul(NdArrayType),
+    Mul,
 
     /// Pointwise division of two values of similar shapes
-    Div(NdArrayType),
+    Div,
 
     /// Pointwise raising to power of two values of similar shapes
-    Pow(NdArrayType),
+    Pow,
 
     /// Pointwise negation of value
-    Negate(NdArrayType),
+    Negate,
 
     /// Inputs injected at runtime (model parameters)
-    Parameter { x: NdArrayType, name: String },
+    Parameter(String),
 }
 
 pub type Term = OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
-    /// Check an operation is *valid* - e.g., for Reshape the input and output types must be
-    /// isomorphic.
-    pub fn validate(self) -> Option<Self> {
-        use Operation::*;
-        match &self {
-            Reshape { x, shape } => {
-                if x.size() == shape.size() {
-                    Some(self)
-                } else {
-                    None
-                }
-            }
-            Transpose { x, dim0, dim1 } => {
-                // Validate that dimensions are within bounds
-                if *dim0 < x.shape.0.len() && *dim1 < x.shape.0.len() {
-                    Some(self)
-                } else {
-                    None
-                }
-            }
-            _ => Some(self),
-        }
-    }
-
-    pub fn interface(&self) -> Interface {
-        use Operation::*;
-        match self {
-            Const { x, k: _ } | Parameter { x, name: _ } => {
-                let target = x.clone();
-                (vec![], vec![target])
-            }
-
-            Max(x) | Sum(x) => {
-                let source = x.clone();
-                let target = NdArrayType {
-                    shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
-                    dtype: x.dtype.clone(),
-                };
-                (vec![source], vec![target])
-            }
-            MatrixMultiply { n, a, b, c, dtype } => {
-                let source0 = NdArrayType {
-                    shape: n + a + b,
-                    dtype: dtype.clone(),
-                };
-
-                let source1 = NdArrayType {
-                    shape: n + b + c,
-                    dtype: dtype.clone(),
-                };
-
-                let target = NdArrayType {
-                    shape: n + a + c,
-                    dtype: dtype.clone(),
-                };
-                (vec![source0, source1], vec![target])
-            }
-
-            Broadcast { n, x } => {
-                let source = x.clone();
-                let target = n + x;
-                (vec![source], vec![target])
-            }
-
-            Reshape { x, shape } => {
-                let source = x.clone();
-                let target = NdArrayType {
-                    shape: shape.clone(),
-                    dtype: x.dtype.clone(),
-                };
-                (vec![source], vec![target])
-            }
-
-            Transpose { x, dim0, dim1 } => {
-                let source = x.clone();
-
-                // Create new shape with swapped dimensions
-                let mut new_shape = x.shape.0.clone();
-                new_shape.swap(*dim0, *dim1);
-
-                let target = NdArrayType {
-                    shape: Shape(new_shape),
-                    dtype: x.dtype.clone(),
-                };
-
-                (vec![source], vec![target])
-            }
-
-            Copy(x) => (vec![x.clone()], vec![x.clone(), x.clone()]),
-
-            Add(x) | Sub(x) | Mul(x) | Div(x) | Pow(x) => {
-                (vec![x.clone(), x.clone()], vec![x.clone()])
-            }
-
-            Negate(x) => (vec![x.clone()], vec![x.clone()]),
-        }
-    }
-
-    // Make an OpenHypergraph from this operation
-    pub fn term(self) -> Term {
-        let (s, t) = self.interface();
+    // Make an OpenHypergraph from an operation, sources and targets
+    pub fn term(op: Operation, s: Vec<NdArrayType>, t: Vec<NdArrayType>) -> Term {
         OpenHypergraph::singleton(
-            self,
+            op,
             SemifiniteFunction::new(VecArray(s)),
             SemifiniteFunction::new(VecArray(t)),
         )
     }
-}
 
-pub fn identity(t: Type) -> Term {
-    OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
+    // Make an OpenHypergraph for the MatrixMultiply operation
+    pub fn matmul(n: Shape, a: usize, b: usize, c: usize, dtype: Dtype) -> Term {
+        let source0 = NdArrayType {
+            shape: &n + &a + &b,
+            dtype: dtype.clone(),
+        };
+
+        let source1 = NdArrayType {
+            shape: &n + &b + &c,
+            dtype: dtype.clone(),
+        };
+
+        let target = NdArrayType {
+            shape: &n + &a + &c,
+            dtype: dtype.clone(),
+        };
+
+        Operation::term(
+            Operation::MatrixMultiply { n, a, b, c, dtype },
+            vec![source0, source1],
+            vec![target],
+        )
+    }
+
+    // Make an OpenHypergraph for the Broadcast operation
+    pub fn broadcast(x: NdArrayType, n: Shape) -> Term {
+        let source = x.clone();
+        let target = n.clone() + &x;
+        let op = Operation::Broadcast(n);
+        Operation::term(op, vec![source], vec![target])
+    }
+
+    // Make an OpenHypergraph for the Transpose operation
+    pub fn transpose(x: NdArrayType, dim0: usize, dim1: usize) -> Term {
+        assert!(
+            dim0 < x.shape.0.len(),
+            "Transpose dimension dim0 invalid: {dim0}"
+        );
+        assert!(
+            dim1 < x.shape.0.len(),
+            "Transpose dimension dim1 invalid: {dim0}"
+        );
+        let source = x.clone();
+
+        // Create new shape with swapped dimensions
+        let mut new_shape = x.shape.0.clone();
+        new_shape.swap(dim0, dim1);
+
+        let target = NdArrayType {
+            shape: Shape(new_shape),
+            dtype: x.dtype.clone(),
+        };
+
+        let op = Operation::Transpose { dim0, dim1 };
+        Operation::term(op, vec![source], vec![target])
+    }
+
+    // Make an OpenHypergraph for the Reshape operation
+    pub fn reshape(x: NdArrayType, shape: Shape) -> Term {
+        assert_eq!(
+            x.size(),
+            shape.size(),
+            "Reshape from {:?} to {:?} must preserve total size.",
+            x.shape,
+            shape
+        );
+        let source = x.clone();
+        let target = NdArrayType {
+            shape: shape.clone(),
+            dtype: x.dtype.clone(),
+        };
+        let op = Operation::Reshape(shape);
+        Operation::term(op, vec![source], vec![target])
+    }
+
+    // Make an OpenHypergraph for the Copy operation
+    pub fn copy(x: NdArrayType) -> Term {
+        let op = Operation::Copy;
+        Operation::term(op, vec![x.clone()], vec![x.clone(), x.clone()])
+    }
+
+    // Make an OpenHypergraph for the given operation
+    fn reduceop(x: NdArrayType, op: Operation) -> Term {
+        let source = x.clone();
+        let target = NdArrayType {
+            shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
+            dtype: x.dtype.clone(),
+        };
+        Operation::term(op, vec![source], vec![target])
+    }
+
+    // Make an OpenHypergraph for the given operation
+    fn unop(x: NdArrayType, op: Operation) -> Term {
+        Operation::term(op, vec![x.clone()], vec![x.clone()])
+    }
+
+    // Make an OpenHypergraph for the Parameter operation
+    pub fn parameter(x: NdArrayType, name: &str) -> Term {
+        let op = Operation::Parameter(name.to_string());
+        Operation::term(op, vec![], vec![x.clone()])
+    }
+
+    // Make an OpenHypergraph for the Const operation
+    pub fn constop(x: NdArrayType, k: f32) -> Term {
+        let op = Operation::Const(k);
+        Operation::term(op, vec![], vec![x.clone()])
+    }
+
+    // Make an OpenHypergraph for the Negate operation
+    pub fn negate(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Negate)
+    }
+
+    // Make an OpenHypergraph for the given binary operation
+    fn binop(x: NdArrayType, op: Operation) -> Term {
+        Operation::term(op, vec![x.clone(), x.clone()], vec![x.clone()])
+    }
+
+    // Make an OpenHypergraph for the Add operation
+    pub fn add(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Add)
+    }
+
+    // Make an OpenHypergraph for the Sub operation
+    pub fn sub(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Sub)
+    }
+
+    // Make an OpenHypergraph for the Mul operation
+    pub fn mul(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Mul)
+    }
+
+    // Make an OpenHypergraph for the Div operation
+    pub fn div(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Div)
+    }
+
+    // Make an OpenHypergraph for the Pow operation
+    pub fn pow(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::Pow)
+    }
+
+    // Make an OpenHypergraph for a Sum operation
+    pub fn sum(x: NdArrayType) -> Term {
+        Operation::reduceop(x, Operation::Sum)
+    }
+
+    // Make an OpenHypergraph for a Max operation
+    pub fn max(x: NdArrayType) -> Term {
+        Operation::reduceop(x, Operation::Max)
+    }
+
+    pub fn identity(t: Type) -> Term {
+        OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
+    }
 }

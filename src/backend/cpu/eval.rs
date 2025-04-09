@@ -67,11 +67,11 @@ impl EvalState {
         match self.data[..].get_disjoint_mut([i, j, k]) {
             Ok([F16(a), F16(b), F16(c)]) => {
                 let op: Box<dyn kernel::BinOp<f16>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -80,11 +80,11 @@ impl EvalState {
             }
             Ok([F32(a), F32(b), F32(c)]) => {
                 let op: Box<dyn kernel::BinOp<f32>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -93,11 +93,11 @@ impl EvalState {
             }
             Ok([I32(a), I32(b), I32(c)]) => {
                 let op: Box<dyn kernel::BinOp<i32>> = match operation {
-                    Add(_) => Box::new(kernel::AddOp),
-                    Sub(_) => Box::new(kernel::SubOp),
-                    Mul(_) => Box::new(kernel::MulOp),
-                    Div(_) => Box::new(kernel::DivOp),
-                    Pow(_) => Box::new(kernel::PowOp),
+                    Add => Box::new(kernel::AddOp),
+                    Sub => Box::new(kernel::SubOp),
+                    Mul => Box::new(kernel::MulOp),
+                    Div => Box::new(kernel::DivOp),
+                    Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -116,17 +116,17 @@ impl EvalState {
         match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Negate => Box::new(kernel::NegOp),
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -134,17 +134,17 @@ impl EvalState {
             }
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Negate => Box::new(kernel::NegOp),
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -152,17 +152,17 @@ impl EvalState {
             }
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
-                    Negate(_) => Box::new(kernel::NegOp),
-                    Reshape { x: _, shape } => Box::new(kernel::ReshapeOp {
+                    Negate => Box::new(kernel::NegOp),
+                    Reshape(shape) => Box::new(kernel::ReshapeOp {
                         shape: shape.clone(),
                     }),
-                    Broadcast { n, x: _ } => Box::new(kernel::BroadcastOp { n: n.clone() }),
-                    Transpose { x: _, dim0, dim1 } => Box::new(kernel::TransposeOp {
+                    Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
+                    Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
-                    Max(_) => Box::new(kernel::MaxOp),
-                    Sum(_) => Box::new(kernel::SumOp),
+                    Max => Box::new(kernel::MaxOp),
+                    Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -174,17 +174,14 @@ impl EvalState {
 
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
-        if op.clone().validate().is_none() {
-            panic!("invalid operation");
-        }
         match op {
-            Add(_) | Sub(_) | Mul(_) | Div(_) | Pow(_) | MatrixMultiply { .. } => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum(_) | Max(_) | Negate(_) | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            Copy(_) => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
+            Copy => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
                 Ok([F32(a), F32(b), F32(c)]) => {
                     b.copy_from(a);
                     c.copy_from(a);
@@ -199,13 +196,13 @@ impl EvalState {
                 }
                 _ => panic!("invalid types"),
             },
-            Const { x: _, k } => match self.data.get_mut(targets[0]) {
+            Const(k) => match self.data.get_mut(targets[0]) {
                 Some(F16(a)) => a.fill(f16::from_f32(*k)),
                 Some(F32(a)) => a.fill(*k),
                 Some(I32(a)) => a.fill(*k as i32),
                 _ => panic!("invalid type"),
             },
-            Parameter { x: _, name } => {
+            Parameter(name) => {
                 // TODO:
                 // - The matching here is very ugly and incomplete
                 // - The parameters are being copied instead of referenced.
@@ -273,16 +270,14 @@ mod test {
     use super::*;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
 
-    fn test_unarynop_generic<T>(op_type: Operation, x_data: Vec<T>, expected_data: Vec<T>)
+    fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let f = op_type.term();
-
         let x = NdArray::new(x_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::new(op);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -295,7 +290,7 @@ mod test {
     #[test]
     fn test_neg() {
         test_unarynop_generic::<f16>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -309,7 +304,7 @@ mod test {
                 .collect(),
         );
         test_unarynop_generic::<f32>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -317,7 +312,7 @@ mod test {
             vec![-1.0, -2.0, -3.0, -4.0],
         );
         test_unarynop_generic::<i32>(
-            Operation::Negate(NdArrayType {
+            Operation::negate(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -326,20 +321,15 @@ mod test {
         );
     }
 
-    fn test_binop_generic<T>(
-        op_type: Operation,
-        x_data: Vec<T>,
-        y_data: Vec<T>,
-        expected_data: Vec<T>,
-    ) where
+    fn test_binop_generic<T>(op: Term, x_data: Vec<T>, y_data: Vec<T>, expected_data: Vec<T>)
+    where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let f = op_type.term();
         let x = NdArray::new(x_data, Shape(vec![2, 2]));
         let y = NdArray::new(y_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::new(op);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -352,25 +342,22 @@ mod test {
     #[test]
     #[should_panic]
     fn test_eval_with_argcount() {
-        let f = Operation::Add(NdArrayType {
+        let f = Operation::add(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![0.; 4], Shape(vec![2, 2]));
         let mut state = EvalState::new(f);
 
         // Passing a single argument into a binary
-        let [_] = state.eval_with(vec![x.into()])[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval_with(vec![x.into()]);
     }
 
     #[test]
     fn test_add() {
         test_binop_generic::<f16>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -389,7 +376,7 @@ mod test {
         );
 
         test_binop_generic::<f32>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -400,7 +387,7 @@ mod test {
 
         // Test for I32
         test_binop_generic::<i32>(
-            Operation::Add(NdArrayType {
+            Operation::add(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -414,7 +401,7 @@ mod test {
     fn test_sub() {
         // Test subtraction with F32
         test_binop_generic::<f32>(
-            Operation::Sub(NdArrayType {
+            Operation::sub(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -425,7 +412,7 @@ mod test {
 
         // Test subtraction with I32
         test_binop_generic::<i32>(
-            Operation::Sub(NdArrayType {
+            Operation::sub(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -439,7 +426,7 @@ mod test {
     fn test_mul() {
         // Test multiplication with F32
         test_binop_generic::<f32>(
-            Operation::Mul(NdArrayType {
+            Operation::mul(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -450,7 +437,7 @@ mod test {
 
         // Test multiplication with I32
         test_binop_generic::<i32>(
-            Operation::Mul(NdArrayType {
+            Operation::mul(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -464,7 +451,7 @@ mod test {
     fn test_div() {
         // Test division with F32
         test_binop_generic::<f32>(
-            Operation::Div(NdArrayType {
+            Operation::div(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -475,7 +462,7 @@ mod test {
 
         // Test division with I32
         test_binop_generic::<i32>(
-            Operation::Div(NdArrayType {
+            Operation::div(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -489,7 +476,7 @@ mod test {
     fn test_pow() {
         // Test raising to a power with F32
         test_binop_generic::<f32>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F32,
             }),
@@ -500,7 +487,7 @@ mod test {
 
         // Test raising to a power with F16
         test_binop_generic::<f16>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::F16,
             }),
@@ -520,7 +507,7 @@ mod test {
 
         // Test raising to a power with I32
         test_binop_generic::<i32>(
-            Operation::Pow(NdArrayType {
+            Operation::pow(NdArrayType {
                 shape: Shape(vec![2, 2]),
                 dtype: Dtype::I32,
             }),
@@ -532,14 +519,7 @@ mod test {
 
     #[test]
     fn test_matmul() {
-        let f = Operation::MatrixMultiply {
-            n: Shape::empty(),
-            a: 1,
-            b: 2,
-            c: 3,
-            dtype: Dtype::F32,
-        }
-        .term();
+        let f = Operation::matmul(Shape::empty(), 1, 2, 3, Dtype::F32);
 
         // a (1×2) matrix
         let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
@@ -564,14 +544,7 @@ mod test {
 
     #[test]
     fn test_matmul_transposed() {
-        let f = Operation::MatrixMultiply {
-            n: Shape::empty(),
-            a: 1,
-            b: 2,
-            c: 3,
-            dtype: Dtype::F32,
-        }
-        .term();
+        let f = Operation::matmul(Shape::empty(), 1, 2, 3, Dtype::F32);
 
         // a (1×2) matrix
         let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
@@ -601,14 +574,13 @@ mod test {
 
     #[test]
     fn test_const() {
-        let f = Operation::Const {
-            x: NdArrayType {
+        let f = Operation::constop(
+            NdArrayType {
                 shape: Shape(vec![4, 3]),
                 dtype: Dtype::F32,
             },
-            k: 2.3,
-        }
-        .term();
+            2.3,
+        );
 
         let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
@@ -628,23 +600,13 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_b = Operation::parameter(typ.clone(), "param_b");
 
-        let param_b = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_b".to_string(),
-        }
-        .term();
-
-        let add = Operation::Add(NdArrayType {
+        let add = Operation::add(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
         let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));
@@ -674,19 +636,13 @@ mod test {
             dtype: Dtype::F16,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
 
         let mut state = EvalState::new(param_a);
         let parameters = HashMap::new();
         state.set_parameters(parameters);
 
-        let [_] = state.eval()[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval();
     }
 
     #[test]
@@ -697,29 +653,22 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let param_a = Operation::Parameter {
-            x: typ.clone(),
-            name: "param_a".to_string(),
-        }
-        .term();
+        let param_a = Operation::parameter(typ.clone(), "param_a");
 
         let mut state = EvalState::new(param_a);
 
-        let [_] = state.eval()[..] else {
-            panic!("unexpected coarity at eval time")
-        };
+        state.eval();
     }
 
     #[test]
     fn test_reshape() {
-        let f = Operation::Reshape {
-            x: NdArrayType {
+        let f = Operation::reshape(
+            NdArrayType {
                 shape: Shape(vec![4, 3]),
                 dtype: Dtype::I32,
             },
-            shape: Shape(vec![2, 6]),
-        }
-        .term();
+            Shape(vec![2, 6]),
+        );
 
         let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
 
@@ -735,15 +684,32 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn test_reshape_invalid_shape() {
+        let f = Operation::reshape(
+            NdArrayType {
+                shape: Shape(vec![4, 3]),
+                dtype: Dtype::I32,
+            },
+            Shape(vec![2, 4]),
+        );
+
+        let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
+
+        let mut state = EvalState::new(f);
+
+        state.eval_with(vec![x.into()]);
+    }
+
+    #[test]
     fn test_broadcast() {
-        let f = Operation::Broadcast {
-            x: NdArrayType {
+        let f = Operation::broadcast(
+            NdArrayType {
                 shape: Shape(vec![2, 3]),
                 dtype: Dtype::I32,
             },
-            n: Shape(vec![2, 1]),
-        }
-        .term();
+            Shape(vec![2, 1]),
+        );
 
         let x = NdArray::new((30..36).collect(), Shape(vec![2, 3]));
 
@@ -766,17 +732,17 @@ mod test {
             assert_eq!(actual[&[1, 0, 1, 2]], 35);
         }
     }
+
     #[test]
     fn test_transpose() {
-        let f = Operation::Transpose {
-            x: NdArrayType {
+        let f = Operation::transpose(
+            NdArrayType {
                 shape: Shape(vec![2, 3]),
                 dtype: Dtype::F32,
             },
-            dim0: 0,
-            dim1: 1,
-        }
-        .term();
+            0,
+            1,
+        );
 
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
@@ -800,12 +766,30 @@ mod test {
     }
 
     #[test]
+    #[should_panic]
+    fn test_transpose_invalid_dim() {
+        let f = Operation::transpose(
+            NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::F32,
+            },
+            0,
+            2,
+        );
+
+        // Create a 2x3 matrix
+        let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
+
+        let mut state = EvalState::new(f);
+        state.eval_with(vec![input.into()]);
+    }
+
+    #[test]
     fn test_copy_from() {
-        let f = Operation::Copy(NdArrayType {
+        let f = Operation::copy(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
@@ -823,11 +807,10 @@ mod test {
 
     #[test]
     fn test_max() {
-        let f = Operation::Max(NdArrayType {
+        let f = Operation::max(NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
@@ -844,11 +827,10 @@ mod test {
 
     #[test]
     fn test_sum() {
-        let f = Operation::Sum(NdArrayType {
+        let f = Operation::sum(NdArrayType {
             shape: Shape(vec![2, 3]),
             dtype: Dtype::F32,
-        })
-        .term();
+        });
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
 
