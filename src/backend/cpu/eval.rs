@@ -43,13 +43,17 @@ pub struct EvalState {
 
 impl EvalState {
     /// Preallocate arrays for each node in a term
-    pub fn new(f: Term) -> Self {
-        let f = f.to_open_hypergraph();
+
+    pub fn new(f: StrictTerm) -> Self {
         Self {
             data: allocate(&f),
             term: f,
             parameters: None,
         }
+    }
+
+    pub fn from_lax(f: Term) -> Self {
+        EvalState::new(f.to_open_hypergraph())
     }
 
     pub fn set_parameters(&mut self, parameters: HashMap<String, TaggedNdArray>) {
@@ -278,7 +282,7 @@ mod test {
         let x = NdArray::new(x_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(op);
+        let mut state = EvalState::from_lax(op);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -330,7 +334,7 @@ mod test {
         let y = NdArray::new(y_data, Shape(vec![2, 2]));
         let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
 
-        let mut state = EvalState::new(op);
+        let mut state = EvalState::from_lax(op);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -349,7 +353,7 @@ mod test {
         });
 
         let x = NdArray::new(vec![0.; 4], Shape(vec![2, 2]));
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         // Passing a single argument into a binary
         state.eval_with(vec![x.into()]);
@@ -533,7 +537,7 @@ mod test {
 
         kernel::batch_matmul::<f32>(&x, &m, &mut expected);
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into(), m.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -563,7 +567,7 @@ mod test {
 
         kernel::batch_matmul::<f32>(&x, &m, &mut expected);
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into(), mt.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -585,7 +589,7 @@ mod test {
 
         let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval()[..] else {
             panic!("unexpected coarity at eval time")
@@ -608,7 +612,7 @@ mod test {
         let expected = NdArray::new(vec![3.0, 3.0, 3.0, 3.0], Shape(vec![2, 2]));
 
         let f = (&(&const_a | &const_b) >> &add).unwrap();
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval()[..] else {
             panic!("unexpected coarity at eval time")
@@ -642,7 +646,7 @@ mod test {
         let expected = NdArray::new(vec![0., 4., 0., 8.], Shape(vec![2, 2]));
 
         let f = (&(&param_a | &param_b) >> &add).unwrap();
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
         state.set_parameters(parameters);
 
         let [actual] = state.eval()[..] else {
@@ -662,7 +666,7 @@ mod test {
 
         let param_a = Operation::parameter(typ.clone(), "param_a");
 
-        let mut state = EvalState::new(param_a);
+        let mut state = EvalState::from_lax(param_a);
         let parameters = HashMap::new();
         state.set_parameters(parameters);
 
@@ -679,7 +683,7 @@ mod test {
 
         let param_a = Operation::parameter(typ.clone(), "param_a");
 
-        let mut state = EvalState::new(param_a);
+        let mut state = EvalState::from_lax(param_a);
 
         state.eval();
     }
@@ -698,7 +702,7 @@ mod test {
 
         let expected = NdArray::new((0..12).collect(), Shape(vec![2, 6]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -720,7 +724,7 @@ mod test {
 
         let x = NdArray::new((0..12).collect(), Shape(vec![4, 3]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         state.eval_with(vec![x.into()]);
     }
@@ -737,7 +741,7 @@ mod test {
 
         let x = NdArray::new((30..36).collect(), Shape(vec![2, 3]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -771,7 +775,7 @@ mod test {
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
         let [actual] = state.eval_with(vec![input.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
@@ -804,7 +808,7 @@ mod test {
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
         state.eval_with(vec![input.into()]);
     }
 
@@ -819,7 +823,7 @@ mod test {
 
         let tagged: TaggedNdArray = x.into();
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [copy1, copy2] = state.eval_with(vec![tagged.clone()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -840,7 +844,7 @@ mod test {
 
         let expected = NdArray::new(vec![2.0, 4.0], Shape(vec![2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -860,7 +864,7 @@ mod test {
 
         let expected = NdArray::new(vec![6.0, 15.0], Shape(vec![2]));
 
-        let mut state = EvalState::new(f);
+        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
