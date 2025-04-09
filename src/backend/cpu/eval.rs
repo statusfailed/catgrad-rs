@@ -1,6 +1,6 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
-use crate::core::{Operation, Term};
+use crate::core::{Operation, StrictTerm, Term};
 use half::f16;
 use std::collections::HashMap;
 use Operation::*;
@@ -9,7 +9,7 @@ use TaggedNdArray::*;
 // TODO: this convenience method should live in open_hypergraphs
 use open_hypergraphs::layer::*;
 use open_hypergraphs::prelude::*;
-fn layered_operations(f: &Term) -> Vec<Vec<usize>> {
+fn layered_operations(f: &StrictTerm) -> Vec<Vec<usize>> {
     let (order, _unvisited) = layer(f);
     // TODO: check not unvisited.any(|x| x == 1).
     let c = converse(&IndexedCoproduct::elements(order));
@@ -21,7 +21,7 @@ fn layered_operations(f: &Term) -> Vec<Vec<usize>> {
 /// NOTE: some operations (like broadcasting) don't actually need to allocate a new array; they are
 /// really just "renamings" of the same underlying data. So this allocation strategy should be
 /// improved in future.
-fn allocate(f: &Term) -> Vec<TaggedNdArray> {
+fn allocate(f: &StrictTerm) -> Vec<TaggedNdArray> {
     // Loop over all nodes in the term, allocate an array according to the size/dtype of its
     // labeled NdArrayType.
     let mut result = Vec::with_capacity(f.h.w.len());
@@ -36,7 +36,7 @@ fn allocate(f: &Term) -> Vec<TaggedNdArray> {
 
 /// Evaluator state for a single term.
 pub struct EvalState {
-    term: Term,
+    term: StrictTerm,
     data: Vec<TaggedNdArray>,
     parameters: Option<HashMap<String, TaggedNdArray>>,
 }
@@ -44,6 +44,7 @@ pub struct EvalState {
 impl EvalState {
     /// Preallocate arrays for each node in a term
     pub fn new(f: Term) -> Self {
+        let f = f.to_open_hypergraph();
         Self {
             data: allocate(&f),
             term: f,
@@ -584,6 +585,29 @@ mod test {
 
         let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
+        let mut state = EvalState::new(f);
+
+        let [actual] = state.eval()[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_const_add() {
+        let typ = NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        };
+
+        let const_a = Operation::constop(typ.clone(), 1.0);
+        let const_b = Operation::constop(typ.clone(), 2.0);
+        let add = Operation::add(typ.clone());
+
+        let expected = NdArray::new(vec![3.0, 3.0, 3.0, 3.0], Shape(vec![2, 2]));
+
+        let f = (&(&const_a | &const_b) >> &add).unwrap();
         let mut state = EvalState::new(f);
 
         let [actual] = state.eval()[..] else {
