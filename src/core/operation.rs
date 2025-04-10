@@ -7,13 +7,7 @@ pub enum Operation {
     /// Pointwise composition of N matrices `x_i : A ⇒ B` with `y_i : B ⇒ C`
     /// for `i ∈ N`.
     ///
-    MatrixMultiply {
-        n: Shape,
-        a: Nat,
-        b: Nat,
-        c: Nat,
-        dtype: Dtype,
-    },
+    MatrixMultiply,
 
     /// Const value
     Const(f32),
@@ -88,7 +82,7 @@ impl Operation {
         };
 
         Operation::term(
-            Operation::MatrixMultiply { n, a, b, c, dtype },
+            Operation::MatrixMultiply,
             vec![source0, source1],
             vec![target],
         )

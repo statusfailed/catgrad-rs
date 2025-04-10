@@ -76,7 +76,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
-                    MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
+                    MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -89,7 +89,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
-                    MatrixMultiply { .. } => Box::new(kernel::MatMulOp),
+                    MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -179,7 +179,7 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            Add | Sub | Mul | Div | Pow | MatrixMultiply { .. } => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
