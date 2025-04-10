@@ -57,16 +57,17 @@ pub enum Operation {
     Parameter(String),
 }
 
-pub type Term = OpenHypergraph<PrimitiveType, Operation>;
+pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
+pub type StrictTerm = OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
     // Make an OpenHypergraph from an operation, sources and targets
     pub fn term(op: Operation, s: Vec<NdArrayType>, t: Vec<NdArrayType>) -> Term {
-        OpenHypergraph::singleton(
-            op,
-            SemifiniteFunction::new(VecArray(s)),
-            SemifiniteFunction::new(VecArray(t)),
-        )
+        open_hypergraphs::lax::OpenHypergraph::singleton(op, s, t)
+    }
+
+    pub fn identity(t: Type) -> Term {
+        open_hypergraphs::lax::OpenHypergraph::identity(t)
     }
 
     // Make an OpenHypergraph for the MatrixMultiply operation
@@ -220,9 +221,5 @@ impl Operation {
     // Make an OpenHypergraph for a Max operation
     pub fn max(x: NdArrayType) -> Term {
         Operation::reduceop(x, Operation::Max)
-    }
-
-    pub fn identity(t: Type) -> Term {
-        OpenHypergraph::identity(SemifiniteFunction::new(VecArray(t)))
     }
 }
