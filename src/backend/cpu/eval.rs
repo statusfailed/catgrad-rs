@@ -867,4 +867,45 @@ mod test {
 
         assert_eq!(actual, &expected.into());
     }
+
+    // Var interface test
+    #[test]
+    fn test_var_add() {
+        use crate::backend::cpu::eval::EvalState;
+        use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
+        use crate::core::operation::Var;
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let typ = NdArrayType {
+            shape: Shape(vec![2, 2]),
+            dtype: Dtype::F32,
+        };
+
+        let state = Rc::new(RefCell::new(Term::empty()));
+
+        {
+            let a = Var::new(state.clone(), typ.clone());
+            let b = Var::new(state.clone(), typ.clone());
+
+            let c = a.clone() + b.clone();
+
+            state.borrow_mut().sources = vec![a.new_source(), b.new_source()];
+            state.borrow_mut().targets = vec![c.new_target()];
+        }
+        let f = Rc::try_unwrap(state).unwrap().into_inner();
+
+        let x = NdArray::new(vec![1., 2., 3., 4.], Shape(vec![2, 2]));
+        let y = NdArray::new(vec![1., 1., 1., 1.], Shape(vec![2, 2]));
+        let exp = NdArray::new(vec![2., 3., 4., 5.], Shape(vec![2, 2]));
+
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        let tagged: TaggedNdArray = exp.into();
+        assert_eq!(&tagged, actual);
+    }
 }

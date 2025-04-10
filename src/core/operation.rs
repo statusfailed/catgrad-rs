@@ -217,3 +217,42 @@ impl Operation {
         Operation::reduceop(x, Operation::Max)
     }
 }
+
+use open_hypergraphs::lax::var;
+pub type Var = var::Var<PrimitiveType, Operation>;
+
+impl var::HasVar for Operation {
+    fn var() -> Self {
+        Operation::Copy
+    }
+}
+
+impl var::HasAdd<PrimitiveType, Operation> for Operation {
+    fn add(_lhs: PrimitiveType, rhs: PrimitiveType) -> (PrimitiveType, Operation) {
+        (rhs, Operation::Add)
+    }
+}
+
+impl var::HasSub<PrimitiveType, Operation> for Operation {
+    fn sub(_lhs: PrimitiveType, rhs: PrimitiveType) -> (PrimitiveType, Operation) {
+        (rhs, Operation::Sub)
+    }
+}
+
+impl var::HasMul<PrimitiveType, Operation> for Operation {
+    fn mul(_lhs: PrimitiveType, rhs: PrimitiveType) -> (PrimitiveType, Operation) {
+        (rhs, Operation::Mul)
+    }
+}
+
+impl var::HasDiv<PrimitiveType, Operation> for Operation {
+    fn div(_lhs: PrimitiveType, rhs: PrimitiveType) -> (PrimitiveType, Operation) {
+        (rhs, Operation::Div)
+    }
+}
+
+impl var::HasNeg<PrimitiveType, Operation> for Operation {
+    fn neg(x: PrimitiveType) -> (PrimitiveType, Operation) {
+        (x, Operation::Negate)
+    }
+}
