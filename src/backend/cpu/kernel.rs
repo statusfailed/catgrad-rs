@@ -261,18 +261,11 @@ impl<T: Numeric> UnaryOp<T> for NegOp {
     }
 }
 
-pub struct ReshapeOp {
-    pub shape: Shape,
-}
+pub struct ReshapeOp;
+
 impl<T: Numeric> UnaryOp<T> for ReshapeOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
-        assert_eq!(
-            a.shape.size(),
-            self.shape.size(),
-            "ReshapeOp: input shape must be compatible with target shape"
-        );
         b.data = a.data.clone(); //TODO: reuse vec instead of copy
-        b.shape = self.shape.clone();
     }
 }
 

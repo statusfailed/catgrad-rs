@@ -22,7 +22,7 @@ pub enum Operation {
     Broadcast(Shape),
 
     /// Reshape a value
-    Reshape(Shape),
+    Reshape,
 
     /// Transpose (swap) two dimensions of a tensor
     Transpose { dim0: usize, dim1: usize },
@@ -135,7 +135,7 @@ impl Operation {
             shape: shape.clone(),
             dtype: x.dtype,
         };
-        let op = Operation::Reshape(shape);
+        let op = Operation::Reshape;
         Operation::term(op, vec![source], vec![target])
     }
 

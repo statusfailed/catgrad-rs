@@ -121,9 +121,7 @@ impl EvalState {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape(shape) => Box::new(kernel::ReshapeOp {
-                        shape: shape.clone(),
-                    }),
+                    Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
@@ -139,9 +137,7 @@ impl EvalState {
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape(shape) => Box::new(kernel::ReshapeOp {
-                        shape: shape.clone(),
-                    }),
+                    Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
@@ -157,9 +153,7 @@ impl EvalState {
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
-                    Reshape(shape) => Box::new(kernel::ReshapeOp {
-                        shape: shape.clone(),
-                    }),
+                    Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
@@ -182,7 +176,7 @@ impl EvalState {
             Add | Sub | Mul | Div | Pow | MatrixMultiply => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate | Reshape | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy => {
