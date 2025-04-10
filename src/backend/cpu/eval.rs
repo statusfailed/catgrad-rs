@@ -185,21 +185,17 @@ impl EvalState {
             Sum | Max | Negate | Reshape { .. } | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
-            Copy => match self.data[..].get_disjoint_mut([sources[0], targets[0], targets[1]]) {
-                Ok([F32(a), F32(b), F32(c)]) => {
-                    b.copy_from(a);
-                    c.copy_from(a);
+            Copy => {
+                assert_eq!(sources.len(), 1);
+                for t in targets {
+                    match self.data[..].get_disjoint_mut([sources[0], *t]) {
+                        Ok([F32(a), F32(b)]) => b.copy_from(a),
+                        Ok([F16(a), F16(b)]) => b.copy_from(a),
+                        Ok([I32(a), I32(b)]) => b.copy_from(a),
+                        _ => panic!("invalid types"),
+                    }
                 }
-                Ok([F16(a), F16(b), F16(c)]) => {
-                    b.copy_from(a);
-                    c.copy_from(a);
-                }
-                Ok([I32(a), I32(b), I32(c)]) => {
-                    b.copy_from(a);
-                    c.copy_from(a);
-                }
-                _ => panic!("invalid types"),
-            },
+            }
             Const(k) => match self.data.get_mut(targets[0]) {
                 Some(F16(a)) => a.fill(f16::from_f32(*k)),
                 Some(F32(a)) => a.fill(*k),
