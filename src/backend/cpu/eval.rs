@@ -271,7 +271,10 @@ impl EvalState {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::core::operation::Var;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where
@@ -874,12 +877,6 @@ mod test {
     // Var interface test
     #[test]
     fn test_var_add() {
-        use crate::backend::cpu::eval::EvalState;
-        use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-        use crate::core::operation::Var;
-        use std::cell::RefCell;
-        use std::rc::Rc;
-
         let typ = NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
