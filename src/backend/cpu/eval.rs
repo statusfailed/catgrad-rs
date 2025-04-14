@@ -183,9 +183,18 @@ impl EvalState {
                 assert_eq!(sources.len(), 1);
                 for t in targets {
                     match self.data[..].get_disjoint_mut([sources[0], *t]) {
-                        Ok([F32(a), F32(b)]) => b.copy_from(a),
-                        Ok([F16(a), F16(b)]) => b.copy_from(a),
-                        Ok([I32(a), I32(b)]) => b.copy_from(a),
+                        Ok([F32(a), F32(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone()
+                        }
+                        Ok([F16(a), F16(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone()
+                        }
+                        Ok([I32(a), I32(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone();
+                        }
                         _ => panic!("invalid types"),
                     }
                 }
