@@ -9,6 +9,4 @@ open-hypergraphs = "0.1.6"
 num-traits = "0.2.19"
 gemm = "0.18.2"
 half = "2.5.0"
-
-[dev-dependencies]
 safetensors = "0.5.3"

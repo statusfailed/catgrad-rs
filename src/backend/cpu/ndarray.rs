@@ -250,6 +250,30 @@ impl TaggedNdArray {
             Dtype::I32 => TaggedNdArray::I32(NdArray::from_shape(t.shape.clone())),
         }
     }
+
+    pub fn data(&self) -> Vec<f32> {
+        match self {
+            TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
+            TaggedNdArray::F32(vec) => vec.data.clone(),
+            TaggedNdArray::I32(vec) => vec.data.iter().map(|&x| x as f32).collect(),
+        }
+    }
+
+    /// Check if data is close to another slice within a tolerance
+    pub fn allclose(&self, other: &[f32], rtol: f32, atol: f32) -> bool {
+        if self.len() != other.len() {
+            return false; // Vectors must have the same length
+        }
+
+        std::iter::zip(self.data().as_slice(), other)
+            .all(|(x, &y)| (x - y).abs() <= atol + rtol * y.abs())
+    }
+
+    /// Approximate data to a given number of decimal places
+    pub fn approx(&self, digits: i32) -> Vec<f32> {
+        let b = 10f32.powi(digits);
+        self.data().iter().map(|x| (x * b).round() / b).collect()
+    }
 }
 
 impl From<NdArray<f16>> for TaggedNdArray {

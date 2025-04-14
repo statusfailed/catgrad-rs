@@ -183,9 +183,18 @@ impl EvalState {
                 assert_eq!(sources.len(), 1);
                 for t in targets {
                     match self.data[..].get_disjoint_mut([sources[0], *t]) {
-                        Ok([F32(a), F32(b)]) => b.copy_from(a),
-                        Ok([F16(a), F16(b)]) => b.copy_from(a),
-                        Ok([I32(a), I32(b)]) => b.copy_from(a),
+                        Ok([F32(a), F32(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone()
+                        }
+                        Ok([F16(a), F16(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone()
+                        }
+                        Ok([I32(a), I32(b)]) => {
+                            b.copy_from(a);
+                            b.strides = a.strides.clone();
+                        }
                         _ => panic!("invalid types"),
                     }
                 }
@@ -262,7 +271,10 @@ impl EvalState {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::core::operation::Var;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where
@@ -865,12 +877,6 @@ mod test {
     // Var interface test
     #[test]
     fn test_var_add() {
-        use crate::backend::cpu::eval::EvalState;
-        use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-        use crate::core::operation::Var;
-        use std::cell::RefCell;
-        use std::rc::Rc;
-
         let typ = NdArrayType {
             shape: Shape(vec![2, 2]),
             dtype: Dtype::F32,
