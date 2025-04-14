@@ -54,7 +54,7 @@ pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
     operation(builder, &[], param_type, op)
 }
 
-pub fn broadcast(builder: &Builder, x: Var, n: Shape) -> Var {
+pub fn broadcast(builder: &Builder, n: Shape, x: Var) -> Var {
     let in_t = x.label.clone();
     let out_t = &n + &in_t;
     let op: Operation = Operation::Broadcast(n);
@@ -66,7 +66,7 @@ pub fn power(builder: &Builder, base: Var, power: Var) -> Var {
     operation(builder, &[base.clone(), power.clone()], base.label, op)
 }
 
-pub fn transpose(builder: &Builder, x: Var, dim0: usize, dim1: usize) -> Var {
+pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
     let in_t = x.label.clone();
 
     // Create new shape with swapped dimensions
@@ -83,11 +83,11 @@ pub fn transpose(builder: &Builder, x: Var, dim0: usize, dim1: usize) -> Var {
 
 pub fn linear(
     builder: &Builder,
-    x: Var,
     input_features: usize,
     output_features: usize,
     dtype: Dtype,
     name: &str,
+    x: Var,
 ) -> Var {
     // let batch_size = 1;
     let w_type = NdArrayType {
@@ -103,8 +103,8 @@ pub fn linear(
     let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
     let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
 
-    let b_b = broadcast(builder, b, Shape(vec![1]));
-    let w_t = transpose(builder, w, 0, 1);
+    let b_b = broadcast(builder, Shape(vec![1]), b);
+    let w_t = transpose(builder, 0, 1, w);
     mat_mul(builder, x, w_t) + b_b
 }
 
@@ -199,7 +199,7 @@ mod test {
         {
             let x = Var::new(builder.clone(), in_type.clone());
             // Run linear layer (x * w^T + b)
-            let result = linear(&builder, x.clone(), 3, 2, Dtype::F32, "l");
+            let result = linear(&builder, 3, 2, Dtype::F32, "l", x.clone());
 
             builder.borrow_mut().sources = vec![x.new_source()];
             builder.borrow_mut().targets = vec![result.new_target()];
