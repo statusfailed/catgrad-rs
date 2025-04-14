@@ -135,13 +135,59 @@ pub fn gelu(builder: &Builder, x: Var) -> Var {
 
 #[cfg(test)]
 mod test {
-    use super::{linear, mat_mul};
+    use super::{gelu, linear, mat_mul, sigmoid, tanh, Builder};
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use crate::core::{Dtype, NdArrayType, Shape, Term, Var};
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
+
+    fn test_activation<F>(x: &[f32], exp: &[f32], act: F)
+    where
+        F: Fn(&Builder, Var) -> Var,
+    {
+        let shape = Shape(vec![1, x.len()]);
+        let in_type = NdArrayType {
+            shape: shape.clone(),
+            dtype: Dtype::F32,
+        };
+
+        let builder = Rc::new(RefCell::new(Term::empty()));
+        {
+            let x = Var::new(builder.clone(), in_type.clone());
+            let result = act(&builder, x.clone());
+
+            builder.borrow_mut().sources = vec![x.new_source()];
+            builder.borrow_mut().targets = vec![result.new_target()];
+        }
+
+        let x = NdArray::new(x.to_vec(), shape);
+
+        let f = Rc::try_unwrap(builder).unwrap().into_inner();
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual.approx(6), exp);
+    }
+
+    #[test]
+    fn test_tanh() {
+        test_activation(&[1.0, 2.0, 3.0], &[0.761594, 0.964028, 0.995055], tanh);
+    }
+
+    #[test]
+    fn test_gelu() {
+        test_activation(&[1.0, 2.0, 3.0], &[0.841192, 1.954598, 2.996363], gelu);
+    }
+
+    #[test]
+    fn test_sigmoid() {
+        test_activation(&[1.0, 2.0, 3.0], &[0.731059, 0.880797, 0.952574], sigmoid);
+    }
 
     #[test]
     fn test_linear() {
