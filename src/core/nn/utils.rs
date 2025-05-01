@@ -29,8 +29,13 @@ pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
                     TaggedNdArray::F32(NdArray::new(data, shape)),
                 );
             }
+            safetensors::Dtype::I64 => {
+                println!("Ignoring I64 tensor: {}", name);
+            }
             // Add other dtype conversions as needed
-            _ => panic!("Unsupported dtype"),
+            _ => {
+                panic!("Unsupported dtype {:?}", view.dtype())
+            }
         }
     }
 
