@@ -13,8 +13,8 @@ use catgrad::{
     core::{
         nn::{
             layers::{
-                arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, rmsnorm,
-                softmax, tanh, transpose, Builder,
+                arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
+                rmsnorm, softmax, tanh, transpose, Builder,
             },
             utils::read_safetensors,
         },
@@ -51,17 +51,32 @@ pub fn embeddings(builder: &Builder, size: usize, dim: usize, name: &str, x: Var
 }
 
 pub fn attention(builder: &Builder, dim: usize, name: &str, x: Var) -> Var {
+    let num_heads = 4;
+    let head_dim = dim / num_heads;
+    let b = x.clone().label.shape.0[0];
+    let s = x.clone().label.shape.0[1];
+
     let k = linear(builder, dim, dim, &format!("{name}.key"), x.clone());
     let q = linear(builder, dim, dim, &format!("{name}.query"), x.clone());
     let v = linear(builder, dim, dim, &format!("{name}.value"), x.clone());
 
-    let tk = transpose(builder, 1, 2, k); // TODO: dims
+    let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
+    let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
+    let v = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), v);
+
+    let q = transpose(builder, 1, 2, q);
+    let k = transpose(builder, 1, 2, k);
+    let v = transpose(builder, 1, 2, v);
+
+    let tk = transpose(builder, 2, 3, k);
     let attn = mat_mul(builder, q.clone(), tk);
-    let denom = constant(builder, attn.label.clone(), f32::sqrt(dim as f32));
+    let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
     let attn = softmax(builder, attn);
     let attn = mat_mul(builder, attn, v);
-    let o = linear(builder, dim, dim, &format!("{name}.proj"), attn);
+    let x = transpose(builder, 1, 2, attn);
+    let x = reshape(builder, Shape(vec![b, s, dim]), x);
+    let o = linear(builder, dim, dim, &format!("{name}.proj"), x);
     o
 }
 

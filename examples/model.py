@@ -25,27 +25,37 @@ class MLP(nn.Module):
         x = self.gelu(x)
         return x
 
-
+# Multi-head attention layer
 class Attention(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim, num_heads=4):
         super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = dim // num_heads
+        assert dim % num_heads == 0, "dim must be divisible by num_heads"
+
         self.key = nn.Linear(dim, dim)
         self.query = nn.Linear(dim, dim)
         self.value = nn.Linear(dim, dim)
         self.proj = nn.Linear(dim, dim)
 
     def forward(self, x):
-        # B, T, D = x.size()
-        k = self.key(x)
-        q = self.query(x)
-        v = self.value(x)
+        B, T, D = x.size()
+
+        k = self.key(x).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, T, head_dim)
+        q = self.query(x).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, T, head_dim)
+        v = self.value(x).reshape(B, T, self.num_heads, self.head_dim).transpose(1, 2)  # (B, num_heads, T, head_dim)
+
         if False:  # these are equivalent
             attn = torch.nn.functional.scaled_dot_product_attention(q, k, v)
         else:
-            attn = q @ k.mT
-            attn = attn / math.sqrt(k.size(-1))
+            attn = q @ k.transpose(-2, -1)  # (B, num_heads, T, T)
+            attn = attn / math.sqrt(self.head_dim)
             attn = torch.nn.functional.softmax(attn, dim=-1)
             attn = attn @ v
+
+            # Reshape back to original dimensions
+            attn = attn.transpose(1, 2).reshape(B, T, D)  # (B, T, D)
+
         return self.proj(attn)
 
 
