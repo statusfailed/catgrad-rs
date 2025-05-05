@@ -26,6 +26,7 @@ pub enum Operation {
 
     /// Transpose (swap) two dimensions of a tensor
     Transpose { dim0: usize, dim1: usize },
+
     /// Create a copy
     Copy,
 
@@ -49,6 +50,12 @@ pub enum Operation {
 
     /// Inputs injected at runtime (model parameters)
     Parameter(String),
+
+    /// Embedding lookup
+    Embedding,
+
+    /// Arange
+    Arange,
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
