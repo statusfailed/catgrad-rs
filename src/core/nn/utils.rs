@@ -29,6 +29,18 @@ pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
                     TaggedNdArray::F32(NdArray::new(data, shape)),
                 );
             }
+            // cast BF16 to F32 until we support BF16
+            safetensors::Dtype::BF16 => {
+                let data: Vec<f32> = view
+                    .data()
+                    .chunks(2)
+                    .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
+                    .collect();
+                result.insert(
+                    name.to_string(),
+                    TaggedNdArray::F32(NdArray::new(data, shape)),
+                );
+            }
             safetensors::Dtype::I64 => {
                 println!("Ignoring I64 tensor: {}", name);
             }
