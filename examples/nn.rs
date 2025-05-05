@@ -1,6 +1,7 @@
 // Example NN model inference
 // Terms built using the var API
 
+use clap::Parser;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -112,9 +113,9 @@ impl Model {
         Self { term: f }
     }
 
-    pub fn run(&self, x: &NdArray<i32>) -> TaggedNdArray {
+    pub fn run(&self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
         let mut state = EvalState::from_lax(self.term.clone());
-        let tensors = read_safetensors("model.safetensors");
+        let tensors = read_safetensors(model_path);
         state.set_parameters(tensors);
         let [result] = state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
@@ -124,40 +125,64 @@ impl Model {
     }
 }
 
-struct OptParse(Vec<String>);
+#[derive(Parser, Debug)]
+struct Args {
+    /// Path to the safetensors model file
+    #[arg(short = 'p', long, default_value = "model.safetensors")]
+    model_path: String,
 
-impl OptParse {
-    fn new() -> Self {
-        Self(std::env::args().collect())
-    }
+    /// Dimension size
+    #[arg(short = 'd', long, default_value_t = 8)]
+    dim: usize,
 
-    fn get(&self, name: &str, default: usize) -> usize {
-        for p in self.0.windows(2) {
-            if p[0] == name {
-                return p[1].parse::<usize>().unwrap();
-            }
-        }
-        return default;
-    }
+    /// MLP expansion factor
+    #[arg(short = 'e', long, default_value_t = 2)]
+    exp: usize,
+
+    /// Number of layers
+    #[arg(short = 'l', long, default_value_t = 4)]
+    layers: usize,
+
+    /// Vocab size
+    #[arg(short = 'v', long, default_value_t = 128)]
+    vocab_size: usize,
+
+    /// Number of batches
+    #[arg(short = 'b', long, default_value_t = 1)]
+    batches: usize,
+
+    /// Number of tokens per sequence
+    #[arg(short = 't', long, default_value_t = 1)]
+    tokens: usize,
+
+    /// Value to fill input tensor with
+    #[arg(short = 'f', long, default_value_t = 0)]
+    fill: usize,
 }
 
 pub fn main() {
-    let args = OptParse::new();
-    let batches = args.get("-b", 1);
-    let dim = args.get("-d", 8);
-    let exp = args.get("-e", 2);
-    let layers = args.get("-l", 4);
-    let vocab_size = args.get("-v", 128);
-    let tokens = args.get("-t", 1);
-    let fill = args.get("-f", 1);
+    let args = Args::parse();
+    let batches = args.batches;
+    let dim = args.dim;
+    let exp = args.exp;
+    let layers = args.layers;
+    let vocab_size = args.vocab_size;
+    let tokens = args.tokens;
+    let fill = args.fill;
 
-    let input = NdArray::new(
-        vec![fill as i32; batches * tokens],
-        Shape(vec![batches, tokens]),
-    );
+    let iv = if fill != 0 {
+        vec![fill as i32; batches * tokens]
+    } else {
+        (0..batches)
+            .flat_map(|_| 0..tokens)
+            .map(|x| x as i32)
+            .collect()
+    };
+
+    let input = NdArray::new(iv, Shape(vec![batches, tokens]));
     let model = Model::build(batches, tokens, vocab_size, layers, dim, dim * exp);
     println!("Model built...");
-    let result = model.run(&input);
+    let result = model.run(&input, &args.model_path);
     println!("input {:?}", input);
     println!("Result: {:?}", result);
 }

@@ -97,7 +97,12 @@ def main(args):
     torch.manual_seed(args.seed)
 
     torch.set_printoptions(precision=6)
-    x = torch.full((args.batches, args.tokens), args.fill)
+
+    if args.fill != 0:
+        x = torch.full((args.batches, args.tokens), args.fill)
+    else:
+        x = torch.arange(args.tokens).unsqueeze(0).repeat(args.batches, 1)
+
     print(x)
 
     model = Model(args.vocab_size, args.max_seq_len, args.layers, args.dim, args.exp)
@@ -116,7 +121,7 @@ if __name__ == "__main__":
     parser.add_argument("--batches", "-b", type=int, default=1)
     parser.add_argument("--tokens", "-t", type=int, default=1)
     parser.add_argument("--max-seq-len", "-m", type=int, default=16)
-    parser.add_argument("--fill", "-f", type=int, default=1)
+    parser.add_argument("--fill", "-f", type=int, default=0)
     parser.add_argument("--layers", "-l", type=int, default=4)
     parser.add_argument("--vocab-size", "-v", type=int, default=128)
     parser.add_argument("--dim", "-d", type=int, default=8)
