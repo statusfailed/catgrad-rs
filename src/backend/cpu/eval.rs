@@ -185,15 +185,12 @@ impl EvalState {
                     match self.data[..].get_disjoint_mut([sources[0], *t]) {
                         Ok([F32(a), F32(b)]) => {
                             b.copy_from(a);
-                            b.strides = a.strides.clone()
                         }
                         Ok([F16(a), F16(b)]) => {
                             b.copy_from(a);
-                            b.strides = a.strides.clone()
                         }
                         Ok([I32(a), I32(b)]) => {
                             b.copy_from(a);
-                            b.strides = a.strides.clone();
                         }
                         _ => panic!("invalid types"),
                     }
@@ -205,6 +202,21 @@ impl EvalState {
                 Some(I32(a)) => a.fill(*k as i32),
                 _ => panic!("invalid type"),
             },
+
+            Arange => match self.data.get_mut(targets[0]) {
+                Some(I32(a)) => {
+                    for (i, x) in a.data.iter_mut().enumerate() {
+                        *x = i as i32;
+                    }
+                }
+                Some(F32(a)) => {
+                    for (i, x) in a.data.iter_mut().enumerate() {
+                        *x = i as f32;
+                    }
+                }
+                _ => panic!("invalid type"),
+            },
+
             Parameter(name) => {
                 // TODO:
                 // - The matching here is very ugly and incomplete
@@ -223,6 +235,39 @@ impl EvalState {
                     }
                 } else {
                     panic!("Parameters not loaded, requested parameter '{name}'");
+                }
+            }
+            Embedding => {
+                // The first source is the indices and second source is the embedding table
+                let i = sources[0]; // indices
+                let j = sources[1]; // embedding weights
+                let k = targets[0]; // output
+
+                match self.data[..].get_disjoint_mut([i, j, k]) {
+                    Ok([I32(indices), F32(weights), F32(output)]) => {
+                        let embedding_dim = weights.shape.0[1];
+
+                        // Flatten indices for processing
+                        let flat_indices: Vec<_> = indices.data.to_vec();
+                        let mut flat_index = 0;
+
+                        // For each index, look up the corresponding embedding vector
+                        for &idx in &flat_indices {
+                            if idx < 0 || idx as usize >= weights.shape.0[0] {
+                                panic!("Embedding index out of bounds");
+                            }
+
+                            // Copy embedding vector for this index
+                            for j in 0..embedding_dim {
+                                // Get the vector at index idx
+                                let src_offset = (idx as usize) * embedding_dim + j;
+                                output.data[flat_index + j] = weights.data[src_offset];
+                            }
+                            flat_index += embedding_dim;
+                        }
+                    }
+                    // Similar implementations for other numeric types
+                    _ => panic!("invalid type for embedding operation"),
                 }
             }
         }
@@ -731,13 +776,13 @@ mod test {
     }
 
     #[test]
-    fn test_broadcast() {
+    fn test_broadcast_left() {
         let f = Operation::broadcast(
             NdArrayType {
                 shape: Shape(vec![2, 3]),
                 dtype: Dtype::I32,
             },
-            Shape(vec![2, 1]),
+            Shape(vec![2, 1, 2, 3]),
         );
 
         let x = NdArray::new((30..36).collect(), Shape(vec![2, 3]));
@@ -762,6 +807,37 @@ mod test {
         }
     }
 
+    #[test]
+    fn test_broadcast_right() {
+        let f = Operation::broadcast(
+            NdArrayType {
+                shape: Shape(vec![4, 1]),
+                dtype: Dtype::I32,
+            },
+            Shape(vec![4, 3]),
+        );
+
+        let x = NdArray::new((30..34).collect(), Shape(vec![4, 1]));
+
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // check that array is broadcasted across two new dimensions
+        if let TaggedNdArray::I32(actual) = actual {
+            assert_eq!(actual.shape.0, &[4, 3]);
+            assert_eq!(actual.strides, [1, 0]);
+
+            assert_eq!(actual[&[0, 0]], 30);
+            assert_eq!(actual[&[0, 1]], 30);
+            assert_eq!(actual[&[0, 2]], 30);
+            assert_eq!(actual[&[1, 0]], 31);
+            assert_eq!(actual[&[2, 1]], 32);
+            assert_eq!(actual[&[3, 2]], 33);
+        }
+    }
     #[test]
     fn test_transpose() {
         let f = Operation::transpose(
