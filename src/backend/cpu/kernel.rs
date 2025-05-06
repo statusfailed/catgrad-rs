@@ -381,6 +381,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_log::test;
 
     #[test]
     fn test_matmul_f32() {

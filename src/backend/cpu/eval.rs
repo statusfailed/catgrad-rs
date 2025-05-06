@@ -320,6 +320,7 @@ mod test {
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
     use std::cell::RefCell;
     use std::rc::Rc;
+    use test_log::test;
 
     fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where

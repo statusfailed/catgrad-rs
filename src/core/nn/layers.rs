@@ -286,6 +286,7 @@ mod test {
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
+    use test_log::test;
 
     fn test_activation<F>(x: &[f32], exp: &[f32], act: F)
     where
