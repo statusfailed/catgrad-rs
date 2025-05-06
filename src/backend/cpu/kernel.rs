@@ -213,6 +213,19 @@ impl<T: Numeric> BinOp<T> for DivOp {
     }
 }
 
+pub struct LTOp;
+impl<T: Numeric + PartialOrd> BinOp<T> for LTOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = if a.data[i] < b.data[i] {
+                T::one()
+            } else {
+                T::zero()
+            };
+        }
+    }
+}
+
 pub struct PowOp;
 
 // TODO: Maybe this can be done with less duplication by using num_traits::Pow?
@@ -237,15 +250,6 @@ impl BinOp<f32> for PowOp {
     fn apply(&self, a: &NdArray<f32>, b: &NdArray<f32>, c: &mut NdArray<f32>) {
         for i in 0..a.data.len() {
             c.data[i] = a.data[i].powf(b.data[i]);
-        }
-    }
-}
-
-pub struct LTOp;
-impl BinOp<i32> for LTOp {
-    fn apply(&self, a: &NdArray<i32>, b: &NdArray<i32>, c: &mut NdArray<i32>) {
-        for i in 0..a.data.len() {
-            c.data[i] = (a.data[i] < b.data[i]) as i32;
         }
     }
 }

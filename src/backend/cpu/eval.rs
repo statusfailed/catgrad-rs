@@ -76,6 +76,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
+                    LT => Box::new(kernel::LTOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -89,6 +90,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
+                    LT => Box::new(kernel::LTOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -101,8 +103,8 @@ impl EvalState {
                     Sub => Box::new(kernel::SubOp),
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
-                    Pow => Box::new(kernel::PowOp),
                     LT => Box::new(kernel::LTOp),
+                    Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -122,6 +124,7 @@ impl EvalState {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -138,6 +141,7 @@ impl EvalState {
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -595,6 +599,15 @@ mod test {
             vec![1, 2, 3, 4, 5, -6],
             vec![1, 0, 4, -1, 5, 6],
             vec![0, 0, 1, 0, 0, 1],
+        );
+        test_binop_generic::<f32>(
+            Operation::lt(NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::F32,
+            }),
+            vec![1., 2., 3., 4., 5., -6.],
+            vec![1., 0., 4., -1., 5., 6.],
+            vec![0., 0., 1., 0., 0., 1.],
         );
     }
 
