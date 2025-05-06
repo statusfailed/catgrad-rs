@@ -284,3 +284,9 @@ impl var::HasNeg<PrimitiveType, Operation> for Operation {
         (x, Operation::Negate)
     }
 }
+
+impl var::HasNot<PrimitiveType, Operation> for Operation {
+    fn not(x: PrimitiveType) -> (PrimitiveType, Operation) {
+        (x, Operation::Not)
+    }
+}
