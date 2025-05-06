@@ -376,9 +376,12 @@ mod test {
     where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let x = NdArray::new(x_data, Shape(vec![2, 2]));
-        let y = NdArray::new(y_data, Shape(vec![2, 2]));
-        let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
+        // Get binary operand shape
+        let shape = op.hypergraph.nodes[0].shape.clone();
+
+        let x = NdArray::new(x_data, shape.clone());
+        let y = NdArray::new(y_data, shape.clone());
+        let expected = NdArray::new(expected_data, shape);
 
         let mut state = EvalState::from_lax(op);
 
