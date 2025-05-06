@@ -154,6 +154,7 @@ impl EvalState {
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -177,7 +178,7 @@ impl EvalState {
             Add | Sub | Mul | Div | Pow | MatrixMultiply | LT => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum | Max | Negate | Reshape | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate | Not | Reshape | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy => {
@@ -370,6 +371,18 @@ mod test {
             }),
             vec![1, 2, 3, 4],
             vec![-1, -2, -3, -4],
+        );
+    }
+
+    #[test]
+    fn test_not() {
+        test_unarynop_generic::<i32>(
+            Operation::not(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 0, -1, 2],
+            vec![0, 1, 0, 0],
         );
     }
 

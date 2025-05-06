@@ -270,6 +270,19 @@ impl<T: Numeric> UnaryOp<T> for NegOp {
     }
 }
 
+pub struct NotOp;
+impl<T: Numeric> UnaryOp<T> for NotOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            b.data[i] = if a.data[i] == T::zero() {
+                T::one()
+            } else {
+                T::zero()
+            }
+        }
+    }
+}
+
 pub struct ReshapeOp;
 
 impl<T: Numeric> UnaryOp<T> for ReshapeOp {

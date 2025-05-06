@@ -70,6 +70,11 @@ pub fn lt(builder: &Builder, a: Var, b: Var) -> Var {
     operation(builder, &[a.clone(), b.clone()], a.label, op)
 }
 
+pub fn not(builder: &Builder, a: Var) -> Var {
+    let op = Operation::Not;
+    operation(builder, &[a.clone()], a.label, op)
+}
+
 pub fn arange(builder: &Builder, param_type: NdArrayType) -> Var {
     let op = Operation::Arange;
     operation(builder, &[], param_type, op)

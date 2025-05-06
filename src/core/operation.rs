@@ -57,6 +57,9 @@ pub enum Operation {
     /// Arange
     Arange,
 
+    /// Logical negation. Turn 0 into 1 and anything else into 0.
+    Not,
+
     /// Comparisons
     /// Less than
     /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
@@ -190,6 +193,11 @@ impl Operation {
     // Make an OpenHypergraph for the Negate operation
     pub fn negate(x: NdArrayType) -> Term {
         Operation::unop(x, Operation::Negate)
+    }
+
+    // Make an OpenHypergraph for the logical Not operation
+    pub fn not(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Not)
     }
 
     // Make an OpenHypergraph for the given binary operation
