@@ -102,6 +102,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
+                    LT => Box::new(kernel::LTOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -173,7 +174,7 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            Add | Sub | Mul | Div | Pow | MatrixMultiply => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Sum | Max | Negate | Reshape | Broadcast { .. } | Transpose { .. } => {
@@ -568,6 +569,19 @@ mod test {
             vec![2, 4, 6, 8],
             vec![2, 2, 2, 2],
             vec![4, 16, 36, 64],
+        );
+    }
+
+    #[test]
+    fn test_less_than() {
+        test_binop_generic::<i32>(
+            Operation::lt(NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 2, 3, 4, 5, -6],
+            vec![1, 0, 4, -1, 5, 6],
+            vec![0, 0, 1, 0, 0, 1],
         );
     }
 

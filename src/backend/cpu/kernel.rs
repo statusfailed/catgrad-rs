@@ -241,6 +241,15 @@ impl BinOp<f32> for PowOp {
     }
 }
 
+pub struct LTOp;
+impl BinOp<i32> for LTOp {
+    fn apply(&self, a: &NdArray<i32>, b: &NdArray<i32>, c: &mut NdArray<i32>) {
+        for i in 0..a.data.len() {
+            c.data[i] = (a.data[i] < b.data[i]) as i32;
+        }
+    }
+}
+
 pub struct MatMulOp;
 impl<T: Numeric + 'static> BinOp<T> for MatMulOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {

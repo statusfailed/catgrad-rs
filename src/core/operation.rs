@@ -56,6 +56,11 @@ pub enum Operation {
 
     /// Arange
     Arange,
+
+    /// Comparisons
+    /// Less than
+    /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
+    LT,
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
@@ -215,6 +220,11 @@ impl Operation {
     // Make an OpenHypergraph for the Pow operation
     pub fn pow(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Pow)
+    }
+
+    // Make an OpenHypergraph for the LT operation
+    pub fn lt(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::LT)
     }
 
     // Make an OpenHypergraph for a Sum operation
