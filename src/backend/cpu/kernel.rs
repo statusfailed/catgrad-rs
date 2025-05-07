@@ -3,6 +3,7 @@ use super::ndarray::*;
 use crate::core::object::Shape;
 use core::fmt::Debug;
 use gemm::{gemm, Parallelism};
+use log;
 
 fn matmul<T: Numeric + 'static>(
     a: &NdArraySlice<T>,
@@ -343,6 +344,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
             b.shape
         );
 
+        log::debug!("Broadcast shapes from {:?} to {:?}", a.shape, b.shape);
         // Prefix pad input dimensions with 1s to match the output shape if needed
         let d = b.shape.0.len() - a.shape.0.len();
 
@@ -370,7 +372,9 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
             }
         }
 
+        log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
         b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        log::debug!("A len: {:?} B len: {:?}", a.data.len(), b.data.len())
     }
 }
 
@@ -393,11 +397,14 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
 
         b.shape = Shape(new_shape);
 
+        log::debug!("Transpose shapes from {:?} to {:?}", a.shape, b.shape);
+
         // Create new strides with swapped dimensions
         let mut new_strides = a.strides.clone();
         new_strides.swap(self.dim0, self.dim1);
         b.strides = new_strides;
 
+        log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
         // Copy the data - we won't actually move anything in memory,
         // just change how we index into it
         b.data = a.data.clone();
@@ -407,6 +414,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_log::test;
 
     #[test]
     fn test_matmul_f32() {

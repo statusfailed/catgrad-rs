@@ -340,6 +340,7 @@ impl From<NdArray<i32>> for TaggedNdArray {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_log::test;
 
     #[test]
     fn test_strides() {
