@@ -34,9 +34,9 @@ struct Model {
 
 pub fn layer(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
     let res = x.clone();
-    let x = rmsnorm(builder, &format!("{name}.prenorm"), x);
+    let x = rmsnorm(builder, 1e-05, &format!("{name}.prenorm"), x);
     let x = attention(builder, in_dim, &format!("{name}.attention"), x);
-    let x = rmsnorm(builder, &format!("{name}.postnorm"), x);
+    let x = rmsnorm(builder, 1e-05, &format!("{name}.postnorm"), x);
     let x = mlp(builder, in_dim, out_dim, &format!("{name}.mlp"), x);
     x + res
 }
@@ -112,11 +112,11 @@ impl Model {
             let pos_emb = embeddings(&builder, max_seq_len, in_dim, "position_embeddings", pos);
             let emb = tok_emb + pos_emb;
 
-            let mut result = layernorm(&builder, "prenorm", emb);
+            let mut result = layernorm(&builder, 1e-05, "prenorm", emb);
             for i in 0..layers {
                 result = layer(&builder, in_dim, out_dim, &format!("layers.{i}"), result);
             }
-            result = layernorm(&builder, "postnorm", result);
+            result = layernorm(&builder, 1e-05, "postnorm", result);
             result = softmax(&builder, result);
 
             builder.borrow_mut().sources = vec![x.new_source()];

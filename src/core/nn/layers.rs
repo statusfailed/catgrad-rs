@@ -214,7 +214,7 @@ pub fn gelu(builder: &Builder, x: Var) -> Var {
     half * x.clone() * (one + tanh(builder, c * (x.clone() + k * (power(builder, x, three)))))
 }
 
-fn layernorm_raw(builder: &Builder, x: Var) -> Var {
+fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
 
     let s = sum(builder, x.clone());
@@ -223,14 +223,14 @@ fn layernorm_raw(builder: &Builder, x: Var) -> Var {
     let nom = x.clone() - expand(builder, x.label.shape.clone(), mean.clone());
 
     let var = sum(builder, nom.clone() * nom.clone()) / constn;
-    let epsilon = constant(builder, var.label.clone(), 1e-5);
+    let epsilon = constant(builder, var.label.clone(), eps);
     let stddev = sqrt(builder, var + epsilon);
     let denom = expand(builder, x.label.shape, stddev);
 
     nom / denom
 }
 
-pub fn layernorm(builder: &Builder, name: &str, x: Var) -> Var {
+pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
     let t = NdArrayType {
         shape: Shape(shape),
@@ -238,18 +238,18 @@ pub fn layernorm(builder: &Builder, name: &str, x: Var) -> Var {
     };
     let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
     let beta = parameter(builder, t, format!("{name}.bias"));
-    let lr = layernorm_raw(builder, x);
+    let lr = layernorm_raw(builder, eps, x);
     let gamma = expand(builder, lr.label.shape.clone(), gamma);
     let beta = expand(builder, lr.label.shape.clone(), beta);
     lr * gamma + beta
 }
 
-fn rmsnorm_raw(builder: &Builder, x: Var) -> Var {
+fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
     let s = sum(builder, x.clone() * x.clone());
     let constn = constant(builder, s.label.clone(), n as f32);
     let ms = sum(builder, x.clone() * x.clone()) / constn;
-    let epsilon = constant(builder, ms.label.clone(), 1e-5);
+    let epsilon = constant(builder, ms.label.clone(), eps);
     let rms = sqrt(builder, ms + epsilon);
     let b = expand(builder, x.label.shape.clone(), rms);
 
@@ -257,14 +257,14 @@ fn rmsnorm_raw(builder: &Builder, x: Var) -> Var {
 }
 
 // rmsnorm(x) = x / √(E[x²] + ε) × γ
-pub fn rmsnorm(builder: &Builder, name: &str, x: Var) -> Var {
+pub fn rmsnorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
     let t = NdArrayType {
         shape: Shape(shape),
         dtype: x.label.dtype,
     };
     let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
-    let lr = rmsnorm_raw(builder, x);
+    let lr = rmsnorm_raw(builder, eps, x);
     let gamma = expand(builder, lr.label.shape.clone(), gamma);
     lr * gamma
 }
@@ -324,6 +324,37 @@ mod test {
         assert_eq!(actual.approx(6), exp);
     }
 
+    fn test_norm<F>(x: &[f32], epsilon: f32, exp: &[f32], norm: F)
+    where
+        F: Fn(&Builder, f32, Var) -> Var,
+    {
+        let shape = Shape(vec![1, x.len()]);
+        let in_type = NdArrayType {
+            shape: shape.clone(),
+            dtype: Dtype::F32,
+        };
+
+        let builder = Rc::new(RefCell::new(Term::empty()));
+        {
+            let x = Var::new(builder.clone(), in_type.clone());
+            let result = norm(&builder, epsilon, x.clone());
+
+            builder.borrow_mut().sources = vec![x.new_source()];
+            builder.borrow_mut().targets = vec![result.new_target()];
+        }
+
+        let x = NdArray::new(x.to_vec(), shape);
+
+        let f = Rc::try_unwrap(builder).unwrap().into_inner();
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual.approx(6), exp);
+    }
+
     #[test]
     fn test_tanh() {
         test_activation(&[1.0, 2.0, 3.0], &[0.761594, 0.964028, 0.995055], tanh);
@@ -356,8 +387,9 @@ mod test {
 
     #[test]
     fn test_rmsnorm() {
-        test_activation(
+        test_norm(
             &[0., 1., 2., 3., 4.],
+            1e-05,
             &[0.0, 0.408248, 0.816496, 1.224744, 1.632992],
             rmsnorm_raw,
         )
@@ -365,8 +397,9 @@ mod test {
 
     #[test]
     fn test_layernorm() {
-        test_activation(
+        test_norm(
             &[0., 1., 2., 3., 4.],
+            1e-05,
             &[-1.414210, -0.707105, 0.000000, 0.707105, 1.414210],
             layernorm_raw,
         )
