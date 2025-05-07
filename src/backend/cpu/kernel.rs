@@ -213,6 +213,19 @@ impl<T: Numeric> BinOp<T> for DivOp {
     }
 }
 
+pub struct LTOp;
+impl<T: Numeric + PartialOrd> BinOp<T> for LTOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            c.data[i] = if a.data[i] < b.data[i] {
+                T::one()
+            } else {
+                T::zero()
+            };
+        }
+    }
+}
+
 pub struct PowOp;
 
 // TODO: Maybe this can be done with less duplication by using num_traits::Pow?
@@ -257,6 +270,19 @@ impl<T: Numeric> UnaryOp<T> for NegOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
         for i in 0..a.data.len() {
             b.data[i] = -a.data[i];
+        }
+    }
+}
+
+pub struct NotOp;
+impl<T: Numeric> UnaryOp<T> for NotOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        for i in 0..a.data.len() {
+            b.data[i] = if a.data[i] == T::zero() {
+                T::one()
+            } else {
+                T::zero()
+            }
         }
     }
 }

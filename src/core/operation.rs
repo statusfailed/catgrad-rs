@@ -56,6 +56,14 @@ pub enum Operation {
 
     /// Arange
     Arange,
+
+    /// Logical negation. Turn 0 into 1 and anything else into 0.
+    Not,
+
+    /// Comparisons
+    /// Less than
+    /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
+    LT,
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
@@ -187,6 +195,11 @@ impl Operation {
         Operation::unop(x, Operation::Negate)
     }
 
+    // Make an OpenHypergraph for the logical Not operation
+    pub fn not(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Not)
+    }
+
     // Make an OpenHypergraph for the given binary operation
     fn binop(x: NdArrayType, op: Operation) -> Term {
         Operation::term(op, vec![x.clone(), x.clone()], vec![x.clone()])
@@ -215,6 +228,11 @@ impl Operation {
     // Make an OpenHypergraph for the Pow operation
     pub fn pow(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::Pow)
+    }
+
+    // Make an OpenHypergraph for the LT operation
+    pub fn lt(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::LT)
     }
 
     // Make an OpenHypergraph for a Sum operation
@@ -264,5 +282,11 @@ impl var::HasDiv<PrimitiveType, Operation> for Operation {
 impl var::HasNeg<PrimitiveType, Operation> for Operation {
     fn neg(x: PrimitiveType) -> (PrimitiveType, Operation) {
         (x, Operation::Negate)
+    }
+}
+
+impl var::HasNot<PrimitiveType, Operation> for Operation {
+    fn not(x: PrimitiveType) -> (PrimitiveType, Operation) {
+        (x, Operation::Not)
     }
 }

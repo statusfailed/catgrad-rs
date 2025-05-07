@@ -76,6 +76,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
+                    LT => Box::new(kernel::LTOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -89,6 +90,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
+                    LT => Box::new(kernel::LTOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -101,6 +103,7 @@ impl EvalState {
                     Sub => Box::new(kernel::SubOp),
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
+                    LT => Box::new(kernel::LTOp),
                     Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
@@ -121,6 +124,7 @@ impl EvalState {
             Ok([F16(a), F16(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f16>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -137,6 +141,7 @@ impl EvalState {
             Ok([F32(a), F32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<f32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -153,6 +158,7 @@ impl EvalState {
             Ok([I32(a), I32(b)]) => {
                 let op: Box<dyn kernel::UnaryOp<i32>> = match operation {
                     Negate => Box::new(kernel::NegOp),
+                    Not => Box::new(kernel::NotOp),
                     Reshape => Box::new(kernel::ReshapeOp),
                     Broadcast(n) => Box::new(kernel::BroadcastOp { n: n.clone() }),
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
@@ -173,10 +179,10 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            Add | Sub | Mul | Div | Pow | MatrixMultiply => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum | Max | Negate | Reshape | Broadcast { .. } | Transpose { .. } => {
+            Sum | Max | Negate | Not | Reshape | Broadcast { .. } | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy => {
@@ -372,13 +378,28 @@ mod test {
         );
     }
 
+    #[test]
+    fn test_not() {
+        test_unarynop_generic::<i32>(
+            Operation::not(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 0, -1, 2],
+            vec![0, 1, 0, 0],
+        );
+    }
+
     fn test_binop_generic<T>(op: Term, x_data: Vec<T>, y_data: Vec<T>, expected_data: Vec<T>)
     where
         TaggedNdArray: From<NdArray<T>>,
     {
-        let x = NdArray::new(x_data, Shape(vec![2, 2]));
-        let y = NdArray::new(y_data, Shape(vec![2, 2]));
-        let expected = NdArray::new(expected_data, Shape(vec![2, 2]));
+        // Get binary operand shape
+        let shape = op.hypergraph.nodes[0].shape.clone();
+
+        let x = NdArray::new(x_data, shape.clone());
+        let y = NdArray::new(y_data, shape.clone());
+        let expected = NdArray::new(expected_data, shape);
 
         let mut state = EvalState::from_lax(op);
 
@@ -565,6 +586,28 @@ mod test {
             vec![2, 4, 6, 8],
             vec![2, 2, 2, 2],
             vec![4, 16, 36, 64],
+        );
+    }
+
+    #[test]
+    fn test_less_than() {
+        test_binop_generic::<i32>(
+            Operation::lt(NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::I32,
+            }),
+            vec![1, 2, 3, 4, 5, -6],
+            vec![1, 0, 4, -1, 5, 6],
+            vec![0, 0, 1, 0, 0, 1],
+        );
+        test_binop_generic::<f32>(
+            Operation::lt(NdArrayType {
+                shape: Shape(vec![2, 3]),
+                dtype: Dtype::F32,
+            }),
+            vec![1., 2., 3., 4., 5., -6.],
+            vec![1., 0., 4., -1., 5., 6.],
+            vec![0., 0., 1., 0., 0., 1.],
         );
     }
 

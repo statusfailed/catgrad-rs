@@ -295,6 +295,14 @@ impl TaggedNdArray {
         }
     }
 
+    pub fn strides(&self) -> Vec<isize> {
+        match self {
+            TaggedNdArray::F16(vec) => vec.strides.clone(),
+            TaggedNdArray::F32(vec) => vec.strides.clone(),
+            TaggedNdArray::I32(vec) => vec.strides.clone(),
+        }
+    }
+
     /// Check if data is close to another slice within a tolerance
     pub fn allclose(&self, other: &[f32], rtol: f32, atol: f32) -> bool {
         if self.len() != other.len() {
