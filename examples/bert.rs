@@ -5,25 +5,23 @@
 use clap::Parser;
 use serde;
 use serde_json;
-use std::cell::RefCell;
 use std::path::PathBuf;
-use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
 use catgrad::{
     backend::cpu::{
-        eval::EvalState,
+        eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
     core::{
         nn::{
             layers::{
                 arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
-                softmax, transpose, Builder,
+                softmax, transpose,
             },
             utils::read_safetensors,
         },
-        Dtype, NdArrayType, Shape, Term, Var,
+        Dtype, NdArrayType, Shape, Var,
     },
 };
 
@@ -45,7 +43,7 @@ pub struct Config {
 
 #[derive(Debug)]
 struct Model {
-    pub term: Term,
+    pub state: EvalState,
 }
 
 pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -168,8 +166,7 @@ impl Model {
             dtype: Dtype::I32,
         };
 
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+        let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             let emb = embeddings(&builder, config, "embeddings", x.clone());
 
@@ -178,19 +175,14 @@ impl Model {
             for i in 0..config.num_hidden_layers {
                 result = layer(&builder, config, &format!("encoder.layer.{i}"), result);
             }
-            // result = softmax(&builder, result);
+            (vec![x], vec![result])
+        });
 
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        Self { term: f }
+        Self { state }
     }
 
     pub fn run(&self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
-        let mut state = EvalState::from_lax(self.term.clone());
+        let mut state = self.state.clone();
         let tensors = read_safetensors(model_path);
         state.set_parameters(tensors);
         let [result] = state.eval_with(vec![x.clone().into()])[..] else {
