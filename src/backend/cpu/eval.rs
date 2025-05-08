@@ -1,8 +1,10 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
-use crate::core::{Operation, StrictTerm, Term};
+use crate::core::{Operation, StrictTerm, Term, Var};
 use half::f16;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use Operation::*;
 use TaggedNdArray::*;
 
@@ -36,7 +38,10 @@ fn allocate(f: &StrictTerm) -> Vec<TaggedNdArray> {
     result
 }
 
+pub type Builder = Rc<RefCell<Term>>;
+
 /// Evaluator state for a single term.
+#[derive(Debug, Clone)]
 pub struct EvalState {
     term: StrictTerm,
     data: Vec<TaggedNdArray>,
@@ -330,6 +335,20 @@ impl EvalState {
         // Return result array ptrs
         self.term.t.table.0.iter().map(|i| &self.data[*i]).collect()
     }
+
+    pub fn build<F>(f: F) -> EvalState
+    where
+        F: Fn(&Builder) -> (Vec<Var>, Vec<Var>),
+    {
+        let state = Rc::new(RefCell::new(Term::empty()));
+        {
+            let (s, t) = f(&state);
+            state.borrow_mut().sources = s.iter().map(|x| x.new_source()).collect();
+            state.borrow_mut().targets = t.iter().map(|x| x.new_target()).collect();
+        }
+        let f = Rc::try_unwrap(state).unwrap().into_inner();
+        EvalState::from_lax(f)
+    }
 }
 
 #[cfg(test)]
@@ -337,8 +356,6 @@ mod test {
     use super::*;
     use crate::core::operation::Var;
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
-    use std::cell::RefCell;
-    use std::rc::Rc;
     use test_log::test;
 
     fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
@@ -1036,24 +1053,17 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let state = Rc::new(RefCell::new(Term::empty()));
-
-        {
-            let a = Var::new(state.clone(), typ.clone());
-            let b = Var::new(state.clone(), typ.clone());
+        let mut state = EvalState::build(|builder| {
+            let a = Var::new(builder.clone(), typ.clone());
+            let b = Var::new(builder.clone(), typ.clone());
 
             let c = a.clone() + b.clone();
-
-            state.borrow_mut().sources = vec![a.new_source(), b.new_source()];
-            state.borrow_mut().targets = vec![c.new_target()];
-        }
-        let f = Rc::try_unwrap(state).unwrap().into_inner();
+            (vec![a, b], vec![c])
+        });
 
         let x = NdArray::new(vec![1., 2., 3., 4.], Shape(vec![2, 2]));
         let y = NdArray::new(vec![1., 1., 1., 1.], Shape(vec![2, 2]));
         let exp = NdArray::new(vec![2., 3., 4., 5.], Shape(vec![2, 2]));
-
-        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
