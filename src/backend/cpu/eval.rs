@@ -150,6 +150,8 @@ impl EvalState {
                     }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
+                    Sin => Box::new(kernel::SinOp),
+                    Cos => Box::new(kernel::CosOp),
                     _ => panic!("invalid operation"),
                 };
 
@@ -182,7 +184,15 @@ impl EvalState {
             Add | Sub | Mul | Div | Pow | MatrixMultiply | LT => {
                 self.apply_binary_operation(sources, targets, op);
             }
-            Sum | Max | Negate | Not | Reshape | Broadcast { .. } | Transpose { .. } => {
+            Sum
+            | Max
+            | Sin
+            | Cos
+            | Negate
+            | Not
+            | Reshape
+            | Broadcast { .. }
+            | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
             Copy => {
@@ -342,7 +352,7 @@ mod test {
         };
 
         let tagged: TaggedNdArray = expected.into();
-        assert_eq!(&tagged, actual);
+        assert_eq!(tagged.approx(6), actual.approx(6));
     }
 
     #[test]
@@ -388,6 +398,27 @@ mod test {
             }),
             vec![1, 0, -1, 2],
             vec![0, 1, 0, 0],
+        );
+    }
+
+    #[test]
+    fn test_sin_cos() {
+        test_unarynop_generic::<f32>(
+            Operation::sin(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![0., 1., 2., 3.],
+            vec![0.0000, 0.8414709, 0.909297, 0.141120],
+        );
+
+        test_unarynop_generic::<f32>(
+            Operation::cos(NdArrayType {
+                shape: Shape(vec![2, 2]),
+                dtype: Dtype::F32,
+            }),
+            vec![0., 1., 2., 3.],
+            vec![1.0000, 0.540302, -0.416147, -0.989993],
         );
     }
 

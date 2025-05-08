@@ -288,6 +288,24 @@ impl<T: Numeric> UnaryOp<T> for NotOp {
     }
 }
 
+pub struct SinOp;
+impl UnaryOp<f32> for SinOp {
+    fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
+        for i in 0..a.data.len() {
+            b.data[i] = f32::sin(a.data[i]);
+        }
+    }
+}
+
+pub struct CosOp;
+impl UnaryOp<f32> for CosOp {
+    fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
+        for i in 0..a.data.len() {
+            b.data[i] = f32::cos(a.data[i]);
+        }
+    }
+}
+
 pub struct ReshapeOp;
 
 impl<T: Numeric> UnaryOp<T> for ReshapeOp {

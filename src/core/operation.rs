@@ -25,7 +25,10 @@ pub enum Operation {
     Reshape,
 
     /// Transpose (swap) two dimensions of a tensor
-    Transpose { dim0: usize, dim1: usize },
+    Transpose {
+        dim0: usize,
+        dim1: usize,
+    },
 
     /// Create a copy
     Copy,
@@ -64,6 +67,9 @@ pub enum Operation {
     /// Less than
     /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
     LT,
+
+    Sin,
+    Cos,
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
@@ -198,6 +204,16 @@ impl Operation {
     // Make an OpenHypergraph for the logical Not operation
     pub fn not(x: NdArrayType) -> Term {
         Operation::unop(x, Operation::Not)
+    }
+
+    // Make an OpenHypergraph for the Cos operation
+    pub fn cos(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Cos)
+    }
+
+    // Make an OpenHypergraph for the Sin operation
+    pub fn sin(x: NdArrayType) -> Term {
+        Operation::unop(x, Operation::Sin)
     }
 
     // Make an OpenHypergraph for the given binary operation
