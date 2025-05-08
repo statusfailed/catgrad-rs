@@ -265,7 +265,7 @@ struct Args {
     #[arg(short = 'f', long, default_value_t = 0)]
     fill: usize,
 
-    /// Input text to embed
+    /// Initial prompt
     #[arg(short = 'p', long)]
     prompt: Option<String>,
 }
