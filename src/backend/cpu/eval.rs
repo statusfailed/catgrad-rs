@@ -6,6 +6,8 @@ use std::collections::HashMap;
 use Operation::*;
 use TaggedNdArray::*;
 
+use log;
+
 // TODO: this convenience method should live in open_hypergraphs
 use open_hypergraphs::layer::*;
 use open_hypergraphs::prelude::*;
@@ -306,10 +308,11 @@ impl EvalState {
         #[rustfmt::skip]
         let targets: Vec<Vec<usize>> = self.term.h.t.clone().into_iter().map(|x| x.table.0).collect();
 
-        for ops in layered_operations(&self.term).iter() {
+        for (l, ops) in layered_operations(&self.term).iter().enumerate() {
             // each layer has any number of ops. TODO: evaluate these in parallel!
             for i in ops {
                 let op = self.term.h.x.0[*i].clone();
+                log::debug!("{l} OP: {:?}", &op);
                 self.apply(&op, &sources[*i], &targets[*i]);
             }
         }
