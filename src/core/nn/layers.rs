@@ -282,8 +282,8 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 #[cfg(test)]
 mod test {
     use super::{
-        arange, expand, gelu, layernorm_raw, linear, linear_no_bias, mat_mul, reshape, rmsnorm_raw,
-        sigmoid, silu, softmax, tanh, Builder,
+        arange, expand, gelu, layernorm_raw, linear, linear_no_bias, lt, mat_mul, reshape,
+        rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
     };
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
@@ -596,5 +596,85 @@ mod test {
             &[0., 1., 2., 3., 4., 5., 0., 1., 2., 3., 4., 5.]
         );
         assert_eq!(r.shape(), Shape(vec![6, 2]));
+    }
+
+    #[test]
+    // Make a lower triangular matrix
+    fn test_tril() {
+        let t = NdArrayType {
+            shape: Shape(vec![1, 3]),
+            dtype: Dtype::F32,
+        };
+        let builder = Rc::new(RefCell::new(Term::empty()));
+        {
+            // Create [[0, 1, 2],
+            //         [0, 1, 2],
+            //         [0, 1, 2]]
+            let i = arange(&builder, t.clone());
+            let i = expand(&builder, Shape(vec![3, 3]), i);
+
+            // Create [[0, 0, 0],
+            //         [1, 1, 1],
+            //         [2, 2, 2]]
+            let j = arange(&builder, t.clone());
+            let j = reshape(&builder, Shape(vec![3, 1]), j);
+            let j = expand(&builder, Shape(vec![3, 3]), j);
+
+            let tri = !lt(&builder, j.clone(), i.clone());
+
+            // Result [[1, 0, 0],
+            //         [1, 1, 0],
+            //         [1, 1, 1]]
+            builder.borrow_mut().sources = vec![];
+            builder.borrow_mut().targets = vec![i.new_target(), j.new_target(), tri.new_target()];
+        }
+
+        let f = Rc::try_unwrap(builder).unwrap().into_inner();
+
+        let mut state = EvalState::from_lax(f);
+
+        let [i, j, tri] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(i.shape(), Shape(vec![3, 3]));
+        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.data(), &[0., 1., 2., 0., 1., 2., 0., 1., 2.]);
+
+        assert_eq!(j.shape(), Shape(vec![3, 3]));
+        // assert_eq!(j.strides(), vec![1, 0]);
+        assert_eq!(j.data(), &[0., 0., 0., 1., 1., 1., 2., 2., 2.]);
+
+        assert_eq!(tri.shape(), Shape(vec![3, 3]));
+        assert_eq!(tri.strides(), vec![3, 1]);
+        assert_eq!(tri.data(), &[1., 0., 0., 1., 1., 0., 1., 1., 1.]);
+    }
+
+    #[test]
+    fn test_expand() {
+        let t = NdArrayType {
+            shape: Shape(vec![1, 3]),
+            dtype: Dtype::F32,
+        };
+        let builder = Rc::new(RefCell::new(Term::empty()));
+        {
+            let i = arange(&builder, t.clone());
+            let i = expand(&builder, Shape(vec![3, 3]), i);
+
+            builder.borrow_mut().sources = vec![];
+            builder.borrow_mut().targets = vec![i.new_target()];
+        }
+
+        let f = Rc::try_unwrap(builder).unwrap().into_inner();
+
+        let mut state = EvalState::from_lax(f);
+
+        let [i] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(i.shape(), Shape(vec![3, 3]));
+        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.approx(1), &[0., 1., 2., 0., 1., 2., 0., 1., 2.]);
     }
 }

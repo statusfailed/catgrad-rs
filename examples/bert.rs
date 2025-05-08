@@ -78,7 +78,7 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
     let we = embedding(builder, x.clone(), weights);
 
     let t = NdArrayType {
-        shape: Shape(vec![512, config.hidden_size]),
+        shape: Shape(vec![config.max_position_embeddings, config.hidden_size]),
         dtype: Dtype::F32,
     };
     let pos = arange(&builder, x.label.clone());
