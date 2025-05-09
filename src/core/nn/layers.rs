@@ -1,10 +1,7 @@
-use crate::core::{NdArrayType, Operation, PrimitiveType, Shape, Term, Var};
+use crate::backend::cpu::eval::Builder;
+use crate::core::{NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::operation;
-use std::cell::RefCell;
 use std::f32::consts::{E, PI};
-use std::rc::Rc;
-
-pub type Builder = Rc<RefCell<Term>>;
 
 fn mat_mul_output_type(f: &PrimitiveType, g: &PrimitiveType) -> PrimitiveType {
     assert_eq!(f.dtype, g.dtype);
@@ -287,10 +284,8 @@ mod test {
     };
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-    use crate::core::{Dtype, NdArrayType, Shape, Term, Var};
-    use std::cell::RefCell;
+    use crate::core::{Dtype, NdArrayType, Shape, Var};
     use std::collections::HashMap;
-    use std::rc::Rc;
     use test_log::test;
 
     fn test_activation<F>(x: &[f32], exp: &[f32], act: F)
@@ -303,20 +298,13 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+        let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             let result = act(&builder, x.clone());
-
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
+            (vec![x], vec![result])
+        });
 
         let x = NdArray::new(x.to_vec(), shape);
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-        let mut state = EvalState::from_lax(f);
-
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
@@ -334,20 +322,13 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+        let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             let result = norm(&builder, epsilon, x.clone());
-
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
+            (vec![x], vec![result])
+        });
 
         let x = NdArray::new(x.to_vec(), shape);
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-        let mut state = EvalState::from_lax(f);
-
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
@@ -411,19 +392,13 @@ mod test {
             shape: Shape(vec![2, 3]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            // Run linear layer (x * w^T + b)
+            // x * w^T + b
             let result = linear(&builder, 3, 2, "l", x.clone());
-
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![x], vec![result])
+        });
 
         // Create test input data
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 2.0, 3.0, 1.0], Shape(vec![2, 3]));
@@ -451,19 +426,13 @@ mod test {
             shape: Shape(vec![2, 3]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             // x * w^T
             let result = linear_no_bias(&builder, 3, 2, "l", x.clone());
-
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![x], vec![result])
+        });
 
         // Create test input data
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 2.0, 3.0, 1.0], Shape(vec![2, 3]));
@@ -489,18 +458,13 @@ mod test {
             shape: Shape(vec![2, 2, 3]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            // Run linear layer (x * w^T + b)
+            // x * w^T + b
             let result = linear(&builder, 3, 2, "l", x.clone());
-
-            builder.borrow_mut().sources = vec![x.new_source()];
-            builder.borrow_mut().targets = vec![result.new_target()];
-        }
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![x], vec![result])
+        });
 
         // Create test input data
         let mut x = NdArray::new(vec![1.0, 2.0, 3.0, 2.0, 3.0, 1.0], Shape(vec![2, 3]));
@@ -536,18 +500,14 @@ mod test {
             dtype: Dtype::F32,
         };
 
-        let state = Rc::new(RefCell::new(Term::empty()));
+        let mut state = EvalState::build(|builder| {
+            let a = Var::new(builder.clone(), type_a.clone());
+            let b = Var::new(builder.clone(), type_b.clone());
 
-        {
-            let a = Var::new(state.clone(), type_a.clone());
-            let b = Var::new(state.clone(), type_b.clone());
+            let c = mat_mul(&builder, a.clone(), b.clone());
 
-            let c = mat_mul(&state, a.clone(), b.clone());
-
-            state.borrow_mut().sources = vec![a.new_source(), b.new_source()];
-            state.borrow_mut().targets = vec![c.new_target()];
-        }
-        let f = Rc::try_unwrap(state).unwrap().into_inner();
+            (vec![a, b], vec![c])
+        });
 
         // a (1×2) matrix
         let x = NdArray::new(vec![2., 4.], Shape(vec![1, 2]));
@@ -556,8 +516,6 @@ mod test {
         // result should be a 1×3 result
         let mut expected = NdArray::new(vec![0.; 3], Shape(vec![1, 3]));
         crate::backend::cpu::kernel::batch_matmul::<f32>(&x, &y, &mut expected);
-
-        let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -573,18 +531,13 @@ mod test {
             shape: Shape(vec![1, 6]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             let i = arange(&builder, t.clone());
             let e = expand(&builder, Shape(vec![2, 6]), i.clone());
             let r = reshape(&builder, Shape(vec![6, 2]), e.clone());
-            builder.borrow_mut().sources = vec![];
-            builder.borrow_mut().targets = vec![e.new_target(), r.new_target()];
-        }
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![], vec![e, r])
+        });
 
         let [e, r] = state.eval_with(vec![])[..] else {
             panic!("unexpected coarity at eval time")
@@ -605,8 +558,8 @@ mod test {
             shape: Shape(vec![1, 3]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             // Create [[0, 1, 2],
             //         [0, 1, 2],
             //         [0, 1, 2]]
@@ -625,13 +578,9 @@ mod test {
             // Result [[1, 0, 0],
             //         [1, 1, 0],
             //         [1, 1, 1]]
-            builder.borrow_mut().sources = vec![];
-            builder.borrow_mut().targets = vec![i.new_target(), j.new_target(), tri.new_target()];
-        }
 
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![], vec![i, j, tri])
+        });
 
         let [i, j, tri] = state.eval_with(vec![])[..] else {
             panic!("unexpected coarity at eval time")
@@ -656,18 +605,12 @@ mod test {
             shape: Shape(vec![1, 3]),
             dtype: Dtype::F32,
         };
-        let builder = Rc::new(RefCell::new(Term::empty()));
-        {
+
+        let mut state = EvalState::build(|builder| {
             let i = arange(&builder, t.clone());
             let i = expand(&builder, Shape(vec![3, 3]), i);
-
-            builder.borrow_mut().sources = vec![];
-            builder.borrow_mut().targets = vec![i.new_target()];
-        }
-
-        let f = Rc::try_unwrap(builder).unwrap().into_inner();
-
-        let mut state = EvalState::from_lax(f);
+            (vec![], vec![i])
+        });
 
         let [i] = state.eval_with(vec![])[..] else {
             panic!("unexpected coarity at eval time")
