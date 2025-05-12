@@ -3,6 +3,7 @@
 // Model used for testing https://huggingface.co/openai-community/gpt2
 
 use clap::Parser;
+use env_logger;
 use serde;
 use serde_json;
 use std::path::PathBuf;
@@ -298,6 +299,7 @@ fn get_config(model_path: &str) -> Config {
 }
 
 pub fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
     let config = get_config(&args.model_path);
 
