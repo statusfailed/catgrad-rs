@@ -1,6 +1,7 @@
 use crate::backend::cpu::eval::Builder;
-use crate::core::{NdArrayType, Operation, PrimitiveType, Shape, Var};
+use crate::core::{Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::operation;
+use std::f32;
 use std::f32::consts::{E, PI};
 
 fn mat_mul_output_type(f: &PrimitiveType, g: &PrimitiveType) -> PrimitiveType {
@@ -183,6 +184,26 @@ pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, name: &s
     linear_b(builder, in_dim, out_dim, false, name, x)
 }
 
+pub fn causal_mask(builder: &Builder, size: usize) -> Var {
+    let t = NdArrayType {
+        shape: Shape(vec![1, size]),
+        dtype: Dtype::F32,
+    };
+
+    let i = arange(builder, t.clone());
+    let i = expand(builder, Shape(vec![size, size]), i);
+
+    let j = arange(builder, t.clone());
+    let j = reshape(builder, Shape(vec![size, 1]), j);
+    let j = expand(builder, Shape(vec![size, size]), j);
+
+    let mask = lt(builder, j.clone(), i.clone());
+
+    let ninf = constant(builder, mask.label.clone(), f32::MIN);
+
+    mask * ninf
+}
+
 pub fn sigmoid(builder: &Builder, x: Var) -> Var {
     let one = constant(builder, x.label.clone(), 1.0);
 
@@ -279,8 +300,8 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 #[cfg(test)]
 mod test {
     use super::{
-        arange, expand, gelu, layernorm_raw, linear, linear_no_bias, lt, mat_mul, reshape,
-        rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
+        arange, causal_mask, expand, gelu, layernorm_raw, linear, linear_no_bias, lt, mat_mul,
+        reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
     };
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
@@ -597,6 +618,25 @@ mod test {
         assert_eq!(tri.shape(), Shape(vec![3, 3]));
         assert_eq!(tri.strides(), vec![3, 1]);
         assert_eq!(tri.data(), &[1., 0., 0., 1., 1., 0., 1., 1., 1.]);
+    }
+
+    #[test]
+    fn test_causal_mask() {
+        let mut state = EvalState::build(|builder| {
+            let mask = causal_mask(builder, 3);
+
+            (vec![], vec![mask])
+        });
+
+        let [mask] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(mask.shape(), Shape(vec![3, 3]));
+        assert_eq!(
+            mask.data(),
+            &[0., f32::MIN, f32::MIN, 0., 0., f32::MIN, 0., 0., 0.]
+        );
     }
 
     #[test]
