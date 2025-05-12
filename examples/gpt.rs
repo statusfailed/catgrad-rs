@@ -211,10 +211,20 @@ impl Model {
                 let v_name = attn_key.replace("c_attn", "value");
 
                 let m = shape.size() / shape.0[l];
+
                 // Split the tensor data
-                let q_data = array.data[0..(m * dim)].to_vec();
-                let k_data = array.data[(m * dim)..(m * 2 * dim)].to_vec();
-                let v_data = array.data[(m * 2 * dim)..].to_vec();
+                let mut q_data: Vec<f32> = Vec::with_capacity(m * dim);
+                let mut k_data: Vec<f32> = Vec::with_capacity(m * dim);
+                let mut v_data: Vec<f32> = Vec::with_capacity(m * dim);
+                for (i, c) in array.data.chunks_exact(dim).enumerate() {
+                    if i % 3 == 0 {
+                        q_data.extend_from_slice(c);
+                    } else if i % 3 == 1 {
+                        k_data.extend_from_slice(c);
+                    } else {
+                        v_data.extend_from_slice(c);
+                    }
+                }
 
                 shape.0[l] = dim;
 
