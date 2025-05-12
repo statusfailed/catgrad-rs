@@ -3,6 +3,7 @@
 // Model used for testing https://huggingface.co/openai-community/gpt2
 
 use clap::Parser;
+use env_logger;
 use serde;
 use serde_json;
 use std::path::PathBuf;
@@ -16,8 +17,8 @@ use catgrad::{
     core::{
         nn::{
             layers::{
-                arange, constant, embedding, expand, gelu, layernorm, mat_mul, parameter, reshape,
-                softmax, transpose,
+                arange, causal_mask, constant, embedding, expand, gelu, layernorm, linear_no_bias,
+                mat_mul, parameter, reshape, softmax, transpose,
             },
             utils::read_safetensors,
         },
@@ -139,7 +140,11 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let attn = mat_mul(builder, q.clone(), tk);
     let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
-    // TODO: apply causal mask
+
+    let mask = causal_mask(builder, s);
+    let mask = expand(builder, Shape(vec![b, num_heads, s, s]), mask);
+    let attn = attn + mask;
+
     let attn = softmax(builder, attn);
     let attn = mat_mul(builder, attn, v);
 
@@ -181,7 +186,9 @@ impl Model {
                 result,
             );
 
-            (vec![x], vec![result])
+            // GPT-2 uses weight tying so lm_head is the same as wte
+            let lm_head = linear_no_bias(&builder, config.n_embd, config.vocab_size, "wte", result);
+            (vec![x], vec![lm_head])
         });
 
         Self { state }
@@ -211,10 +218,20 @@ impl Model {
                 let v_name = attn_key.replace("c_attn", "value");
 
                 let m = shape.size() / shape.0[l];
+
                 // Split the tensor data
-                let q_data = array.data[0..(m * dim)].to_vec();
-                let k_data = array.data[(m * dim)..(m * 2 * dim)].to_vec();
-                let v_data = array.data[(m * 2 * dim)..].to_vec();
+                let mut q_data: Vec<f32> = Vec::with_capacity(m * dim);
+                let mut k_data: Vec<f32> = Vec::with_capacity(m * dim);
+                let mut v_data: Vec<f32> = Vec::with_capacity(m * dim);
+                for (i, c) in array.data.chunks_exact(dim).enumerate() {
+                    if i % 3 == 0 {
+                        q_data.extend_from_slice(c);
+                    } else if i % 3 == 1 {
+                        k_data.extend_from_slice(c);
+                    } else {
+                        v_data.extend_from_slice(c);
+                    }
+                }
 
                 shape.0[l] = dim;
 
@@ -282,6 +299,7 @@ fn get_config(model_path: &str) -> Config {
 }
 
 pub fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
     let config = get_config(&args.model_path);
 
@@ -314,6 +332,11 @@ pub fn main() -> Result<()> {
     let mut model = Model::build(batches, tokens, &config);
     println!("Model graph built...");
     let result = model.run(&input, &args.model_path);
-    println!("Result: {:?}", result);
+    println!("Result shape: {:?}", result.shape());
+    // Print just the first values for each token for debugging purposes
+    let v = config.vocab_size;
+    for t in 0..tokens {
+        println!("Token {t}: {:?}", &result.data()[t * v..t * v + 10]);
+    }
     Ok(())
 }
