@@ -181,11 +181,11 @@ impl Model {
         Self { state }
     }
 
-    pub fn run(&self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
-        let mut state = self.state.clone();
+    pub fn run(&mut self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
         let tensors = read_safetensors(model_path);
-        state.set_parameters(tensors);
-        let [result] = state.eval_with(vec![x.clone().into()])[..] else {
+        println!("Model weights loaded...");
+        self.state.set_parameters(tensors);
+        let [result] = self.state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };
 
@@ -257,8 +257,8 @@ pub fn main() -> Result<()> {
     }
 
     println!("Input tokens {:?}", &input);
-    let model = Model::build(batches, tokens, &config);
-    println!("Model built...");
+    let mut model = Model::build(batches, tokens, &config);
+    println!("Model graph built...");
     let result = model.run(&input, &args.model_path);
     println!("Result: {:?}", result);
     Ok(())
