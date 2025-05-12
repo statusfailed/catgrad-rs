@@ -16,8 +16,8 @@ use catgrad::{
     core::{
         nn::{
             layers::{
-                arange, constant, embedding, expand, gelu, layernorm, mat_mul, parameter, reshape,
-                softmax, transpose,
+                arange, causal_mask, constant, embedding, expand, gelu, layernorm, linear_no_bias,
+                mat_mul, parameter, reshape, softmax, transpose,
             },
             utils::read_safetensors,
         },
@@ -139,7 +139,11 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let attn = mat_mul(builder, q.clone(), tk);
     let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
-    // TODO: apply causal mask
+
+    let mask = causal_mask(builder, s);
+    let mask = expand(builder, Shape(vec![b, num_heads, s, s]), mask);
+    let attn = attn + mask;
+
     let attn = softmax(builder, attn);
     let attn = mat_mul(builder, attn, v);
 
