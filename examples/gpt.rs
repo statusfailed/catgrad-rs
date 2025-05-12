@@ -185,7 +185,9 @@ impl Model {
                 result,
             );
 
-            (vec![x], vec![result])
+            // GPT-2 uses weight tying so lm_head is the same as wte
+            let lm_head = linear_no_bias(&builder, config.n_embd, config.vocab_size, "wte", result);
+            (vec![x], vec![lm_head])
         });
 
         Self { state }
@@ -328,6 +330,11 @@ pub fn main() -> Result<()> {
     let mut model = Model::build(batches, tokens, &config);
     println!("Model graph built...");
     let result = model.run(&input, &args.model_path);
-    println!("Result: {:?}", result);
+    println!("Result shape: {:?}", result.shape());
+    // Print just the first values for each token for debugging purposes
+    let v = config.vocab_size;
+    for t in 0..tokens {
+        println!("Token {t}: {:?}", &result.data()[t * v..t * v + 10]);
+    }
     Ok(())
 }
