@@ -255,43 +255,40 @@ pub trait UnaryOp<T: Numeric> {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>);
 }
 
+fn unaryop_iterator<T: Numeric, F>(a: &NdArray<T>, b: &mut NdArray<T>, op: F)
+where
+    F: Fn(T) -> T,
+{
+    for i in 0..a.data.len() {
+        b.data[i] = op(a.data[i]);
+    }
+}
+
 pub struct NegOp;
 impl<T: Numeric> UnaryOp<T> for NegOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            b.data[i] = -a.data[i];
-        }
+        unaryop_iterator(a, b, |x| -x);
     }
 }
 
 pub struct NotOp;
 impl<T: Numeric> UnaryOp<T> for NotOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            b.data[i] = if a.data[i] == T::zero() {
-                T::one()
-            } else {
-                T::zero()
-            }
-        }
+        unaryop_iterator(a, b, |x| if x == T::zero() { T::one() } else { T::zero() });
     }
 }
 
 pub struct SinOp;
 impl UnaryOp<f32> for SinOp {
     fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
-        for i in 0..a.data.len() {
-            b.data[i] = f32::sin(a.data[i]);
-        }
+        unaryop_iterator(a, b, f32::sin);
     }
 }
 
 pub struct CosOp;
 impl UnaryOp<f32> for CosOp {
     fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
-        for i in 0..a.data.len() {
-            b.data[i] = f32::cos(a.data[i]);
-        }
+        unaryop_iterator(a, b, f32::cos);
     }
 }
 
