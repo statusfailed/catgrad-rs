@@ -315,7 +315,7 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             b.shape.size(),
             "ReshapeOp: input shape must be compatible with target shape"
         );
-        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        b.data.clone_from(&a.data);
     }
 }
 
@@ -391,7 +391,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
         }
 
         log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
-        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        b.data.clone_from(&a.data); //TODO: reuse vec instead of copy
         log::debug!("A len: {:?} B len: {:?}", a.data.len(), b.data.len())
     }
 }
@@ -423,9 +423,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
         b.strides = new_strides;
 
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
-        // Copy the data - we won't actually move anything in memory,
-        // just change how we index into it
-        b.data = a.data.clone();
+        b.data.clone_from(&a.data);
     }
 }
 
