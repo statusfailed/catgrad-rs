@@ -345,7 +345,7 @@ impl EvalState {
         self.term.t.table.0.iter().map(|i| &self.data[*i]).collect()
     }
 
-    pub fn build<F>(f: F) -> EvalState
+    pub fn build_lax<F>(f: F) -> Term
     where
         F: Fn(&Builder) -> (Vec<Var>, Vec<Var>),
     {
@@ -355,8 +355,15 @@ impl EvalState {
             state.borrow_mut().sources = s.iter().map(|x| x.new_source()).collect();
             state.borrow_mut().targets = t.iter().map(|x| x.new_target()).collect();
         }
-        let f = Rc::try_unwrap(state).unwrap().into_inner();
-        EvalState::from_lax(f)
+        Rc::try_unwrap(state).unwrap().into_inner()
+    }
+
+    pub fn build<F>(f: F) -> EvalState
+    where
+        F: Fn(&Builder) -> (Vec<Var>, Vec<Var>),
+    {
+        let term = EvalState::build_lax(f);
+        EvalState::from_lax(term)
     }
 }
 
