@@ -1,4 +1,4 @@
-// Example Llama2/3 model inference
+// Example OLMO-2 model inference
 
 use clap::Parser;
 use env_logger;
@@ -33,7 +33,6 @@ fn show(name: &str, var: &Var) {
 pub struct Config {
     pub hidden_size: usize,
     pub intermediate_size: usize,
-    pub vocab_size: usize,
     pub num_hidden_layers: usize,
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
@@ -41,6 +40,7 @@ pub struct Config {
     pub rope_theta: f32,
     pub max_position_embeddings: usize,
     pub tie_word_embeddings: bool,
+    pub vocab_size: usize,
 }
 
 #[derive(Debug)]
@@ -82,6 +82,9 @@ impl Model {
             x.clone(),
         );
 
+        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
+        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
+
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
         let v = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), v);
@@ -90,8 +93,9 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let k = expand(builder, Shape(vec![b, num_heads, s, head_dim]), k);
-        let v = expand(builder, Shape(vec![b, num_heads, s, head_dim]), v);
+        // Repeat KV
+        // let k = expand(builder, Shape(vec![b, num_heads, s, head_dim]), k);
+        // let v = expand(builder, Shape(vec![b, num_heads, s, head_dim]), v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q.clone(), tk);
@@ -138,22 +142,23 @@ impl Model {
 
     pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let res = x.clone();
-        let x = rmsnorm(
-            &builder,
-            config.rms_norm_eps,
-            &format!("{name}.input_layernorm"),
-            x,
-        );
         let x = Model::attention(builder, config, &format!("{name}.self_attn"), x);
-        let x = res + x;
-        let res = x.clone();
         let x = rmsnorm(
             &builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,
         );
+        let x = res + x;
+
+        let res = x.clone();
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+        let x = rmsnorm(
+            &builder,
+            config.rms_norm_eps,
+            &format!("{name}.post_feedforward_layernorm"),
+            x,
+        );
         x + res
     }
 
@@ -179,8 +184,15 @@ impl Model {
                 &format!("model.norm"),
                 result,
             );
+            let lm_head = linear_no_bias(
+                &builder,
+                config.hidden_size,
+                config.vocab_size,
+                "lm_head",
+                result,
+            );
 
-            (vec![x], vec![result])
+            (vec![x], vec![lm_head])
         });
 
         Self { state }
@@ -201,7 +213,7 @@ impl Model {
 #[derive(Parser, Debug)]
 struct Args {
     /// Path to the safetensors model file
-    #[arg(short = 'm', long, default_value = "llama3.safetensors")]
+    #[arg(short = 'm', long, default_value = "olmo.safetensors")]
     model_path: String,
 
     /// Number of batches
@@ -253,7 +265,7 @@ pub fn main() -> Result<()> {
 
     let mut input = NdArray::new(iv, Shape(vec![batches, tokens]));
     if let Some(prompt) = args.prompt {
-        let tokenizer = Tokenizer::from_pretrained("meta-llama/Llama-3.2-1B", None)?;
+        let tokenizer = Tokenizer::from_pretrained("allenai/OLMo-2-0425-1B-Instruct", None)?;
         let encoding = tokenizer.encode(prompt, true)?;
         // println!("{:?}", encoding.get_tokens());
 

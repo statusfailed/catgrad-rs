@@ -178,52 +178,47 @@ pub trait BinOp<T: Numeric> {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>);
 }
 
+fn binop_iterator<T: Numeric, F>(a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>, op: F)
+where
+    F: Fn(T, T) -> T,
+{
+    for i in 0..a.data.len() {
+        c.data[i] = op(a.data[i], b.data[i]);
+    }
+}
+
 pub struct AddOp;
 impl<T: Numeric> BinOp<T> for AddOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i] + b.data[i];
-        }
+        binop_iterator(a, b, c, |x, y| x + y);
     }
 }
 
 pub struct SubOp;
 impl<T: Numeric> BinOp<T> for SubOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i] - b.data[i];
-        }
+        binop_iterator(a, b, c, |x, y| x - y);
     }
 }
 
 pub struct MulOp;
 impl<T: Numeric> BinOp<T> for MulOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i] * b.data[i];
-        }
+        binop_iterator(a, b, c, |x, y| x * y);
     }
 }
 
 pub struct DivOp;
 impl<T: Numeric> BinOp<T> for DivOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i] / b.data[i];
-        }
+        binop_iterator(a, b, c, |x, y| x / y);
     }
 }
 
 pub struct LTOp;
 impl<T: Numeric + PartialOrd> BinOp<T> for LTOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            c.data[i] = if a.data[i] < b.data[i] {
-                T::one()
-            } else {
-                T::zero()
-            };
-        }
+        binop_iterator(a, b, c, |x, y| if x < y { T::one() } else { T::zero() });
     }
 }
 
@@ -232,26 +227,20 @@ pub struct PowOp;
 // TODO: Maybe this can be done with less duplication by using num_traits::Pow?
 impl BinOp<i32> for PowOp {
     fn apply(&self, a: &NdArray<i32>, b: &NdArray<i32>, c: &mut NdArray<i32>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i].pow(b.data[i] as u32);
-        }
+        binop_iterator(a, b, c, |x, y| x.pow(y as u32));
     }
 }
 
 use num_traits::Float;
 impl BinOp<half::f16> for PowOp {
     fn apply(&self, a: &NdArray<half::f16>, b: &NdArray<half::f16>, c: &mut NdArray<half::f16>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i].powf(b.data[i]);
-        }
+        binop_iterator(a, b, c, |x, y| x.powf(y));
     }
 }
 
 impl BinOp<f32> for PowOp {
     fn apply(&self, a: &NdArray<f32>, b: &NdArray<f32>, c: &mut NdArray<f32>) {
-        for i in 0..a.data.len() {
-            c.data[i] = a.data[i].powf(b.data[i]);
-        }
+        binop_iterator(a, b, c, |x, y| x.powf(y));
     }
 }
 
@@ -266,43 +255,40 @@ pub trait UnaryOp<T: Numeric> {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>);
 }
 
+fn unaryop_iterator<T: Numeric, F>(a: &NdArray<T>, b: &mut NdArray<T>, op: F)
+where
+    F: Fn(T) -> T,
+{
+    for i in 0..a.data.len() {
+        b.data[i] = op(a.data[i]);
+    }
+}
+
 pub struct NegOp;
 impl<T: Numeric> UnaryOp<T> for NegOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            b.data[i] = -a.data[i];
-        }
+        unaryop_iterator(a, b, |x| -x);
     }
 }
 
 pub struct NotOp;
 impl<T: Numeric> UnaryOp<T> for NotOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
-        for i in 0..a.data.len() {
-            b.data[i] = if a.data[i] == T::zero() {
-                T::one()
-            } else {
-                T::zero()
-            }
-        }
+        unaryop_iterator(a, b, |x| if x == T::zero() { T::one() } else { T::zero() });
     }
 }
 
 pub struct SinOp;
 impl UnaryOp<f32> for SinOp {
     fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
-        for i in 0..a.data.len() {
-            b.data[i] = f32::sin(a.data[i]);
-        }
+        unaryop_iterator(a, b, f32::sin);
     }
 }
 
 pub struct CosOp;
 impl UnaryOp<f32> for CosOp {
     fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
-        for i in 0..a.data.len() {
-            b.data[i] = f32::cos(a.data[i]);
-        }
+        unaryop_iterator(a, b, f32::cos);
     }
 }
 
@@ -315,7 +301,7 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             b.shape.size(),
             "ReshapeOp: input shape must be compatible with target shape"
         );
-        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        b.data.clone_from(&a.data);
     }
 }
 
@@ -391,7 +377,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
         }
 
         log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
-        b.data = a.data.clone(); //TODO: reuse vec instead of copy
+        b.data.clone_from(&a.data); //TODO: reuse vec instead of copy
         log::debug!("A len: {:?} B len: {:?}", a.data.len(), b.data.len())
     }
 }
@@ -423,9 +409,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
         b.strides = new_strides;
 
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
-        // Copy the data - we won't actually move anything in memory,
-        // just change how we index into it
-        b.data = a.data.clone();
+        b.data.clone_from(&a.data);
     }
 }
 
