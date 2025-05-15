@@ -184,6 +184,18 @@ pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, name: &s
     linear_b(builder, in_dim, out_dim, false, name, x)
 }
 
+pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
+    let shape = x.label.shape.0.clone();
+    let b = shape[0];
+    let num_kv_heads = shape[1];
+    let s = shape[2];
+    let head_dim = shape[3];
+
+    let x = reshape(builder, Shape(vec![b, 1, num_kv_heads, s, head_dim]), x);
+    let x = expand(builder, Shape(vec![b, rep, num_kv_heads, s, head_dim]), x);
+    reshape(builder, Shape(vec![b, rep * num_kv_heads, s, head_dim]), x)
+}
+
 pub fn causal_mask(builder: &Builder, size: usize) -> Var {
     let t = NdArrayType {
         shape: Shape(vec![1, size]),
