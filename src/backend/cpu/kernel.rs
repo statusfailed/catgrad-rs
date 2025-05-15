@@ -120,7 +120,10 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
     // Check that batch dimensions are compatible
     for i in 0..batch_dims {
         if f.shape.0[i] != g.shape.0[i] || f.shape.0[i] != h.shape.0[i] {
-            panic!("Batch dimensions must match for all arrays");
+            panic!(
+                "Batch dimension {i} must match for all arrays f: {:?} g: {:?} h: {:?}",
+                f.shape.0, g.shape.0, h.shape.0
+            );
         }
     }
 
