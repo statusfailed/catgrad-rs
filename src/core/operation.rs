@@ -70,6 +70,8 @@ pub enum Operation {
 
     Sin,
     Cos,
+
+    Print(String),
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;

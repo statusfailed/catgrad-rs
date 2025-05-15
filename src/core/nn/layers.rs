@@ -47,6 +47,15 @@ pub fn parameter(builder: &Builder, param_type: NdArrayType, name: String) -> Va
     operation(builder, &[], param_type, op)
 }
 
+pub fn print(builder: &Builder, name: &str, x: &Var) -> Var {
+    let op = Operation::Print(name.to_string());
+    let out_type = NdArrayType {
+        shape: Shape(vec![]),
+        dtype: Dtype::F32,
+    };
+    operation(builder, &[x.clone()], out_type, op)
+}
+
 pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
     let mut shape = indices.label.shape.0.clone();
     shape.push(weights.label.shape.0[1]);

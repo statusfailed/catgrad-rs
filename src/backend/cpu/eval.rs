@@ -240,6 +240,15 @@ impl EvalState {
                 _ => panic!("invalid type"),
             },
 
+            Print(name) => {
+                let s = self.data.get(sources[0]);
+                println!(
+                    "{}: shape: {:?} stride: {:?}",
+                    name,
+                    s.unwrap().shape(),
+                    s.unwrap().strides()
+                );
+            }
             Parameter(name) => {
                 // TODO:
                 // - The matching here is very ugly and incomplete
