@@ -16,7 +16,7 @@ use catgrad::{
         nn::{
             layers::{
                 causal_mask, constant, embedding, expand, linear_no_bias, mat_mul, parameter,
-                reshape, rmsnorm, silu, softmax, transpose,
+                repeat_kv, reshape, rmsnorm, silu, softmax, transpose,
             },
             utils::read_safetensors,
         },
@@ -62,6 +62,7 @@ impl Model {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
+        let rep = num_heads / num_kv_heads;
         let head_dim = config.hidden_size / num_heads;
         let b = x.clone().label.shape.0[0];
         let s = x.clone().label.shape.0[1];
@@ -70,14 +71,14 @@ impl Model {
         let k = linear_no_bias(
             builder,
             dim,
-            dim * num_kv_heads / num_heads,
+            dim / rep,
             &format!("{name}.k_proj"),
             x.clone(),
         );
         let v = linear_no_bias(
             builder,
             dim,
-            dim * num_kv_heads / num_heads,
+            dim / rep,
             &format!("{name}.v_proj"),
             x.clone(),
         );
@@ -90,8 +91,8 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let k = expand(builder, Shape(vec![b, num_heads, s, head_dim]), k);
-        let v = expand(builder, Shape(vec![b, num_heads, s, head_dim]), v);
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q.clone(), tk);

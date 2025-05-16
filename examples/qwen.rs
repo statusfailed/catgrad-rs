@@ -16,7 +16,7 @@ use catgrad::{
         nn::{
             layers::{
                 causal_mask, constant, embedding, expand, linear_no_bias, mat_mul, parameter,
-                reshape, rmsnorm, silu, softmax, transpose,
+                repeat_kv, reshape, rmsnorm, silu, softmax, transpose,
             },
             utils::read_safetensors,
         },
@@ -63,6 +63,7 @@ impl Model {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
+        let rep = num_heads / num_kv_heads;
         let head_dim = config.head_dim;
         let b = x.clone().label.shape.0[0];
         let s = x.clone().label.shape.0[1];
@@ -108,9 +109,8 @@ impl Model {
         // Rope
         // ....
 
-        // Repeat KV
-        // let k = expand(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
-        // let v = expand(builder, Shape(vec![b, num_kv_heads, s, head_dim]), v);
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q.clone(), tk);
