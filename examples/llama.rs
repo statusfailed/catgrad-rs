@@ -4,7 +4,6 @@ use clap::Parser;
 use env_logger;
 use serde;
 use serde_json;
-use std::path::PathBuf;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
 use catgrad::{
@@ -16,9 +15,9 @@ use catgrad::{
         nn::{
             layers::{
                 causal_mask, constant, embedding, expand, linear_no_bias, mat_mul, parameter,
-                repeat_kv, reshape, rmsnorm, silu, softmax, transpose,
+                print, repeat_kv, reshape, rmsnorm, silu, softmax, transpose,
             },
-            utils::read_safetensors,
+            utils::{get_model_files, read_safetensors},
         },
         Dtype, NdArrayType, Shape, Var,
     },
@@ -222,22 +221,14 @@ struct Args {
     prompt: Option<String>,
 }
 
-fn get_config(model_path: &str) -> Config {
-    let mut model_path = PathBuf::from(model_path);
-    if let Ok(link) = model_path.read_link() {
-        model_path = link;
-    }
-
-    let config_dir = model_path.parent().unwrap();
-    let config_path = config_dir.join("config.json");
-    serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap()
-}
-
 pub fn main() -> Result<()> {
     env_logger::init();
 
     let args = Args::parse();
-    let config = get_config(&args.model_path);
+
+    let (config_path, tokenizer_path) = get_model_files(&args.model_path);
+    let tokenizer = Tokenizer::from_file(tokenizer_path)?;
+    let config = serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
 
     let mut batches = args.batches;
     let mut tokens = args.tokens;
@@ -254,7 +245,6 @@ pub fn main() -> Result<()> {
 
     let mut input = NdArray::new(iv, Shape(vec![batches, tokens]));
     if let Some(prompt) = args.prompt {
-        let tokenizer = Tokenizer::from_pretrained("meta-llama/Llama-3.2-1B", None)?;
         let encoding = tokenizer.encode(prompt, true)?;
         // println!("{:?}", encoding.get_tokens());
 
