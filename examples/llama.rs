@@ -180,6 +180,17 @@ impl Model {
                 result,
             );
 
+            // Add lm_head if weight tying is used
+            if config.tie_word_embeddings {
+                result = linear_no_bias(
+                    &builder,
+                    config.hidden_size,
+                    config.vocab_size,
+                    "model.embed_tokens",
+                    result,
+                );
+            }
+            print(builder, "Output:", &result);
             (vec![x], vec![result])
         });
 
