@@ -2,6 +2,8 @@ use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
 use crate::core::Shape;
 use safetensors;
 use std::collections::HashMap;
+use std::path::PathBuf;
+
 // Read tensor data from safetensors file
 pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
     // Load file
@@ -53,4 +55,19 @@ pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
     }
 
     result
+}
+
+// Given a model.safetensors or a symlink to it stored in Huggingface local cache
+// return the paths to its config and tokenizer files.
+pub fn get_model_files(model_path: &str) -> (PathBuf, PathBuf) {
+    let mut model_path = PathBuf::from(model_path);
+    if let Ok(link) = model_path.read_link() {
+        model_path = link;
+    }
+
+    let model_dir = model_path.parent().unwrap();
+    (
+        model_dir.join("config.json"),
+        model_dir.join("tokenizer.json"),
+    )
 }
