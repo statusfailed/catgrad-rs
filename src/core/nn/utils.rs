@@ -71,3 +71,11 @@ pub fn get_model_files(model_path: &str) -> (PathBuf, PathBuf) {
         model_dir.join("tokenizer.json"),
     )
 }
+
+pub fn argmax(v: &[f32]) -> i32 {
+    v.iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(idx, _)| idx)
+        .unwrap() as i32
+}
