@@ -67,6 +67,7 @@ pub enum Operation {
     /// Less than
     /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
     LT,
+    EQ,
 
     Sin,
     Cos,
@@ -251,6 +252,11 @@ impl Operation {
     // Make an OpenHypergraph for the LT operation
     pub fn lt(x: NdArrayType) -> Term {
         Operation::binop(x, Operation::LT)
+    }
+
+    // Make an OpenHypergraph for the EQ operation
+    pub fn eq(x: NdArrayType) -> Term {
+        Operation::binop(x, Operation::EQ)
     }
 
     // Make an OpenHypergraph for a Sum operation
