@@ -230,6 +230,22 @@ pub fn causal_mask(builder: &Builder, size: usize) -> Var {
     mask * ninf
 }
 
+// Make a 2D mask with a single row set to 1 the rest to 0
+// to be used to pad 1D vectors into 2D tensors
+pub fn pad_mask(builder: &Builder, rows: usize, cols: usize) -> Var {
+    let t = NdArrayType {
+        shape: Shape(vec![1, rows]),
+        dtype: Dtype::F32,
+    };
+
+    let a = arange(builder, t.clone());
+    let a = reshape(builder, Shape(vec![rows, 1]), a);
+    let a = expand(builder, Shape(vec![rows, cols]), a);
+
+    let m = constant(builder, a.label.clone(), (rows - 1) as f32);
+    eq(builder, a.clone(), m.clone())
+}
+
 pub fn sigmoid(builder: &Builder, x: Var) -> Var {
     let one = constant(builder, x.label.clone(), 1.0);
 
@@ -326,8 +342,8 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 #[cfg(test)]
 mod test {
     use super::{
-        arange, causal_mask, expand, gelu, layernorm_raw, linear, linear_no_bias, lt, mat_mul,
-        reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
+        arange, causal_mask, constant, expand, gelu, layernorm_raw, linear, linear_no_bias, lt,
+        mat_mul, pad_mask, reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
     };
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
@@ -663,6 +679,34 @@ mod test {
             mask.data(),
             &[0., f32::MIN, f32::MIN, 0., 0., f32::MIN, 0., 0., 0.]
         );
+    }
+
+    #[test]
+    fn test_pad_mask() {
+        let mut state = EvalState::build(|builder| {
+            let mask = pad_mask(builder, 4, 3);
+            let t = NdArrayType {
+                shape: Shape(vec![1, 3]),
+                dtype: Dtype::F32,
+            };
+
+            let x = constant(builder, t, 5.0);
+            let x = expand(builder, Shape(vec![4, 3]), x);
+            let x = x * mask.clone();
+            (vec![], vec![mask, x])
+        });
+
+        let [mask, x] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(mask.shape(), Shape(vec![4, 3]));
+        assert_eq!(
+            mask.data(),
+            &[0., 0., 0., 0., 0., 0., 0., 0., 0., 1., 1., 1.]
+        );
+        assert_eq!(x.shape(), Shape(vec![4, 3]));
+        assert_eq!(x.data(), &[0., 0., 0., 0., 0., 0., 0., 0., 0., 5., 5., 5.]);
     }
 
     #[test]
