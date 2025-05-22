@@ -84,6 +84,7 @@ impl EvalState {
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
                     LT => Box::new(kernel::LTOp),
+                    EQ => Box::new(kernel::EQOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -98,6 +99,7 @@ impl EvalState {
                     Div => Box::new(kernel::DivOp),
                     Pow => Box::new(kernel::PowOp),
                     LT => Box::new(kernel::LTOp),
+                    EQ => Box::new(kernel::EQOp),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -111,6 +113,7 @@ impl EvalState {
                     Mul => Box::new(kernel::MulOp),
                     Div => Box::new(kernel::DivOp),
                     LT => Box::new(kernel::LTOp),
+                    EQ => Box::new(kernel::EQOp),
                     Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
@@ -188,7 +191,7 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT | EQ => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Sum
@@ -240,14 +243,36 @@ impl EvalState {
                 _ => panic!("invalid type"),
             },
 
-            Print(name) => {
-                let s = self.data.get(sources[0]);
-                println!(
-                    "{}: shape: {:?} stride: {:?}",
-                    name,
-                    s.unwrap().shape(),
-                    s.unwrap().strides()
-                );
+            Print(name, verbose) => {
+                let s = self.data.get(sources[0]).unwrap();
+                println!("{}: shape: {:?} stride: {:?}", name, s.shape(), s.strides());
+
+                fn format_slice<T: std::fmt::Debug>(
+                    data: &[T],
+                    start: usize,
+                    end: usize,
+                ) -> String {
+                    (start..end)
+                        .map(|i| format!("{:?}", data[i]))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                }
+
+                if *verbose {
+                    let data = &s.data();
+                    let total = s.data().len();
+                    let max_per_line = 5;
+                    let o = if total <= max_per_line * 2 {
+                        format_slice(data, 0, total)
+                    } else {
+                        format!(
+                            "{}, ..., {}",
+                            format_slice(data, 0, max_per_line),
+                            format_slice(data, total - max_per_line, total)
+                        )
+                    };
+                    println!("{}: {}", name, o);
+                }
             }
             Parameter(name) => {
                 // TODO:

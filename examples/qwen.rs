@@ -238,7 +238,7 @@ struct Args {
     tokens: usize,
 
     /// Value to fill input tensor with
-    #[arg(short = 'f', long, default_value_t = 1)]
+    #[arg(short = 'f', long, default_value_t = 0)]
     fill: usize,
 
     /// Initial prompt
