@@ -243,14 +243,36 @@ impl EvalState {
                 _ => panic!("invalid type"),
             },
 
-            Print(name) => {
-                let s = self.data.get(sources[0]);
-                println!(
-                    "{}: shape: {:?} stride: {:?}",
-                    name,
-                    s.unwrap().shape(),
-                    s.unwrap().strides()
-                );
+            Print(name, verbose) => {
+                let s = self.data.get(sources[0]).unwrap();
+                println!("{}: shape: {:?} stride: {:?}", name, s.shape(), s.strides());
+
+                fn format_slice<T: std::fmt::Debug>(
+                    data: &[T],
+                    start: usize,
+                    end: usize,
+                ) -> String {
+                    (start..end)
+                        .map(|i| format!("{:?}", data[i]))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                }
+
+                if *verbose {
+                    let data = &s.data();
+                    let total = s.data().len();
+                    let max_per_line = 5;
+                    let o = if total <= max_per_line * 2 {
+                        format_slice(data, 0, total)
+                    } else {
+                        format!(
+                            "{}, ..., {}",
+                            format_slice(data, 0, max_per_line),
+                            format_slice(data, total - max_per_line, total)
+                        )
+                    };
+                    println!("{}: {}", name, o);
+                }
             }
             Parameter(name) => {
                 // TODO:

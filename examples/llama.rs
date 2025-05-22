@@ -190,7 +190,7 @@ impl Model {
                     result,
                 );
             }
-            print(builder, "Output:", &result);
+            print(builder, "Output:", true, &result);
             (vec![x], vec![result])
         });
 
