@@ -1,4 +1,5 @@
 use crate::backend::cpu::eval::Builder;
+use crate::backend::cpu::ndarray::NdArray;
 use crate::core::{Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::operation;
 use std::f32;
@@ -339,17 +340,74 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
     ex / bsum
 }
 
+pub fn generate_rope_tables(
+    max_position_embeddings: usize,
+    head_dim: usize,
+    rope_theta: f32,
+) -> (Vec<f32>, NdArray<f32>, NdArray<f32>) {
+    let half_dim = head_dim / 2;
+    let mut inv_freq = Vec::with_capacity(half_dim);
+    for i in 0..half_dim {
+        inv_freq.push(1.0 / rope_theta.powf(2.0 * i as f32 / head_dim as f32));
+    }
+
+    let mut cos_table = Vec::with_capacity(max_position_embeddings * head_dim);
+    let mut sin_table = Vec::with_capacity(max_position_embeddings * head_dim);
+
+    for pos in 0..max_position_embeddings {
+        for freq in inv_freq.iter().take(half_dim) {
+            let angle = pos as f32 * freq;
+            let cos_val = angle.cos();
+            let sin_val = angle.sin();
+
+            // Store cos(angle) and sin(angle) for dim 2*i and 2*i+1
+            cos_table.push(cos_val);
+            cos_table.push(cos_val); // Repeat cos value for the pair
+            sin_table.push(sin_val);
+            sin_table.push(sin_val); // Repeat sin value for the pair
+        }
+    }
+
+    let shape = Shape(vec![max_position_embeddings, head_dim]);
+    let cos_arr = NdArray::new(cos_table, shape.clone());
+    let sin_arr = NdArray::new(sin_table, shape);
+
+    (inv_freq, cos_arr, sin_arr)
+}
+
 #[cfg(test)]
 mod test {
     use super::{
-        arange, causal_mask, constant, expand, gelu, layernorm_raw, linear, linear_no_bias, lt,
-        mat_mul, pad_mask, reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh, Builder,
+        arange, causal_mask, constant, expand, gelu, generate_rope_tables, layernorm_raw, linear,
+        linear_no_bias, lt, mat_mul, pad_mask, reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh,
+        Builder,
     };
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use crate::core::{Dtype, NdArrayType, Shape, Var};
     use std::collections::HashMap;
     use test_log::test;
+
+    #[test]
+    fn test_rope_tables() {
+        let (inv_freq, freqs_cos, freqs_sin) = generate_rope_tables(5, 16, 100.0);
+        assert_eq!(inv_freq.len(), 8);
+        assert_eq!(
+            inv_freq,
+            vec![
+                1.00000000,
+                0.56234133,
+                0.31622776,
+                0.17782794,
+                0.10000000,
+                0.05623413,
+                0.03162278,
+                0.017782794
+            ]
+        );
+        assert_eq!(freqs_cos.shape, Shape(vec![5, 16]));
+        assert_eq!(freqs_sin.shape, Shape(vec![5, 16]));
+    }
 
     fn test_activation<F>(x: &[f32], exp: &[f32], act: F)
     where
