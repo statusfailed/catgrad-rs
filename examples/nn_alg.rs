@@ -1,7 +1,7 @@
 // Example NN model inference
 // Terms built using the algebraic API
 
-use open_hypergraphs::prelude::Arrow;
+use open_hypergraphs::strict::Arrow;
 
 use catgrad::{
     backend::cpu::{

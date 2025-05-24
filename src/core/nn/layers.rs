@@ -1,7 +1,7 @@
 use crate::backend::cpu::eval::Builder;
 use crate::backend::cpu::ndarray::NdArray;
 use crate::core::{Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
-use open_hypergraphs::lax::var::operation;
+use open_hypergraphs::lax::var::fn_operation as operation;
 use std::f32;
 use std::f32::consts::{E, PI};
 

@@ -1,4 +1,4 @@
-use open_hypergraphs::prelude::*;
+use open_hypergraphs::strict::*;
 
 use super::object::*;
 
@@ -76,7 +76,7 @@ pub enum Operation {
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
-pub type StrictTerm = OpenHypergraph<PrimitiveType, Operation>;
+pub type StrictTerm = open_hypergraphs::strict::vec::OpenHypergraph<PrimitiveType, Operation>;
 
 impl Operation {
     // Make an OpenHypergraph from an operation, sources and targets
