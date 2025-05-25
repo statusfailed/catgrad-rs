@@ -11,8 +11,8 @@ use TaggedNdArray::*;
 use log;
 
 // TODO: this convenience method should live in open_hypergraphs
-use open_hypergraphs::layer::*;
-use open_hypergraphs::prelude::*;
+use open_hypergraphs::strict::layer::*;
+use open_hypergraphs::strict::*;
 fn layered_operations(f: &StrictTerm) -> Vec<Vec<usize>> {
     let (order, _unvisited) = layer(f);
     // TODO: check not unvisited.any(|x| x == 1).

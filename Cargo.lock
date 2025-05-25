@@ -1048,9 +1048,9 @@ dependencies = [
 
 [[package]]
 name = "open-hypergraphs"
-version = "0.1.6"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb13774208eee29368ff67d3a070e3bc9f5fb7c972410af518ff5fefd0d93316"
+checksum = "4dbba763aab8e8a40084afca1379259bcc0c3a7d949ba0c34092623194bcad42"
 dependencies = [
  "num-traits",
 ]
