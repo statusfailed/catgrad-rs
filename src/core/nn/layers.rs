@@ -740,6 +740,27 @@ mod test {
     }
 
     #[test]
+    fn test_constant() {
+        let t = NdArrayType {
+            shape: Shape(vec![1, 3]),
+            dtype: Dtype::F32,
+        };
+
+        let mut state = EvalState::build(|builder| {
+            let x = constant(builder, t.clone(), 3.0);
+            let s = x.clone() + x;
+            (vec![], vec![s])
+        });
+
+        let [x] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(x.shape(), Shape(vec![1, 3]));
+        assert_eq!(x.data(), &[6., 6., 6.]);
+    }
+
+    #[test]
     fn test_pad_mask() {
         let mut state = EvalState::build(|builder| {
             let mask = pad_mask(builder, 4, 3);
