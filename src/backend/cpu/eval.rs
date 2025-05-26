@@ -38,6 +38,15 @@ fn allocate(f: &StrictTerm) -> Vec<TaggedNdArray> {
     result
 }
 
+// Like get_disjoint_mut but i and j can be the same.
+fn get_refs_one_mut<T>(data: &mut [T], i: usize, j: usize, k: usize) -> (&T, &T, &mut T) {
+    let a = &data[i] as *const T;
+    let b = &data[j] as *const T;
+    let c = &mut data[k] as *mut T;
+
+    unsafe { (&*a, &*b, &mut *c) }
+}
+
 pub type Builder = Rc<RefCell<Term>>;
 
 /// Evaluator state for a single term.
@@ -75,8 +84,8 @@ impl EvalState {
         let (i, j) = (sources[0], sources[1]);
         let k = targets[0];
 
-        match self.data[..].get_disjoint_mut([i, j, k]) {
-            Ok([F16(a), F16(b), F16(c)]) => {
+        match get_refs_one_mut(&mut self.data, i, j, k) {
+            (F16(a), F16(b), F16(c)) => {
                 let op: Box<dyn kernel::BinOp<f16>> = match operation {
                     Add => Box::new(kernel::AddOp),
                     Sub => Box::new(kernel::SubOp),
@@ -89,9 +98,9 @@ impl EvalState {
                     _ => panic!("invalid operation"),
                 };
 
-                op.apply(&*a, &*b, c);
+                op.apply(a, b, c);
             }
-            Ok([F32(a), F32(b), F32(c)]) => {
+            (F32(a), F32(b), F32(c)) => {
                 let op: Box<dyn kernel::BinOp<f32>> = match operation {
                     Add => Box::new(kernel::AddOp),
                     Sub => Box::new(kernel::SubOp),
@@ -104,9 +113,9 @@ impl EvalState {
                     _ => panic!("invalid operation"),
                 };
 
-                op.apply(&*a, &*b, c);
+                op.apply(a, b, c);
             }
-            Ok([I32(a), I32(b), I32(c)]) => {
+            (I32(a), I32(b), I32(c)) => {
                 let op: Box<dyn kernel::BinOp<i32>> = match operation {
                     Add => Box::new(kernel::AddOp),
                     Sub => Box::new(kernel::SubOp),
@@ -118,7 +127,7 @@ impl EvalState {
                     _ => panic!("invalid operation"),
                 };
 
-                op.apply(&*a, &*b, c);
+                op.apply(a, b, c);
             }
             t => panic!("invalid type: {t:?}"),
         }
