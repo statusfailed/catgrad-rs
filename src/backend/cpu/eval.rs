@@ -419,10 +419,7 @@ mod test {
     #[test]
     fn test_neg() {
         test_unarynop_generic::<f16>(
-            Operation::negate(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F16,
-            }),
+            Operation::negate(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
             vec![1.0, 2.0, 3.0, 4.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
@@ -433,18 +430,12 @@ mod test {
                 .collect(),
         );
         test_unarynop_generic::<f32>(
-            Operation::negate(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::negate(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![1.0, 2.0, 3.0, 4.0],
             vec![-1.0, -2.0, -3.0, -4.0],
         );
         test_unarynop_generic::<i32>(
-            Operation::negate(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::negate(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![1, 2, 3, 4],
             vec![-1, -2, -3, -4],
         );
@@ -453,10 +444,7 @@ mod test {
     #[test]
     fn test_not() {
         test_unarynop_generic::<i32>(
-            Operation::not(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::not(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![1, 0, -1, 2],
             vec![0, 1, 0, 0],
         );
@@ -465,19 +453,13 @@ mod test {
     #[test]
     fn test_sin_cos() {
         test_unarynop_generic::<f32>(
-            Operation::sin(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::sin(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![0., 1., 2., 3.],
             vec![0.0000, 0.8414709, 0.909297, 0.141120],
         );
 
         test_unarynop_generic::<f32>(
-            Operation::cos(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::cos(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![0., 1., 2., 3.],
             vec![1.0000, 0.540302, -0.416147, -0.989993],
         );
@@ -507,10 +489,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_eval_with_argcount() {
-        let f = Operation::add(NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        });
+        let f = Operation::add(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32));
 
         let x = NdArray::new(vec![0.; 4], Shape(vec![2, 2]));
         let mut state = EvalState::from_lax(f);
@@ -522,10 +501,7 @@ mod test {
     #[test]
     fn test_add() {
         test_binop_generic::<f16>(
-            Operation::add(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F16,
-            }),
+            Operation::add(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
             vec![1.0, 2.0, 3.0, 4.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
@@ -541,10 +517,7 @@ mod test {
         );
 
         test_binop_generic::<f32>(
-            Operation::add(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::add(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![1.0, 2.0, 3.0, 4.0],
             vec![10.0, 20.0, 30.0, 40.0],
             vec![11.0, 22.0, 33.0, 44.0],
@@ -552,10 +525,7 @@ mod test {
 
         // Test for I32
         test_binop_generic::<i32>(
-            Operation::add(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::add(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![1, 2, 3, 4],
             vec![10, 20, 30, 40],
             vec![11, 22, 33, 44],
@@ -566,10 +536,7 @@ mod test {
     fn test_sub() {
         // Test subtraction with F32
         test_binop_generic::<f32>(
-            Operation::sub(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::sub(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![10.0, 20.0, 30.0, 40.0],
             vec![1.0, 2.0, 3.0, 4.0],
             vec![9.0, 18.0, 27.0, 36.0],
@@ -577,10 +544,7 @@ mod test {
 
         // Test subtraction with I32
         test_binop_generic::<i32>(
-            Operation::sub(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::sub(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![10, 20, 30, 40],
             vec![1, 2, 3, 4],
             vec![9, 18, 27, 36],
@@ -591,10 +555,7 @@ mod test {
     fn test_mul() {
         // Test multiplication with F32
         test_binop_generic::<f32>(
-            Operation::mul(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::mul(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![2.0, 3.0, 4.0, 5.0],
             vec![10.0, 20.0, 30.0, 40.0],
             vec![20.0, 60.0, 120.0, 200.0],
@@ -602,10 +563,7 @@ mod test {
 
         // Test multiplication with I32
         test_binop_generic::<i32>(
-            Operation::mul(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::mul(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![2, 3, 4, 5],
             vec![10, 20, 30, 40],
             vec![20, 60, 120, 200],
@@ -616,10 +574,7 @@ mod test {
     fn test_div() {
         // Test division with F32
         test_binop_generic::<f32>(
-            Operation::div(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::div(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![2.0, 4.0, 6.0, 8.0],
             vec![2.0, 2.0, 2.0, 2.0],
             vec![1.0, 2.0, 3.0, 4.0],
@@ -627,10 +582,7 @@ mod test {
 
         // Test division with I32
         test_binop_generic::<i32>(
-            Operation::div(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::div(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![2, 4, 6, 8],
             vec![2, 2, 2, 2],
             vec![1, 2, 3, 4],
@@ -641,10 +593,7 @@ mod test {
     fn test_pow() {
         // Test raising to a power with F32
         test_binop_generic::<f32>(
-            Operation::pow(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F32,
-            }),
+            Operation::pow(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32)),
             vec![2.0, 4.0, 6.0, 8.0],
             vec![2.0, 2.0, 2.0, 2.0],
             vec![4.0, 16.0, 36.0, 64.0],
@@ -652,10 +601,7 @@ mod test {
 
         // Test raising to a power with F16
         test_binop_generic::<f16>(
-            Operation::pow(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::F16,
-            }),
+            Operation::pow(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
             vec![2.0, 4.0, 6.0, 8.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
@@ -672,10 +618,7 @@ mod test {
 
         // Test raising to a power with I32
         test_binop_generic::<i32>(
-            Operation::pow(NdArrayType {
-                shape: Shape(vec![2, 2]),
-                dtype: Dtype::I32,
-            }),
+            Operation::pow(NdArrayType::new(Shape(vec![2, 2]), Dtype::I32)),
             vec![2, 4, 6, 8],
             vec![2, 2, 2, 2],
             vec![4, 16, 36, 64],
@@ -685,19 +628,13 @@ mod test {
     #[test]
     fn test_less_than() {
         test_binop_generic::<i32>(
-            Operation::lt(NdArrayType {
-                shape: Shape(vec![2, 3]),
-                dtype: Dtype::I32,
-            }),
+            Operation::lt(NdArrayType::new(Shape(vec![2, 3]), Dtype::I32)),
             vec![1, 2, 3, 4, 5, -6],
             vec![1, 0, 4, -1, 5, 6],
             vec![0, 0, 1, 0, 0, 1],
         );
         test_binop_generic::<f32>(
-            Operation::lt(NdArrayType {
-                shape: Shape(vec![2, 3]),
-                dtype: Dtype::F32,
-            }),
+            Operation::lt(NdArrayType::new(Shape(vec![2, 3]), Dtype::F32)),
             vec![1., 2., 3., 4., 5., -6.],
             vec![1., 0., 4., -1., 5., 6.],
             vec![0., 0., 1., 0., 0., 1.],
@@ -761,13 +698,7 @@ mod test {
 
     #[test]
     fn test_const() {
-        let f = Operation::constop(
-            NdArrayType {
-                shape: Shape(vec![4, 3]),
-                dtype: Dtype::F32,
-            },
-            2.3,
-        );
+        let f = Operation::constop(NdArrayType::new(Shape(vec![4, 3]), Dtype::F32), 2.3);
 
         let expected = NdArray::new(vec![2.3; 12], Shape(vec![4, 3]));
 
@@ -782,10 +713,7 @@ mod test {
 
     #[test]
     fn test_const_add() {
-        let typ = NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        };
+        let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
         let const_a = Operation::constop(typ.clone(), 1.0);
         let const_b = Operation::constop(typ.clone(), 2.0);
@@ -805,18 +733,12 @@ mod test {
 
     #[test]
     fn test_parameter() {
-        let typ = NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        };
+        let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
         let param_a = Operation::parameter(typ.clone(), "param_a");
         let param_b = Operation::parameter(typ.clone(), "param_b");
 
-        let add = Operation::add(NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        });
+        let add = Operation::add(typ.clone());
 
         let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
         let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));
@@ -841,10 +763,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_missing_parameter() {
-        let typ = NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F16,
-        };
+        let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
         let param_a = Operation::parameter(typ.clone(), "param_a");
 
@@ -858,10 +777,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_missing_parameters() {
-        let typ = NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        };
+        let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
         let param_a = Operation::parameter(typ.clone(), "param_a");
 
@@ -873,10 +789,7 @@ mod test {
     #[test]
     fn test_reshape() {
         let f = Operation::reshape(
-            NdArrayType {
-                shape: Shape(vec![4, 3]),
-                dtype: Dtype::I32,
-            },
+            NdArrayType::new(Shape(vec![4, 3]), Dtype::I32),
             Shape(vec![2, 6]),
         );
 
@@ -897,10 +810,7 @@ mod test {
     #[should_panic]
     fn test_reshape_invalid_shape() {
         let f = Operation::reshape(
-            NdArrayType {
-                shape: Shape(vec![4, 3]),
-                dtype: Dtype::I32,
-            },
+            NdArrayType::new(Shape(vec![4, 3]), Dtype::I32),
             Shape(vec![2, 4]),
         );
 
@@ -914,10 +824,7 @@ mod test {
     #[test]
     fn test_broadcast_left() {
         let f = Operation::broadcast(
-            NdArrayType {
-                shape: Shape(vec![2, 3]),
-                dtype: Dtype::I32,
-            },
+            NdArrayType::new(Shape(vec![2, 3]), Dtype::I32),
             Shape(vec![2, 1, 2, 3]),
         );
 
@@ -946,10 +853,7 @@ mod test {
     #[test]
     fn test_broadcast_right() {
         let f = Operation::broadcast(
-            NdArrayType {
-                shape: Shape(vec![4, 1]),
-                dtype: Dtype::I32,
-            },
+            NdArrayType::new(Shape(vec![4, 1]), Dtype::I32),
             Shape(vec![4, 3]),
         );
 
@@ -976,14 +880,7 @@ mod test {
     }
     #[test]
     fn test_transpose() {
-        let f = Operation::transpose(
-            NdArrayType {
-                shape: Shape(vec![2, 3]),
-                dtype: Dtype::F32,
-            },
-            0,
-            1,
-        );
+        let f = Operation::transpose(NdArrayType::new(Shape(vec![2, 3]), Dtype::F32), 0, 1);
 
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
@@ -1009,14 +906,7 @@ mod test {
     #[test]
     #[should_panic]
     fn test_transpose_invalid_dim() {
-        let f = Operation::transpose(
-            NdArrayType {
-                shape: Shape(vec![2, 3]),
-                dtype: Dtype::F32,
-            },
-            0,
-            2,
-        );
+        let f = Operation::transpose(NdArrayType::new(Shape(vec![2, 3]), Dtype::F32), 0, 2);
 
         // Create a 2x3 matrix
         let input = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
@@ -1027,10 +917,7 @@ mod test {
 
     #[test]
     fn test_copy_from() {
-        let f = Operation::copy(NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        });
+        let f = Operation::copy(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32));
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
@@ -1048,10 +935,7 @@ mod test {
 
     #[test]
     fn test_max() {
-        let f = Operation::max(NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        });
+        let f = Operation::max(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32));
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
@@ -1068,10 +952,7 @@ mod test {
 
     #[test]
     fn test_sum() {
-        let f = Operation::sum(NdArrayType {
-            shape: Shape(vec![2, 3]),
-            dtype: Dtype::F32,
-        });
+        let f = Operation::sum(NdArrayType::new(Shape(vec![2, 3]), Dtype::F32));
 
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], Shape(vec![2, 3]));
 
@@ -1089,10 +970,7 @@ mod test {
     // Var interface test
     #[test]
     fn test_var_add() {
-        let typ = NdArrayType {
-            shape: Shape(vec![2, 2]),
-            dtype: Dtype::F32,
-        };
+        let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let a = Var::new(builder.clone(), typ.clone());
