@@ -165,7 +165,7 @@ impl Model {
     pub fn run(&self, x: &NdArray<f32>) -> TaggedNdArray {
         let mut state = EvalState::from_lax(self.term.clone());
         let tensors = read_safetensors("model.safetensors");
-        state.set_parameters(tensors);
+        state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };

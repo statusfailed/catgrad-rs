@@ -347,6 +347,7 @@ mod test {
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use crate::core::{Dtype, NdArrayType, Shape, Var};
     use std::collections::HashMap;
+    use std::rc::Rc;
     use test_log::test;
 
     #[test]
@@ -484,7 +485,7 @@ mod test {
         parameters.insert("l.weight".to_string(), w.into());
         parameters.insert("l.bias".to_string(), b.into());
 
-        state.set_parameters(parameters);
+        state.set_parameters(Rc::new(parameters));
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -513,7 +514,7 @@ mod test {
         let mut parameters = HashMap::new();
         parameters.insert("l.weight".to_string(), w.into());
 
-        state.set_parameters(parameters);
+        state.set_parameters(Rc::new(parameters));
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")
@@ -546,7 +547,7 @@ mod test {
         parameters.insert("l.weight".to_string(), w.into());
         parameters.insert("l.bias".to_string(), b.into());
 
-        state.set_parameters(parameters);
+        state.set_parameters(Rc::new(parameters));
 
         let [actual] = state.eval_with(vec![x.into()])[..] else {
             panic!("unexpected coarity at eval time")

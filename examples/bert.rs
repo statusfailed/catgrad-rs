@@ -184,7 +184,7 @@ impl Model {
     pub fn run(&mut self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
         let tensors = read_safetensors(model_path);
         println!("Model weights loaded...");
-        self.state.set_parameters(tensors);
+        self.state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = self.state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };

@@ -54,7 +54,7 @@ pub type Builder = Rc<RefCell<Term>>;
 pub struct EvalState {
     term: StrictTerm,
     data: Vec<TaggedNdArray>,
-    parameters: Option<HashMap<String, TaggedNdArray>>,
+    parameters: Option<Rc<HashMap<String, TaggedNdArray>>>,
 }
 
 impl EvalState {
@@ -71,7 +71,7 @@ impl EvalState {
         EvalState::new(f.to_open_hypergraph())
     }
 
-    pub fn set_parameters(&mut self, parameters: HashMap<String, TaggedNdArray>) {
+    pub fn set_parameters(&mut self, parameters: Rc<HashMap<String, TaggedNdArray>>) {
         self.parameters = Some(parameters);
     }
 
@@ -269,7 +269,7 @@ impl EvalState {
 
                 if *verbose {
                     let data = &s.data();
-                    let total = s.data().len();
+                    let total = data.len();
                     let max_per_line = 5;
                     let o = if total <= max_per_line * 2 {
                         format_slice(data, 0, total)
@@ -280,7 +280,7 @@ impl EvalState {
                             format_slice(data, total - max_per_line, total)
                         )
                     };
-                    println!("{}: {}", name, o);
+                    println!("{}", o);
                 }
             }
             Parameter(name) => {
@@ -760,7 +760,7 @@ mod test {
 
         let f = (&(&param_a | &param_b) >> &add).unwrap();
         let mut state = EvalState::from_lax(f);
-        state.set_parameters(parameters);
+        state.set_parameters(Rc::new(parameters));
 
         let [actual] = state.eval()[..] else {
             panic!("unexpected coarity at eval time")
@@ -778,7 +778,7 @@ mod test {
 
         let mut state = EvalState::from_lax(param_a);
         let parameters = HashMap::new();
-        state.set_parameters(parameters);
+        state.set_parameters(Rc::new(parameters));
 
         state.eval();
     }
