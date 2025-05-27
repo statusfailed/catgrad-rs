@@ -13,10 +13,7 @@ fn mat_mul_output_type(f: &PrimitiveType, g: &PrimitiveType) -> PrimitiveType {
 
     let mut shape = f.shape.0[..n - 1].to_vec();
     shape.push(g.shape.0[m - 1]);
-    NdArrayType {
-        shape: Shape(shape),
-        dtype: f.dtype,
-    }
+    NdArrayType::new(Shape(shape), f.dtype)
 }
 
 /// Batch matrix multiply two batches of matrices
@@ -50,20 +47,14 @@ pub fn parameter(builder: &Builder, param_type: NdArrayType, name: String) -> Va
 
 pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
     let op = Operation::Print(name.to_string(), verbose);
-    let out_type = NdArrayType {
-        shape: Shape(vec![]),
-        dtype: Dtype::F32,
-    };
+    let out_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
     operation(builder, &[x.clone()], out_type, op);
 }
 
 pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
     let mut shape = indices.label.shape.0.clone();
     shape.push(weights.label.shape.0[1]);
-    let out_type = NdArrayType {
-        shape: Shape(shape),
-        dtype: weights.label.dtype,
-    };
+    let out_type = NdArrayType::new(Shape(shape), weights.label.dtype);
     let op = Operation::Embedding;
     operation(builder, &[indices, weights], out_type, op)
 }
@@ -89,19 +80,13 @@ pub fn arange(builder: &Builder, param_type: NdArrayType) -> Var {
 }
 
 pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
-    let out_t = NdArrayType {
-        shape: shape.clone(),
-        dtype: x.label.dtype,
-    };
+    let out_t = NdArrayType::new(shape.clone(), x.label.dtype);
     let op = Operation::Broadcast(shape);
     operation(builder, &[x.clone()], out_t, op)
 }
 
 pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
-    let out_t = NdArrayType {
-        shape,
-        dtype: x.label.dtype,
-    };
+    let out_t = NdArrayType::new(shape, x.label.dtype);
     let op = Operation::Reshape;
     operation(builder, &[x.clone()], out_t, op)
 }
@@ -127,10 +112,7 @@ pub fn reduceop(builder: &Builder, op: Operation, x: Var) -> Var {
     // keep the last dimension, set it to 1
     let mut target_shape = source.shape.0.clone();
     target_shape[source.shape.0.len() - 1] = 1;
-    let target = NdArrayType {
-        shape: Shape(target_shape),
-        dtype: source.dtype,
-    };
+    let target = NdArrayType::new(Shape(target_shape), source.dtype);
     operation(builder, &[x.clone()], target, op)
 }
 
@@ -149,10 +131,7 @@ pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
     let mut new_shape = in_t.shape.0.clone();
     new_shape.swap(dim0, dim1);
 
-    let out_t = NdArrayType {
-        shape: Shape(new_shape),
-        dtype: in_t.dtype,
-    };
+    let out_t = NdArrayType::new(Shape(new_shape), in_t.dtype);
     let op = Operation::Transpose { dim0, dim1 };
     operation(builder, &[x.clone()], out_t, op)
 }
@@ -165,10 +144,7 @@ pub fn linear_b(
     name: &str,
     x: Var,
 ) -> Var {
-    let w_type = NdArrayType {
-        shape: Shape(vec![out_dim, in_dim]),
-        dtype: x.label.dtype,
-    };
+    let w_type = NdArrayType::new(Shape(vec![out_dim, in_dim]), x.label.dtype);
     let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
 
     let mut w_t = transpose(builder, 0, 1, w);
@@ -180,10 +156,7 @@ pub fn linear_b(
 
     let m = mat_mul(builder, x.clone(), w_t);
     if bias {
-        let b_type = NdArrayType {
-            shape: Shape(vec![out_dim]),
-            dtype: x.label.dtype,
-        };
+        let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
         let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
         let bb = expand(builder, m.label.shape.clone(), b);
         return m + bb;
@@ -212,10 +185,7 @@ pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
 }
 
 pub fn causal_mask(builder: &Builder, size: usize) -> Var {
-    let t = NdArrayType {
-        shape: Shape(vec![1, size]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(Shape(vec![1, size]), Dtype::F32);
 
     let i = arange(builder, t.clone());
     let i = expand(builder, Shape(vec![size, size]), i);
@@ -234,10 +204,7 @@ pub fn causal_mask(builder: &Builder, size: usize) -> Var {
 // Make a 2D mask with a single row set to 1 the rest to 0
 // to be used to pad 1D vectors into 2D tensors
 pub fn pad_mask(builder: &Builder, rows: usize, cols: usize) -> Var {
-    let t = NdArrayType {
-        shape: Shape(vec![1, rows]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(Shape(vec![1, rows]), Dtype::F32);
 
     let a = arange(builder, t.clone());
     let a = reshape(builder, Shape(vec![rows, 1]), a);
@@ -293,10 +260,7 @@ fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
 
 pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
-    let t = NdArrayType {
-        shape: Shape(shape),
-        dtype: x.label.dtype,
-    };
+    let t = NdArrayType::new(Shape(shape), x.label.dtype);
     let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
     let beta = parameter(builder, t, format!("{name}.bias"));
     let lr = layernorm_raw(builder, eps, x);
@@ -320,10 +284,7 @@ fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
 // rmsnorm(x) = x / √(E[x²] + ε) × γ
 pub fn rmsnorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
-    let t = NdArrayType {
-        shape: Shape(shape),
-        dtype: x.label.dtype,
-    };
+    let t = NdArrayType::new(Shape(shape), x.label.dtype);
     let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
     let lr = rmsnorm_raw(builder, eps, x);
     let gamma = expand(builder, lr.label.shape.clone(), gamma);
@@ -414,10 +375,7 @@ mod test {
         F: Fn(&Builder, Var) -> Var,
     {
         let shape = Shape(vec![1, x.len()]);
-        let in_type = NdArrayType {
-            shape: shape.clone(),
-            dtype: Dtype::F32,
-        };
+        let in_type = NdArrayType::new(shape.clone(), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -438,10 +396,7 @@ mod test {
         F: Fn(&Builder, f32, Var) -> Var,
     {
         let shape = Shape(vec![1, x.len()]);
-        let in_type = NdArrayType {
-            shape: shape.clone(),
-            dtype: Dtype::F32,
-        };
+        let in_type = NdArrayType::new(shape.clone(), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -509,10 +464,7 @@ mod test {
 
     #[test]
     fn test_linear() {
-        let in_type = NdArrayType {
-            shape: Shape(vec![2, 3]),
-            dtype: Dtype::F32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![2, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -543,10 +495,7 @@ mod test {
 
     #[test]
     fn test_linear_no_bias() {
-        let in_type = NdArrayType {
-            shape: Shape(vec![2, 3]),
-            dtype: Dtype::F32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![2, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -575,10 +524,7 @@ mod test {
 
     #[test]
     fn test_linear_batch() {
-        let in_type = NdArrayType {
-            shape: Shape(vec![2, 2, 3]),
-            dtype: Dtype::F32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![2, 2, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -611,15 +557,8 @@ mod test {
 
     #[test]
     fn test_matmul() {
-        let type_a = NdArrayType {
-            shape: Shape(vec![1, 2]),
-            dtype: Dtype::F32,
-        };
-
-        let type_b = NdArrayType {
-            shape: Shape(vec![2, 3]),
-            dtype: Dtype::F32,
-        };
+        let type_a = NdArrayType::new(Shape(vec![1, 2]), Dtype::F32);
+        let type_b = NdArrayType::new(Shape(vec![2, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let a = Var::new(builder.clone(), type_a.clone());
@@ -648,10 +587,7 @@ mod test {
 
     #[test]
     fn test_arange() {
-        let t = NdArrayType {
-            shape: Shape(vec![1, 6]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let i = arange(&builder, t.clone());
@@ -675,10 +611,7 @@ mod test {
     #[test]
     // Make a lower triangular matrix
     fn test_tril() {
-        let t = NdArrayType {
-            shape: Shape(vec![1, 3]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             // Create [[0, 1, 2],
@@ -743,10 +676,7 @@ mod test {
     fn test_pad_mask() {
         let mut state = EvalState::build(|builder| {
             let mask = pad_mask(builder, 4, 3);
-            let t = NdArrayType {
-                shape: Shape(vec![1, 3]),
-                dtype: Dtype::F32,
-            };
+            let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
 
             let x = constant(builder, t, 5.0);
             let x = expand(builder, Shape(vec![4, 3]), x);
@@ -769,10 +699,7 @@ mod test {
 
     #[test]
     fn test_expand() {
-        let t = NdArrayType {
-            shape: Shape(vec![1, 3]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let i = arange(&builder, t.clone());

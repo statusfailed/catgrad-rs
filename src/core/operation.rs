@@ -90,20 +90,9 @@ impl Operation {
 
     // Make an OpenHypergraph for the MatrixMultiply operation
     pub fn matmul(n: Shape, a: usize, b: usize, c: usize, dtype: Dtype) -> Term {
-        let source0 = NdArrayType {
-            shape: &n + &a + &b,
-            dtype,
-        };
-
-        let source1 = NdArrayType {
-            shape: &n + &b + &c,
-            dtype,
-        };
-
-        let target = NdArrayType {
-            shape: &n + &a + &c,
-            dtype,
-        };
+        let source0 = NdArrayType::new(&n + &a + &b, dtype);
+        let source1 = NdArrayType::new(&n + &b + &c, dtype);
+        let target = NdArrayType::new(&n + &a + &c, dtype);
 
         Operation::term(
             Operation::MatrixMultiply,
@@ -115,10 +104,7 @@ impl Operation {
     // Make an OpenHypergraph for the Broadcast operation
     pub fn broadcast(x: NdArrayType, shape: Shape) -> Term {
         let source = x.clone();
-        let target = NdArrayType {
-            shape: shape.clone(),
-            dtype: x.dtype,
-        };
+        let target = NdArrayType::new(shape.clone(), x.dtype);
         let op = Operation::Broadcast(shape);
         Operation::term(op, vec![source], vec![target])
     }
@@ -139,10 +125,7 @@ impl Operation {
         let mut new_shape = x.shape.0.clone();
         new_shape.swap(dim0, dim1);
 
-        let target = NdArrayType {
-            shape: Shape(new_shape),
-            dtype: x.dtype,
-        };
+        let target = NdArrayType::new(Shape(new_shape), x.dtype);
 
         let op = Operation::Transpose { dim0, dim1 };
         Operation::term(op, vec![source], vec![target])
@@ -158,10 +141,7 @@ impl Operation {
             shape
         );
         let source = x.clone();
-        let target = NdArrayType {
-            shape: shape.clone(),
-            dtype: x.dtype,
-        };
+        let target = NdArrayType::new(shape.clone(), x.dtype);
         let op = Operation::Reshape;
         Operation::term(op, vec![source], vec![target])
     }
@@ -175,10 +155,7 @@ impl Operation {
     // Make an OpenHypergraph for the given operation
     fn reduceop(x: NdArrayType, op: Operation) -> Term {
         let source = x.clone();
-        let target = NdArrayType {
-            shape: Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()),
-            dtype: x.dtype,
-        };
+        let target = NdArrayType::new(Shape(x.shape.0[..x.shape.0.len() - 1].to_vec()), x.dtype);
         Operation::term(op, vec![source], vec![target])
     }
 

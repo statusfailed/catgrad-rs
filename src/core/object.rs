@@ -41,6 +41,10 @@ pub struct NdArrayType {
 }
 
 impl NdArrayType {
+    pub fn new(shape: Shape, dtype: Dtype) -> Self {
+        NdArrayType { shape, dtype }
+    }
+
     pub fn size(&self) -> Nat {
         self.shape.size()
     }
@@ -50,10 +54,10 @@ impl NdArrayType {
             return None;
         }
 
-        Some(NdArrayType {
-            shape: self.shape.concatenate(&other.shape),
-            dtype: self.dtype,
-        })
+        Some(NdArrayType::new(
+            self.shape.concatenate(&other.shape),
+            self.dtype,
+        ))
     }
 }
 
@@ -121,10 +125,7 @@ impl<'a> Add<&'a NdArrayType> for &'a Shape {
     type Output = NdArrayType;
 
     fn add(self, other: &'a NdArrayType) -> Self::Output {
-        NdArrayType {
-            shape: self.concatenate(&other.shape),
-            dtype: other.dtype,
-        }
+        NdArrayType::new(self.concatenate(&other.shape), other.dtype)
     }
 }
 
@@ -133,10 +134,10 @@ impl<'a> Add<&'a NdArrayType> for Shape {
     type Output = NdArrayType;
 
     fn add(self, other: &'a NdArrayType) -> Self::Output {
-        NdArrayType {
-            shape: Shape(self.0.iter().chain(other.shape.0.iter()).cloned().collect()),
-            dtype: other.dtype,
-        }
+        NdArrayType::new(
+            Shape(self.0.iter().chain(other.shape.0.iter()).cloned().collect()),
+            other.dtype,
+        )
     }
 }
 
