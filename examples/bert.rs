@@ -68,25 +68,22 @@ pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
 }
 
 pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
-    let t = NdArrayType {
-        shape: Shape(vec![config.vocab_size, config.hidden_size]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(
+        Shape(vec![config.vocab_size, config.hidden_size]),
+        Dtype::F32,
+    );
     let weights = parameter(builder, t, format!("{name}.word_embeddings.weight"));
     let we = embedding(builder, x.clone(), weights);
 
-    let t = NdArrayType {
-        shape: Shape(vec![config.max_position_embeddings, config.hidden_size]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(
+        Shape(vec![config.max_position_embeddings, config.hidden_size]),
+        Dtype::F32,
+    );
     let pos = arange(&builder, x.label.clone());
     let weights = parameter(builder, t, format!("{name}.position_embeddings.weight"));
     let pe = embedding(builder, pos, weights);
 
-    let t = NdArrayType {
-        shape: Shape(vec![2, config.hidden_size]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(Shape(vec![2, config.hidden_size]), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.token_type_embeddings.weight"));
     let typ = constant(&builder, x.label.clone(), 0.);
     let te = embedding(builder, typ, weights);
@@ -161,10 +158,7 @@ pub fn output(
 
 impl Model {
     pub fn build(batches: usize, tokens: usize, config: &Config) -> Self {
-        let in_type = NdArrayType {
-            shape: Shape(vec![batches, tokens]),
-            dtype: Dtype::I32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -184,7 +178,7 @@ impl Model {
     pub fn run(&mut self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
         let tensors = read_safetensors(model_path);
         println!("Model weights loaded...");
-        self.state.set_parameters(tensors);
+        self.state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = self.state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };

@@ -143,6 +143,7 @@ dependencies = [
  "env_logger",
  "gemm",
  "half",
+ "hf-hub",
  "log",
  "memmap2",
  "num-traits",

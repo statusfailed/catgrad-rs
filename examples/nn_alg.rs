@@ -55,14 +55,8 @@ fn show(name: &str, term: &Term) {
 
 // linear + tanh + linear
 fn mlp_layer(input_features: usize, output_features: usize, dtype: Dtype, name: &str) -> Term {
-    let type_in = NdArrayType {
-        shape: Shape(vec![1, input_features]),
-        dtype,
-    };
-    let type_out = NdArrayType {
-        shape: Shape(vec![1, output_features]),
-        dtype,
-    };
+    let type_in = NdArrayType::new(Shape(vec![1, input_features]), dtype);
+    let type_out = NdArrayType::new(Shape(vec![1, output_features]), dtype);
 
     let copy = Operation::copy(type_in.clone());
     let add = Operation::add(type_in.clone());
@@ -101,25 +95,13 @@ fn linear_layer(
     let batch_size = 1;
 
     // Input
-    let x_type = NdArrayType {
-        shape: Shape(vec![batch_size, input_features]),
-        dtype,
-    };
+    let x_type = NdArrayType::new(Shape(vec![batch_size, input_features]), dtype);
     // Weights
-    let w_type = NdArrayType {
-        shape: Shape(vec![output_features, input_features]),
-        dtype,
-    };
+    let w_type = NdArrayType::new(Shape(vec![output_features, input_features]), dtype);
     // Bias
-    let b_type = NdArrayType {
-        shape: Shape(vec![output_features]),
-        dtype,
-    };
+    let b_type = NdArrayType::new(Shape(vec![output_features]), dtype);
     // Result
-    let out_type = NdArrayType {
-        shape: Shape(vec![batch_size, output_features]),
-        dtype,
-    };
+    let out_type = NdArrayType::new(Shape(vec![batch_size, output_features]), dtype);
 
     let id_x = Operation::identity(vec![x_type.clone()]);
 
@@ -165,7 +147,7 @@ impl Model {
     pub fn run(&self, x: &NdArray<f32>) -> TaggedNdArray {
         let mut state = EvalState::from_lax(self.term.clone());
         let tensors = read_safetensors("model.safetensors");
-        state.set_parameters(tensors);
+        state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };

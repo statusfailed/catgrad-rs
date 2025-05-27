@@ -40,10 +40,7 @@ pub fn layer(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Va
 }
 
 pub fn embeddings(builder: &Builder, size: usize, dim: usize, name: &str, x: Var) -> Var {
-    let t = NdArrayType {
-        shape: Shape(vec![size, dim]),
-        dtype: Dtype::F32,
-    };
+    let t = NdArrayType::new(Shape(vec![size, dim]), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.weight"));
     embedding(builder, x, weights)
 }
@@ -95,10 +92,7 @@ impl Model {
         in_dim: usize,
         out_dim: usize,
     ) -> Self {
-        let in_type = NdArrayType {
-            shape: Shape(vec![batches, tokens]),
-            dtype: Dtype::I32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
@@ -124,7 +118,7 @@ impl Model {
     pub fn run(&self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
         let mut state = self.state.clone();
         let tensors = read_safetensors(model_path);
-        state.set_parameters(tensors);
+        state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = state.eval_with(vec![x.clone().into()])[..] else {
             panic!("unexpected result")
         };
