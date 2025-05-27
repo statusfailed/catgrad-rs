@@ -675,10 +675,7 @@ mod test {
 
     #[test]
     fn test_constant() {
-        let t = NdArrayType {
-            shape: Shape(vec![1, 3]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
             let x = constant(builder, t.clone(), 3.0);

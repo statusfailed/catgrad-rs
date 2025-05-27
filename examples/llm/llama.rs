@@ -9,10 +9,10 @@ pub struct Model;
 
 impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
-        let t = NdArrayType {
-            shape: Shape(vec![config.vocab_size, config.hidden_size]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(
+            Shape(vec![config.vocab_size, config.hidden_size]),
+            Dtype::F32,
+        );
         let weights = parameter(builder, t, format!("model.embed_tokens.weight"));
         embedding(builder, x.clone(), weights)
     }
@@ -120,10 +120,7 @@ impl Model {
 
 impl ModelBuilder for Model {
     fn build(&mut self, batches: usize, tokens: usize, config: &Config) -> EvalState {
-        let in_type = NdArrayType {
-            shape: Shape(vec![batches, tokens]),
-            dtype: Dtype::I32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());

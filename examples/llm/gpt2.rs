@@ -13,15 +13,8 @@ impl Model {
     // The original GPT2 checkpoints use a Conv1D layer instead of linear,
     // equivalent to a linear layer with weights in transposed order
     fn gpt_linear(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
-        let w_type = NdArrayType {
-            shape: Shape(vec![in_dim, out_dim]),
-            dtype: x.label.dtype,
-        };
-        // Bias
-        let b_type = NdArrayType {
-            shape: Shape(vec![out_dim]),
-            dtype: x.label.dtype,
-        };
+        let w_type = NdArrayType::new(Shape(vec![in_dim, out_dim]), x.label.dtype);
+        let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
 
         let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
         let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
@@ -40,17 +33,11 @@ impl Model {
     }
 
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
-        let t = NdArrayType {
-            shape: Shape(vec![config.vocab_size, config.n_embd]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![config.vocab_size, config.n_embd]), Dtype::F32);
         let weights = parameter(builder, t, format!("wte.weight"));
         let we = embedding(builder, x.clone(), weights);
 
-        let t = NdArrayType {
-            shape: Shape(vec![config.n_positions, config.n_embd]),
-            dtype: Dtype::F32,
-        };
+        let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
         let pos = arange(&builder, x.label.clone());
         let weights = parameter(builder, t, format!("wpe.weight"));
         let pe = embedding(builder, pos, weights);
@@ -129,10 +116,7 @@ impl Model {
 
 impl ModelBuilder for Model {
     fn build(&mut self, batches: usize, tokens: usize, config: &Config) -> EvalState {
-        let in_type = NdArrayType {
-            shape: Shape(vec![batches, tokens]),
-            dtype: Dtype::I32,
-        };
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
