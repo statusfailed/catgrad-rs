@@ -66,12 +66,12 @@ pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
 
 pub fn lt(builder: &Builder, a: Var, b: Var) -> Var {
     let op = Operation::LT;
-    operation(builder, &[a.clone(), b.clone()], a.label, op)
+    operation(builder, &[a.clone(), b], a.label, op)
 }
 
 pub fn eq(builder: &Builder, a: Var, b: Var) -> Var {
     let op = Operation::EQ;
-    operation(builder, &[a.clone(), b.clone()], a.label, op)
+    operation(builder, &[a.clone(), b], a.label, op)
 }
 
 pub fn arange(builder: &Builder, param_type: NdArrayType) -> Var {
@@ -82,18 +82,18 @@ pub fn arange(builder: &Builder, param_type: NdArrayType) -> Var {
 pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
     let out_t = NdArrayType::new(shape.clone(), x.label.dtype);
     let op = Operation::Broadcast(shape);
-    operation(builder, &[x.clone()], out_t, op)
+    operation(builder, &[x], out_t, op)
 }
 
 pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
     let out_t = NdArrayType::new(shape, x.label.dtype);
     let op = Operation::Reshape;
-    operation(builder, &[x.clone()], out_t, op)
+    operation(builder, &[x], out_t, op)
 }
 
 pub fn power(builder: &Builder, base: Var, power: Var) -> Var {
     let op = Operation::Pow;
-    operation(builder, &[base.clone(), power.clone()], base.label, op)
+    operation(builder, &[base.clone(), power], base.label, op)
 }
 
 pub fn sqrt(builder: &Builder, x: Var) -> Var {
@@ -113,7 +113,7 @@ pub fn reduceop(builder: &Builder, op: Operation, x: Var) -> Var {
     let mut target_shape = source.shape.0.clone();
     target_shape[source.shape.0.len() - 1] = 1;
     let target = NdArrayType::new(Shape(target_shape), source.dtype);
-    operation(builder, &[x.clone()], target, op)
+    operation(builder, &[x], target, op)
 }
 
 pub fn sum(builder: &Builder, x: Var) -> Var {
@@ -133,7 +133,7 @@ pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
 
     let out_t = NdArrayType::new(Shape(new_shape), in_t.dtype);
     let op = Operation::Transpose { dim0, dim1 };
-    operation(builder, &[x.clone()], out_t, op)
+    operation(builder, &[x], out_t, op)
 }
 
 pub fn linear_b(
@@ -145,7 +145,7 @@ pub fn linear_b(
     x: Var,
 ) -> Var {
     let w_type = NdArrayType::new(Shape(vec![out_dim, in_dim]), x.label.dtype);
-    let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
+    let w = parameter(builder, w_type, format!("{name}.weight"));
 
     let mut w_t = transpose(builder, 0, 1, w);
 
@@ -157,7 +157,7 @@ pub fn linear_b(
     let m = mat_mul(builder, x.clone(), w_t);
     if bias {
         let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
-        let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
+        let b = parameter(builder, b_type, format!("{name}.bias"));
         let bb = expand(builder, m.label.shape.clone(), b);
         return m + bb;
     }
@@ -190,11 +190,11 @@ pub fn causal_mask(builder: &Builder, size: usize) -> Var {
     let i = arange(builder, t.clone());
     let i = expand(builder, Shape(vec![size, size]), i);
 
-    let j = arange(builder, t.clone());
+    let j = arange(builder, t);
     let j = reshape(builder, Shape(vec![size, 1]), j);
     let j = expand(builder, Shape(vec![size, size]), j);
 
-    let mask = lt(builder, j.clone(), i.clone());
+    let mask = lt(builder, j, i);
 
     let ninf = constant(builder, mask.label.clone(), f32::MIN);
 
@@ -206,12 +206,12 @@ pub fn causal_mask(builder: &Builder, size: usize) -> Var {
 pub fn pad_mask(builder: &Builder, rows: usize, cols: usize) -> Var {
     let t = NdArrayType::new(Shape(vec![1, rows]), Dtype::F32);
 
-    let a = arange(builder, t.clone());
+    let a = arange(builder, t);
     let a = reshape(builder, Shape(vec![rows, 1]), a);
     let a = expand(builder, Shape(vec![rows, cols]), a);
 
     let m = constant(builder, a.label.clone(), (rows - 1) as f32);
-    eq(builder, a.clone(), m.clone())
+    eq(builder, a, m)
 }
 
 pub fn sigmoid(builder: &Builder, x: Var) -> Var {
@@ -246,9 +246,9 @@ fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
 
     let s = sum(builder, x.clone());
-    let constn = constant(builder, s.label.clone(), n as f32);
+    let constn = constant(builder, s.label, n as f32);
     let mean = sum(builder, x.clone()) / constn.clone();
-    let nom = x.clone() - expand(builder, x.label.shape.clone(), mean.clone());
+    let nom = x.clone() - expand(builder, x.label.shape.clone(), mean);
 
     let var = sum(builder, nom.clone() * nom.clone()) / constn;
     let epsilon = constant(builder, var.label.clone(), eps);
@@ -272,7 +272,7 @@ pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
 fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
     let s = sum(builder, x.clone() * x.clone());
-    let constn = constant(builder, s.label.clone(), n as f32);
+    let constn = constant(builder, s.label, n as f32);
     let ms = sum(builder, x.clone() * x.clone()) / constn;
     let epsilon = constant(builder, ms.label.clone(), eps);
     let rms = sqrt(builder, ms + epsilon);
@@ -285,7 +285,7 @@ fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
 pub fn rmsnorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
     let t = NdArrayType::new(Shape(shape), x.label.dtype);
-    let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
+    let gamma = parameter(builder, t, format!("{name}.weight"));
     let lr = rmsnorm_raw(builder, eps, x);
     let gamma = expand(builder, lr.label.shape.clone(), gamma);
     lr * gamma
@@ -297,7 +297,7 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
     let x = x - bmax;
     let ex = exp(builder, x.clone());
     let s = sum(builder, ex.clone());
-    let bsum = expand(builder, x.label.shape.clone(), s);
+    let bsum = expand(builder, x.label.shape, s);
     ex / bsum
 }
 

@@ -236,7 +236,7 @@ impl<T> IndexMut<&[usize]> for NdArray<T> {
 impl<T: Clone + Zero> NdArray<T> {
     pub fn from_shape(shape: Shape) -> Self {
         // TODO: don't really need to initialize to zero; is there a better way here? bytemuck?
-        log::debug!("New NdArray {:?} {:?}", shape.clone(), shape.size());
+        log::debug!("New NdArray {:?} {:?}", shape, shape.size());
         NdArray::new(vec![T::zero(); shape.size()], shape)
     }
     pub fn fill(&mut self, value: T) {
