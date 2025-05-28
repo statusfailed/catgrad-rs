@@ -13,20 +13,15 @@ impl ModelBuilder for Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let emb = Model::embeddings(&builder, config, x.clone());
+            let emb = Model::embeddings(builder, config, x.clone());
 
             let mut result = emb;
 
             for i in 0..config.num_hidden_layers {
-                result = Model::layer(&builder, config, &format!("model.layers.{i}"), result);
+                result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
             }
 
-            result = rmsnorm(
-                &builder,
-                config.rms_norm_eps,
-                &format!("model.norm"),
-                result,
-            );
+            result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
             let result = linear_no_bias(
                 builder,
@@ -48,7 +43,7 @@ impl Model {
             Shape(vec![config.vocab_size, config.hidden_size]),
             Dtype::F32,
         );
-        let weights = parameter(builder, t, format!("model.embed_tokens.weight"));
+        let weights = parameter(builder, t, "model.embed_tokens.weight".to_string());
         embedding(builder, x.clone(), weights)
     }
 
@@ -157,7 +152,7 @@ impl Model {
     pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let res = x.clone();
         let x = rmsnorm(
-            &builder,
+            builder,
             config.rms_norm_eps,
             &format!("{name}.input_layernorm"),
             x,
@@ -166,7 +161,7 @@ impl Model {
         let x = res + x;
         let res = x.clone();
         let x = rmsnorm(
-            &builder,
+            builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,

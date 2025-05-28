@@ -79,8 +79,8 @@ pub fn mlp(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var)
     let x = linear(builder, in_dim, out_dim, &format!("{name}.lin1"), x);
     let x = tanh(builder, x);
     let x = linear(builder, out_dim, in_dim, &format!("{name}.lin2"), x);
-    let x = gelu(builder, x);
-    x
+
+    gelu(builder, x)
 }
 
 impl Model {
@@ -96,19 +96,19 @@ impl Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let tok_emb = embeddings(&builder, vocab_size, in_dim, "token_embeddings", x.clone());
+            let tok_emb = embeddings(builder, vocab_size, in_dim, "token_embeddings", x.clone());
             // TODO: fix hardcoded max_seq_len
             let max_seq_len = 16;
-            let pos = arange(&builder, x.label.clone());
-            let pos_emb = embeddings(&builder, max_seq_len, in_dim, "position_embeddings", pos);
+            let pos = arange(builder, x.label.clone());
+            let pos_emb = embeddings(builder, max_seq_len, in_dim, "position_embeddings", pos);
             let emb = tok_emb + pos_emb;
 
-            let mut result = layernorm(&builder, 1e-05, "prenorm", emb);
+            let mut result = layernorm(builder, 1e-05, "prenorm", emb);
             for i in 0..layers {
-                result = layer(&builder, in_dim, out_dim, &format!("layers.{i}"), result);
+                result = layer(builder, in_dim, out_dim, &format!("layers.{i}"), result);
             }
-            result = layernorm(&builder, 1e-05, "postnorm", result);
-            result = softmax(&builder, result);
+            result = layernorm(builder, 1e-05, "postnorm", result);
+            result = softmax(builder, result);
             (vec![x], vec![result])
         });
 

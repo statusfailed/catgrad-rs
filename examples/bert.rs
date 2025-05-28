@@ -3,8 +3,6 @@
 // and require some adjustments while loading the weights
 // Tested with https://huggingface.co/BAAI/bge-base-en-v1.5
 use clap::Parser;
-use serde;
-use serde_json;
 use std::path::PathBuf;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
@@ -79,17 +77,17 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
         Shape(vec![config.max_position_embeddings, config.hidden_size]),
         Dtype::F32,
     );
-    let pos = arange(&builder, x.label.clone());
+    let pos = arange(builder, x.label.clone());
     let weights = parameter(builder, t, format!("{name}.position_embeddings.weight"));
     let pe = embedding(builder, pos, weights);
 
     let t = NdArrayType::new(Shape(vec![2, config.hidden_size]), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.token_type_embeddings.weight"));
-    let typ = constant(&builder, x.label.clone(), 0.);
+    let typ = constant(builder, x.label.clone(), 0.);
     let te = embedding(builder, typ, weights);
 
     let norm = layernorm(
-        &builder,
+        builder,
         config.layer_norm_eps,
         &format!("{name}.LayerNorm"),
         we + pe + te,
@@ -139,8 +137,8 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
 
 pub fn intermediate(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
     let x = linear(builder, in_dim, out_dim, &format!("{name}.dense"), x);
-    let x = gelu(builder, x);
-    x
+
+    gelu(builder, x)
 }
 
 pub fn output(
@@ -153,7 +151,7 @@ pub fn output(
     input: Var,
 ) -> Var {
     let x = linear(builder, in_dim, out_dim, &format!("{name}.dense"), x);
-    layernorm(&builder, eps, &format!("{name}.LayerNorm"), x + input)
+    layernorm(builder, eps, &format!("{name}.LayerNorm"), x + input)
 }
 
 impl Model {
@@ -162,12 +160,12 @@ impl Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let emb = embeddings(&builder, config, "embeddings", x.clone());
+            let emb = embeddings(builder, config, "embeddings", x.clone());
 
             let mut result = emb;
 
             for i in 0..config.num_hidden_layers {
-                result = layer(&builder, config, &format!("encoder.layer.{i}"), result);
+                result = layer(builder, config, &format!("encoder.layer.{i}"), result);
             }
             (vec![x], vec![result])
         });

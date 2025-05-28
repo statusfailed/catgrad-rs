@@ -23,9 +23,8 @@ fn sigmoid_layer(typ: NdArrayType) -> Term {
 
     let f = (&(&e | &neg) >> &pow).unwrap();
     let f = (&(&one | &f) >> &add).unwrap();
-    let f = (&(&one | &f) >> &div).unwrap();
 
-    f
+    (&(&one | &f) >> &div).unwrap()
 }
 
 fn tanh_layer(typ: NdArrayType) -> Term {
@@ -39,9 +38,8 @@ fn tanh_layer(typ: NdArrayType) -> Term {
     let f = (&(&id | &two) >> &mul).unwrap(); // 2*x
     let f = (&f >> &sigmoid_layer(typ)).unwrap(); // sigmoid(2*x)
     let f = (&(&f | &two) >> &mul).unwrap(); // 2*sigmoid(2*x)
-    let f = (&(&f | &one) >> &sub).unwrap();
 
-    f
+    (&(&f | &one) >> &sub).unwrap()
 }
 
 #[allow(unused)]
@@ -80,9 +78,8 @@ fn mlp_layer(input_features: usize, output_features: usize, dtype: Dtype, name: 
         .unwrap();
 
     let term = (&copy >> &(&id_x | &l2)).unwrap();
-    let term = (&term >> &add).unwrap();
 
-    term
+    (&term >> &add).unwrap()
 }
 
 fn linear_layer(
@@ -124,9 +121,8 @@ fn linear_layer(
     let transposed_w = (&param_w >> &transpose).unwrap();
     let broadcasted_bias = (&param_b >> &broadcast).unwrap();
     let mm = (&(&id_x | &transposed_w) >> &matmul).unwrap();
-    let term = (&(&broadcasted_bias | &mm) >> &add).unwrap();
 
-    term
+    (&(&broadcasted_bias | &mm) >> &add).unwrap()
 }
 
 #[derive(Debug)]

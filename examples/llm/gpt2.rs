@@ -34,12 +34,12 @@ impl Model {
 
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(Shape(vec![config.vocab_size, config.n_embd]), Dtype::F32);
-        let weights = parameter(builder, t, format!("wte.weight"));
+        let weights = parameter(builder, t, "wte.weight".to_string());
         let we = embedding(builder, x.clone(), weights);
 
         let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
-        let pos = arange(&builder, x.label.clone());
-        let weights = parameter(builder, t, format!("wpe.weight"));
+        let pos = arange(builder, x.label.clone());
+        let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
 
         we + pe
@@ -95,7 +95,7 @@ impl Model {
     pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let res = x.clone();
         let x = layernorm(
-            &builder,
+            builder,
             config.layer_norm_epsilon,
             &format!("{name}.ln_1"),
             x,
@@ -104,7 +104,7 @@ impl Model {
         let x = res + x;
         let res = x.clone();
         let x = layernorm(
-            &builder,
+            builder,
             config.layer_norm_epsilon,
             &format!("{name}.ln_2"),
             x,
@@ -120,23 +120,18 @@ impl ModelBuilder for Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let emb = Model::embeddings(&builder, config, x.clone());
+            let emb = Model::embeddings(builder, config, x.clone());
 
             let mut result = emb;
 
             for i in 0..config.n_layer {
-                result = Model::layer(&builder, &config, &format!("h.{i}"), result);
+                result = Model::layer(builder, config, &format!("h.{i}"), result);
             }
 
-            result = layernorm(
-                &builder,
-                config.layer_norm_epsilon,
-                &format!("ln_f"),
-                result,
-            );
+            result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);
 
             // GPT-2 uses weight tying so lm_head is the same as wte
-            let lm_head = linear_no_bias(&builder, config.n_embd, config.vocab_size, "wte", result);
+            let lm_head = linear_no_bias(builder, config.n_embd, config.vocab_size, "wte", result);
             (vec![x], vec![lm_head])
         });
 
