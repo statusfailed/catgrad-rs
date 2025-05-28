@@ -381,7 +381,7 @@ mod test {
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let result = act(&builder, x.clone());
+            let result = act(builder, x.clone());
             (vec![x], vec![result])
         });
 
@@ -402,7 +402,7 @@ mod test {
 
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let result = norm(&builder, epsilon, x.clone());
+            let result = norm(builder, epsilon, x.clone());
             (vec![x], vec![result])
         });
 
@@ -471,7 +471,7 @@ mod test {
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             // x * w^T + b
-            let result = linear(&builder, 3, 2, "l", x.clone());
+            let result = linear(builder, 3, 2, "l", x.clone());
             (vec![x], vec![result])
         });
 
@@ -502,7 +502,7 @@ mod test {
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             // x * w^T
-            let result = linear_no_bias(&builder, 3, 2, "l", x.clone());
+            let result = linear_no_bias(builder, 3, 2, "l", x.clone());
             (vec![x], vec![result])
         });
 
@@ -531,7 +531,7 @@ mod test {
         let mut state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
             // x * w^T + b
-            let result = linear(&builder, 3, 2, "l", x.clone());
+            let result = linear(builder, 3, 2, "l", x.clone());
             (vec![x], vec![result])
         });
 
@@ -566,7 +566,7 @@ mod test {
             let a = Var::new(builder.clone(), type_a.clone());
             let b = Var::new(builder.clone(), type_b.clone());
 
-            let c = mat_mul(&builder, a.clone(), b.clone());
+            let c = mat_mul(builder, a.clone(), b.clone());
 
             (vec![a, b], vec![c])
         });
@@ -592,9 +592,9 @@ mod test {
         let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
-            let i = arange(&builder, t.clone());
-            let e = expand(&builder, Shape(vec![2, 6]), i.clone());
-            let r = reshape(&builder, Shape(vec![6, 2]), e.clone());
+            let i = arange(builder, t.clone());
+            let e = expand(builder, Shape(vec![2, 6]), i.clone());
+            let r = reshape(builder, Shape(vec![6, 2]), e.clone());
             (vec![], vec![e, r])
         });
 
@@ -619,17 +619,17 @@ mod test {
             // Create [[0, 1, 2],
             //         [0, 1, 2],
             //         [0, 1, 2]]
-            let i = arange(&builder, t.clone());
-            let i = expand(&builder, Shape(vec![3, 3]), i);
+            let i = arange(builder, t.clone());
+            let i = expand(builder, Shape(vec![3, 3]), i);
 
             // Create [[0, 0, 0],
             //         [1, 1, 1],
             //         [2, 2, 2]]
-            let j = arange(&builder, t.clone());
-            let j = reshape(&builder, Shape(vec![3, 1]), j);
-            let j = expand(&builder, Shape(vec![3, 3]), j);
+            let j = arange(builder, t.clone());
+            let j = reshape(builder, Shape(vec![3, 1]), j);
+            let j = expand(builder, Shape(vec![3, 3]), j);
 
-            let tri = !lt(&builder, j.clone(), i.clone());
+            let tri = !lt(builder, j.clone(), i.clone());
 
             // Result [[1, 0, 0],
             //         [1, 1, 0],
@@ -722,8 +722,8 @@ mod test {
         let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
 
         let mut state = EvalState::build(|builder| {
-            let i = arange(&builder, t.clone());
-            let i = expand(&builder, Shape(vec![3, 3]), i);
+            let i = arange(builder, t.clone());
+            let i = expand(builder, Shape(vec![3, 3]), i);
             (vec![], vec![i])
         });
 
