@@ -337,6 +337,7 @@ pub fn generate_rope_tables(
 }
 
 #[cfg(test)]
+#[allow(clippy::excessive_precision)]
 mod test {
     use super::{
         arange, causal_mask, constant, expand, gelu, generate_rope_tables, layernorm_raw, linear,
