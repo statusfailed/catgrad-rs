@@ -19,7 +19,7 @@ fn sigmoid_layer(typ: NdArrayType) -> Term {
     let pow = Operation::pow(typ.clone());
     let neg = Operation::negate(typ.clone());
     let add = Operation::add(typ.clone());
-    let div = Operation::div(typ.clone());
+    let div = Operation::div(typ);
 
     let f = (&(&e | &neg) >> &pow).unwrap();
     let f = (&(&one | &f) >> &add).unwrap();
@@ -58,7 +58,7 @@ fn mlp_layer(input_features: usize, output_features: usize, dtype: Dtype, name: 
 
     let copy = Operation::copy(type_in.clone());
     let add = Operation::add(type_in.clone());
-    let id_x = Operation::identity(vec![type_in.clone()]);
+    let id_x = Operation::identity(vec![type_in]);
 
     let l1 = linear_layer(
         input_features,
@@ -100,13 +100,13 @@ fn linear_layer(
     // Result
     let out_type = NdArrayType::new(Shape(vec![batch_size, output_features]), dtype);
 
-    let id_x = Operation::identity(vec![x_type.clone()]);
+    let id_x = Operation::identity(vec![x_type]);
 
     let param_w = Operation::parameter(w_type.clone(), &format!("{name}.weight"));
     let param_b = Operation::parameter(b_type.clone(), &format!("{name}.bias"));
 
-    let transpose = Operation::transpose(w_type.clone(), 0, 1);
-    let broadcast = Operation::broadcast(b_type.clone(), Shape(vec![1]));
+    let transpose = Operation::transpose(w_type, 0, 1);
+    let broadcast = Operation::broadcast(b_type, Shape(vec![1]));
 
     let matmul = Operation::matmul(
         Shape::empty(),
@@ -116,7 +116,7 @@ fn linear_layer(
         dtype,
     );
 
-    let add = Operation::add(out_type.clone());
+    let add = Operation::add(out_type);
 
     let transposed_w = (&param_w >> &transpose).unwrap();
     let broadcasted_bias = (&param_b >> &broadcast).unwrap();

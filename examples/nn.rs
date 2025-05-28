@@ -48,12 +48,12 @@ pub fn embeddings(builder: &Builder, size: usize, dim: usize, name: &str, x: Var
 pub fn attention(builder: &Builder, dim: usize, name: &str, x: Var) -> Var {
     let num_heads = 4;
     let head_dim = dim / num_heads;
-    let b = x.clone().label.shape.0[0];
-    let s = x.clone().label.shape.0[1];
+    let b = x.label.shape.0[0];
+    let s = x.label.shape.0[1];
 
     let k = linear(builder, dim, dim, &format!("{name}.key"), x.clone());
     let q = linear(builder, dim, dim, &format!("{name}.query"), x.clone());
-    let v = linear(builder, dim, dim, &format!("{name}.value"), x.clone());
+    let v = linear(builder, dim, dim, &format!("{name}.value"), x);
 
     let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
     let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
@@ -64,7 +64,7 @@ pub fn attention(builder: &Builder, dim: usize, name: &str, x: Var) -> Var {
     let v = transpose(builder, 1, 2, v);
 
     let tk = transpose(builder, 2, 3, k);
-    let attn = mat_mul(builder, q.clone(), tk);
+    let attn = mat_mul(builder, q, tk);
     let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
     let attn = softmax(builder, attn);

@@ -83,7 +83,7 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
 
     let t = NdArrayType::new(Shape(vec![2, config.hidden_size]), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.token_type_embeddings.weight"));
-    let typ = constant(builder, x.label.clone(), 0.);
+    let typ = constant(builder, x.label, 0.);
     let te = embedding(builder, typ, weights);
 
     let norm = layernorm(
@@ -100,8 +100,8 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let dim = config.hidden_size;
     let num_heads = config.num_attention_heads;
     let head_dim = dim / num_heads;
-    let b = x.clone().label.shape.0[0];
-    let s = x.clone().label.shape.0[1];
+    let b = x.label.shape.0[0];
+    let s = x.label.shape.0[1];
 
     let k = linear(builder, dim, dim, &format!("{name}.self.key"), x.clone());
     let q = linear(builder, dim, dim, &format!("{name}.self.query"), x.clone());
@@ -116,7 +116,7 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let v = transpose(builder, 1, 2, v);
 
     let tk = transpose(builder, 2, 3, k);
-    let attn = mat_mul(builder, q.clone(), tk);
+    let attn = mat_mul(builder, q, tk);
     let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
     let attn = softmax(builder, attn);
@@ -245,7 +245,7 @@ pub fn main() -> Result<()> {
         let ids: Vec<i32> = encoding.get_ids().iter().map(|&x| x as i32).collect();
         tokens = ids.len();
         batches = 1;
-        input = NdArray::new(ids.clone(), Shape(vec![1, tokens]));
+        input = NdArray::new(ids, Shape(vec![1, tokens]));
     }
 
     println!("Input tokens {:?}", &input);

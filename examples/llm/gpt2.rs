@@ -16,8 +16,8 @@ impl Model {
         let w_type = NdArrayType::new(Shape(vec![in_dim, out_dim]), x.label.dtype);
         let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
 
-        let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
-        let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
+        let w = parameter(builder, w_type, format!("{name}.weight"));
+        let b = parameter(builder, b_type, format!("{name}.bias"));
 
         // w is already transposed in GPT-2 checkpoints
         let mut w_t = w;
@@ -38,7 +38,7 @@ impl Model {
         let we = embedding(builder, x.clone(), weights);
 
         let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
-        let pos = arange(builder, x.label.clone());
+        let pos = arange(builder, x.label);
         let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
 
@@ -50,13 +50,13 @@ impl Model {
         let num_heads = config.n_head;
         let head_dim = dim / num_heads;
 
-        let b = x.clone().label.shape.0[0];
-        let s = x.clone().label.shape.0[1];
+        let b = x.label.shape.0[0];
+        let s = x.label.shape.0[1];
 
         // let c_attn = gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x.clone());
         let k = Model::gpt_linear(builder, dim, dim, &format!("{name}.key"), x.clone());
         let q = Model::gpt_linear(builder, dim, dim, &format!("{name}.query"), x.clone());
-        let v = Model::gpt_linear(builder, dim, dim, &format!("{name}.value"), x.clone());
+        let v = Model::gpt_linear(builder, dim, dim, &format!("{name}.value"), x);
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
@@ -67,7 +67,7 @@ impl Model {
         let v = transpose(builder, 1, 2, v);
 
         let tk = transpose(builder, 2, 3, k);
-        let attn = mat_mul(builder, q.clone(), tk);
+        let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
         let attn = attn / denom;
 

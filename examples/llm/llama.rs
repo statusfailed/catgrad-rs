@@ -14,7 +14,7 @@ impl Model {
             Dtype::F32,
         );
         let weights = parameter(builder, t, "model.embed_tokens.weight".to_string());
-        embedding(builder, x.clone(), weights)
+        embedding(builder, x, weights)
     }
 
     pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -23,8 +23,8 @@ impl Model {
         let num_kv_heads = config.num_key_value_heads;
         let rep = num_heads / num_kv_heads;
         let head_dim = config.hidden_size / num_heads;
-        let b = x.clone().label.shape.0[0];
-        let s = x.clone().label.shape.0[1];
+        let b = x.label.shape.0[0];
+        let s = x.label.shape.0[1];
 
         let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
         let k = linear_no_bias(
@@ -34,13 +34,7 @@ impl Model {
             &format!("{name}.k_proj"),
             x.clone(),
         );
-        let v = linear_no_bias(
-            builder,
-            dim,
-            dim / rep,
-            &format!("{name}.v_proj"),
-            x.clone(),
-        );
+        let v = linear_no_bias(builder, dim, dim / rep, &format!("{name}.v_proj"), x);
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
@@ -54,7 +48,7 @@ impl Model {
         let v = repeat_kv(builder, rep, v);
 
         let tk = transpose(builder, 2, 3, k);
-        let attn = mat_mul(builder, q.clone(), tk);
+        let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
         let attn = attn / denom;
 
@@ -144,7 +138,6 @@ impl ModelBuilder for Model {
                     result,
                 );
             }
-            print(builder, "Output:", true, &result);
             (vec![x], vec![result])
         });
 
