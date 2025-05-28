@@ -429,11 +429,11 @@ mod test {
     fn test_neg() {
         test_unarynop_generic::<f16>(
             Operation::negate(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
-            vec![1.0, 2.0, 3.0, 4.0]
+            [1.0, 2.0, 3.0, 4.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
-            vec![-1.0, -2.0, -3.0, -4.0]
+            [-1.0, -2.0, -3.0, -4.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
@@ -511,15 +511,15 @@ mod test {
     fn test_add() {
         test_binop_generic::<f16>(
             Operation::add(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
-            vec![1.0, 2.0, 3.0, 4.0]
+            [1.0, 2.0, 3.0, 4.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
-            vec![10.0, 20.0, 30.0, 40.0]
+            [10.0, 20.0, 30.0, 40.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
-            vec![11.0, 22.0, 33.0, 44.0]
+            [11.0, 22.0, 33.0, 44.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
@@ -611,15 +611,15 @@ mod test {
         // Test raising to a power with F16
         test_binop_generic::<f16>(
             Operation::pow(NdArrayType::new(Shape(vec![2, 2]), Dtype::F16)),
-            vec![2.0, 4.0, 6.0, 8.0]
+            [2.0, 4.0, 6.0, 8.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
-            vec![2.0, 2.0, 2.0, 2.0]
+            [2.0, 2.0, 2.0, 2.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),
-            vec![4.0, 16.0, 36.0, 64.0]
+            [4.0, 16.0, 36.0, 64.0]
                 .iter()
                 .map(|&x| f16::from_f32(x))
                 .collect(),

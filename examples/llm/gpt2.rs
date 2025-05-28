@@ -16,8 +16,8 @@ impl Model {
         let w_type = NdArrayType::new(Shape(vec![in_dim, out_dim]), x.label.dtype);
         let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
 
-        let w = parameter(builder, w_type.clone(), format!("{name}.weight"));
-        let b = parameter(builder, b_type.clone(), format!("{name}.bias"));
+        let w = parameter(builder, w_type, format!("{name}.weight"));
+        let b = parameter(builder, b_type, format!("{name}.bias"));
 
         // w is already transposed in GPT-2 checkpoints
         let mut w_t = w;
@@ -34,12 +34,12 @@ impl Model {
 
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(Shape(vec![config.vocab_size, config.n_embd]), Dtype::F32);
-        let weights = parameter(builder, t, format!("wte.weight"));
+        let weights = parameter(builder, t, "wte.weight".to_string());
         let we = embedding(builder, x.clone(), weights);
 
         let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
-        let pos = arange(&builder, x.label.clone());
-        let weights = parameter(builder, t, format!("wpe.weight"));
+        let pos = arange(builder, x.label);
+        let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
 
         we + pe
@@ -50,13 +50,13 @@ impl Model {
         let num_heads = config.n_head;
         let head_dim = dim / num_heads;
 
-        let b = x.clone().label.shape.0[0];
-        let s = x.clone().label.shape.0[1];
+        let b = x.label.shape.0[0];
+        let s = x.label.shape.0[1];
 
         // let c_attn = gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x.clone());
         let k = Model::gpt_linear(builder, dim, dim, &format!("{name}.key"), x.clone());
         let q = Model::gpt_linear(builder, dim, dim, &format!("{name}.query"), x.clone());
-        let v = Model::gpt_linear(builder, dim, dim, &format!("{name}.value"), x.clone());
+        let v = Model::gpt_linear(builder, dim, dim, &format!("{name}.value"), x);
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
@@ -67,7 +67,7 @@ impl Model {
         let v = transpose(builder, 1, 2, v);
 
         let tk = transpose(builder, 2, 3, k);
-        let attn = mat_mul(builder, q.clone(), tk);
+        let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
         let attn = attn / denom;
 
@@ -95,7 +95,7 @@ impl Model {
     pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let res = x.clone();
         let x = layernorm(
-            &builder,
+            builder,
             config.layer_norm_epsilon,
             &format!("{name}.ln_1"),
             x,
@@ -104,7 +104,7 @@ impl Model {
         let x = res + x;
         let res = x.clone();
         let x = layernorm(
-            &builder,
+            builder,
             config.layer_norm_epsilon,
             &format!("{name}.ln_2"),
             x,
@@ -120,23 +120,18 @@ impl ModelBuilder for Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let emb = Model::embeddings(&builder, config, x.clone());
+            let emb = Model::embeddings(builder, config, x.clone());
 
             let mut result = emb;
 
             for i in 0..config.n_layer {
-                result = Model::layer(&builder, &config, &format!("h.{i}"), result);
+                result = Model::layer(builder, config, &format!("h.{i}"), result);
             }
 
-            result = layernorm(
-                &builder,
-                config.layer_norm_epsilon,
-                &format!("ln_f"),
-                result,
-            );
+            result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);
 
             // GPT-2 uses weight tying so lm_head is the same as wte
-            let lm_head = linear_no_bias(&builder, config.n_embd, config.vocab_size, "wte", result);
+            let lm_head = linear_no_bias(builder, config.n_embd, config.vocab_size, "wte", result);
             (vec![x], vec![lm_head])
         });
 

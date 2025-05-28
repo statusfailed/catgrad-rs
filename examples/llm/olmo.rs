@@ -21,7 +21,7 @@ impl ModelBuilder for Model {
                 result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
             }
 
-            result = rmsnorm(builder, config.rms_norm_eps, &format!("model.norm"), result);
+            result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
             let lm_head = linear_no_bias(
                 builder,
                 config.hidden_size,
@@ -42,8 +42,8 @@ impl Model {
             Shape(vec![config.vocab_size, config.hidden_size]),
             Dtype::F32,
         );
-        let weights = parameter(builder, t, format!("model.embed_tokens.weight"));
-        embedding(builder, x.clone(), weights)
+        let weights = parameter(builder, t, "model.embed_tokens.weight".to_string());
+        embedding(builder, x, weights)
     }
 
     pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -51,8 +51,8 @@ impl Model {
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
         let head_dim = config.hidden_size / num_heads;
-        let b = x.clone().label.shape.0[0];
-        let s = x.clone().label.shape.0[1];
+        let b = x.label.shape.0[0];
+        let s = x.label.shape.0[1];
 
         let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
         let k = linear_no_bias(
@@ -67,7 +67,7 @@ impl Model {
             dim,
             dim * num_kv_heads / num_heads,
             &format!("{name}.v_proj"),
-            x.clone(),
+            x,
         );
 
         let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
@@ -93,7 +93,7 @@ impl Model {
         // let res = ke * m;
 
         let tk = transpose(builder, 2, 3, k);
-        let attn = mat_mul(builder, q.clone(), tk);
+        let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
         let attn = attn / denom;
 
@@ -139,7 +139,7 @@ impl Model {
         let res = x.clone();
         let x = Model::attention(builder, config, &format!("{name}.self_attn"), x);
         let x = rmsnorm(
-            &builder,
+            builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,
@@ -149,7 +149,7 @@ impl Model {
         let res = x.clone();
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
         let x = rmsnorm(
-            &builder,
+            builder,
             config.rms_norm_eps,
             &format!("{name}.post_feedforward_layernorm"),
             x,

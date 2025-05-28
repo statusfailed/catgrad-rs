@@ -141,7 +141,7 @@ impl Operation {
             shape
         );
         let source = x.clone();
-        let target = NdArrayType::new(shape.clone(), x.dtype);
+        let target = NdArrayType::new(shape, x.dtype);
         let op = Operation::Reshape;
         Operation::term(op, vec![source], vec![target])
     }
@@ -149,7 +149,7 @@ impl Operation {
     // Make an OpenHypergraph for the Copy operation
     pub fn copy(x: NdArrayType) -> Term {
         let op = Operation::Copy;
-        Operation::term(op, vec![x.clone()], vec![x.clone(), x.clone()])
+        Operation::term(op, vec![x.clone()], vec![x.clone(), x])
     }
 
     // Make an OpenHypergraph for the given operation
@@ -161,19 +161,19 @@ impl Operation {
 
     // Make an OpenHypergraph for the given operation
     fn unop(x: NdArrayType, op: Operation) -> Term {
-        Operation::term(op, vec![x.clone()], vec![x.clone()])
+        Operation::term(op, vec![x.clone()], vec![x])
     }
 
     // Make an OpenHypergraph for the Parameter operation
     pub fn parameter(x: NdArrayType, name: &str) -> Term {
         let op = Operation::Parameter(name.to_string());
-        Operation::term(op, vec![], vec![x.clone()])
+        Operation::term(op, vec![], vec![x])
     }
 
     // Make an OpenHypergraph for the Const operation
     pub fn constop(x: NdArrayType, k: f32) -> Term {
         let op = Operation::Const(k);
-        Operation::term(op, vec![], vec![x.clone()])
+        Operation::term(op, vec![], vec![x])
     }
 
     // Make an OpenHypergraph for the Negate operation
@@ -198,7 +198,7 @@ impl Operation {
 
     // Make an OpenHypergraph for the given binary operation
     fn binop(x: NdArrayType, op: Operation) -> Term {
-        Operation::term(op, vec![x.clone(), x.clone()], vec![x.clone()])
+        Operation::term(op, vec![x.clone(), x.clone()], vec![x])
     }
 
     // Make an OpenHypergraph for the Add operation

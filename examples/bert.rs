@@ -3,8 +3,6 @@
 // and require some adjustments while loading the weights
 // Tested with https://huggingface.co/BAAI/bge-base-en-v1.5
 use clap::Parser;
-use serde;
-use serde_json;
 use std::path::PathBuf;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
@@ -79,17 +77,17 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
         Shape(vec![config.max_position_embeddings, config.hidden_size]),
         Dtype::F32,
     );
-    let pos = arange(&builder, x.label.clone());
+    let pos = arange(builder, x.label.clone());
     let weights = parameter(builder, t, format!("{name}.position_embeddings.weight"));
     let pe = embedding(builder, pos, weights);
 
     let t = NdArrayType::new(Shape(vec![2, config.hidden_size]), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.token_type_embeddings.weight"));
-    let typ = constant(&builder, x.label.clone(), 0.);
+    let typ = constant(builder, x.label, 0.);
     let te = embedding(builder, typ, weights);
 
     let norm = layernorm(
-        &builder,
+        builder,
         config.layer_norm_eps,
         &format!("{name}.LayerNorm"),
         we + pe + te,
@@ -102,8 +100,8 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let dim = config.hidden_size;
     let num_heads = config.num_attention_heads;
     let head_dim = dim / num_heads;
-    let b = x.clone().label.shape.0[0];
-    let s = x.clone().label.shape.0[1];
+    let b = x.label.shape.0[0];
+    let s = x.label.shape.0[1];
 
     let k = linear(builder, dim, dim, &format!("{name}.self.key"), x.clone());
     let q = linear(builder, dim, dim, &format!("{name}.self.query"), x.clone());
@@ -118,7 +116,7 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let v = transpose(builder, 1, 2, v);
 
     let tk = transpose(builder, 2, 3, k);
-    let attn = mat_mul(builder, q.clone(), tk);
+    let attn = mat_mul(builder, q, tk);
     let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
     let attn = attn / denom;
     let attn = softmax(builder, attn);
@@ -139,8 +137,8 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
 
 pub fn intermediate(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
     let x = linear(builder, in_dim, out_dim, &format!("{name}.dense"), x);
-    let x = gelu(builder, x);
-    x
+
+    gelu(builder, x)
 }
 
 pub fn output(
@@ -153,7 +151,7 @@ pub fn output(
     input: Var,
 ) -> Var {
     let x = linear(builder, in_dim, out_dim, &format!("{name}.dense"), x);
-    layernorm(&builder, eps, &format!("{name}.LayerNorm"), x + input)
+    layernorm(builder, eps, &format!("{name}.LayerNorm"), x + input)
 }
 
 impl Model {
@@ -162,12 +160,12 @@ impl Model {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let emb = embeddings(&builder, config, "embeddings", x.clone());
+            let emb = embeddings(builder, config, "embeddings", x.clone());
 
             let mut result = emb;
 
             for i in 0..config.num_hidden_layers {
-                result = layer(&builder, config, &format!("encoder.layer.{i}"), result);
+                result = layer(builder, config, &format!("encoder.layer.{i}"), result);
             }
             (vec![x], vec![result])
         });
@@ -247,7 +245,7 @@ pub fn main() -> Result<()> {
         let ids: Vec<i32> = encoding.get_ids().iter().map(|&x| x as i32).collect();
         tokens = ids.len();
         batches = 1;
-        input = NdArray::new(ids.clone(), Shape(vec![1, tokens]));
+        input = NdArray::new(ids, Shape(vec![1, tokens]));
     }
 
     println!("Input tokens {:?}", &input);

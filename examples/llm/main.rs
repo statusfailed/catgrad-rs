@@ -9,10 +9,7 @@ use catgrad::{
     },
 };
 use clap::Parser;
-use env_logger;
 use hf_hub::api::sync::Api;
-use serde;
-use serde_json;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
@@ -120,7 +117,7 @@ impl ModelRunner {
         let l = tokens.len();
         let input = NdArray::new(tokens, Shape(vec![batches, l / batches]));
 
-        self.build(batches, l, &config);
+        self.build(batches, l, config);
         log::debug!("Model graph built...");
         let result = self.run(&input);
 
@@ -130,8 +127,8 @@ impl ModelRunner {
         }
 
         let r = result.data();
-        let next_token_id = argmax(&r[r.len() - v..]);
-        next_token_id
+
+        argmax(&r[r.len() - v..])
     }
 }
 
