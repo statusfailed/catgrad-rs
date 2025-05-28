@@ -5,5 +5,5 @@ repos:
     - id: fmt
     - id: check
     - id: clippy
-      args: ["--", "--deny", "warnings"]
+      args: ["--all-targets", "--", "--deny", "warnings"]
     - id: test
