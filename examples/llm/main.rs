@@ -3,10 +3,7 @@ use catgrad::{
         eval::EvalState,
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{
-        nn::utils::{argmax, read_safetensors},
-        Shape, Var,
-    },
+    core::{Shape, Var},
 };
 use clap::Parser;
 use hf_hub::api::sync::Api;
@@ -15,6 +12,10 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
+
+#[path = "../utils/mod.rs"]
+mod utils;
+use utils::read_safetensors;
 
 #[allow(unused)]
 fn show(name: &str, var: &Var) {
@@ -128,8 +129,17 @@ impl ModelRunner {
 
         let r = result.data();
 
+        // Greedy (temp = 0) sampling
         argmax(&r[r.len() - v..])
     }
+}
+
+fn argmax(v: &[f32]) -> i32 {
+    v.iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.total_cmp(b))
+        .map(|(idx, _)| idx)
+        .unwrap() as i32
 }
 
 #[derive(Parser, Debug)]
