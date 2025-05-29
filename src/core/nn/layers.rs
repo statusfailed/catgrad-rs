@@ -339,11 +339,7 @@ pub fn generate_rope_tables(
 #[cfg(test)]
 #[allow(clippy::excessive_precision)]
 mod test {
-    use super::{
-        arange, causal_mask, constant, expand, gelu, generate_rope_tables, layernorm_raw, linear,
-        linear_no_bias, lt, mat_mul, pad_mask, reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh,
-        Builder,
-    };
+    use super::*;
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use crate::core::{Dtype, NdArrayType, Shape, Var};
