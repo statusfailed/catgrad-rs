@@ -185,8 +185,29 @@ fn binop_iterator<T: Numeric, F>(a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray
 where
     F: Fn(T, T) -> T,
 {
-    for i in 0..a.data.len() {
-        c.data[i] = op(a.data[i], b.data[i]);
+    if a.strides == b.strides && a.strides == c.strides {
+        for i in 0..a.data.len() {
+            c.data[i] = op(a.data[i], b.data[i]);
+        }
+        return;
+    };
+
+    // Create index vector and iterate through all elements
+    let mut indices = vec![0; a.shape.0.len()];
+    let total_elements = a.shape.size();
+
+    for _ in 0..total_elements {
+        c[&indices] = op(a[&indices], b[&indices]);
+
+        let mut d = indices.len() - 1;
+        loop {
+            indices[d] += 1;
+            if indices[d] < a.shape.0[d] || d == 0 {
+                break;
+            }
+            indices[d] = 0;
+            d -= 1;
+        }
     }
 }
 
@@ -269,8 +290,28 @@ fn unaryop_iterator<T: Numeric, F>(a: &NdArray<T>, b: &mut NdArray<T>, op: F)
 where
     F: Fn(T) -> T,
 {
-    for i in 0..a.data.len() {
-        b.data[i] = op(a.data[i]);
+    if a.strides == b.strides {
+        for i in 0..a.data.len() {
+            b.data[i] = op(a.data[i]);
+        }
+        return;
+    }
+    // Create index vector and iterate through all elements
+    let mut indices = vec![0; a.shape.0.len()];
+    let total_elements = a.shape.size();
+
+    for _ in 0..total_elements {
+        b[&indices] = op(a[&indices]);
+
+        let mut d = indices.len() - 1;
+        loop {
+            indices[d] += 1;
+            if indices[d] < a.shape.0[d] || d == 0 {
+                break;
+            }
+            indices[d] = 0;
+            d -= 1;
+        }
     }
 }
 

@@ -217,6 +217,7 @@ impl<T: Copy> NdArray<T> {
         }
     }
 }
+
 impl<T> Index<&[usize]> for NdArray<T> {
     type Output = T;
 
@@ -269,6 +270,14 @@ impl TaggedNdArray {
             TaggedNdArray::F16(vec) => vec.len(),
             TaggedNdArray::F32(vec) => vec.len(),
             TaggedNdArray::I32(vec) => vec.len(),
+        }
+    }
+
+    pub fn get(&self, index: &[usize]) -> f32 {
+        match self {
+            TaggedNdArray::F16(arr) => arr[index].to_f32(),
+            TaggedNdArray::F32(arr) => arr[index],
+            TaggedNdArray::I32(arr) => arr[index] as f32,
         }
     }
 

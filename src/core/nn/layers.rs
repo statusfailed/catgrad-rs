@@ -339,11 +339,7 @@ pub fn generate_rope_tables(
 #[cfg(test)]
 #[allow(clippy::excessive_precision)]
 mod test {
-    use super::{
-        arange, causal_mask, constant, expand, gelu, generate_rope_tables, layernorm_raw, linear,
-        linear_no_bias, lt, mat_mul, pad_mask, reshape, rmsnorm_raw, sigmoid, silu, softmax, tanh,
-        Builder,
-    };
+    use super::*;
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use crate::core::{Dtype, NdArrayType, Shape, Var};
@@ -603,11 +599,133 @@ mod test {
         };
 
         assert_eq!(e.shape(), Shape(vec![2, 6]));
-        assert_eq!(
-            e.approx(1),
-            &[0., 1., 2., 3., 4., 5., 0., 1., 2., 3., 4., 5.]
-        );
+        // assert_eq!(e.strides(), &[0, 1]);
+        assert_eq!(e.get(&[0, 0]), 0.);
+        assert_eq!(e.get(&[0, 5]), 5.);
+        assert_eq!(e.get(&[1, 0]), 0.);
+        assert_eq!(e.get(&[1, 5]), 5.);
         assert_eq!(r.shape(), Shape(vec![6, 2]));
+        // assert_eq!(r.strides(), &[2, 1]);
+        assert_eq!(r.get(&[0, 0]), 0.);
+        assert_eq!(r.get(&[0, 1]), 1.);
+        assert_eq!(r.get(&[1, 0]), 2.);
+        assert_eq!(r.get(&[1, 1]), 3.);
+        assert_eq!(r.get(&[5, 0]), 4.);
+        assert_eq!(r.get(&[5, 1]), 5.);
+    }
+
+    #[test]
+    fn test_transpose_reshape() {
+        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let a = arange(builder, t.clone());
+            let b = reshape(builder, Shape(vec![2, 3]), a.clone());
+            let c = transpose(builder, 0, 1, b.clone());
+            let d = reshape(builder, Shape(vec![3, 2]), c.clone());
+            let m = mat_mul(builder, d.clone(), b.clone());
+            (vec![], vec![b, c, d, m])
+        });
+
+        let [b, c, d, m] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(b.shape(), Shape(vec![2, 3]));
+        assert_eq!(b.strides(), &[3, 1]);
+        assert_eq!(b.approx(1), &[0., 1., 2., 3., 4., 5.]);
+
+        assert_eq!(c.shape(), Shape(vec![3, 2]));
+        // assert_eq!(c.strides(), &[1, 3]);
+
+        assert_eq!(d.shape(), Shape(vec![3, 2]));
+        // assert_eq!(d.strides(), &[2, 1]);
+
+        assert_eq!(m.shape(), Shape(vec![3, 3]));
+        assert_eq!(m.strides(), &[3, 1]);
+        assert_eq!(m.approx(1), &[9., 12., 15., 12., 17., 22., 15., 22., 29.]);
+    }
+
+    #[test]
+    fn test_strided_operations() {
+        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let a = arange(builder, t.clone());
+            let b = reshape(builder, Shape(vec![2, 3]), a.clone());
+            let c = transpose(builder, 0, 1, b.clone());
+            let d = reshape(builder, Shape(vec![3, 2]), a.clone());
+
+            let n = -c.clone();
+            let s = c.clone() + d.clone();
+            (vec![], vec![b, c, d, s, n])
+        });
+
+        let [b, c, d, s, n] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // a = [0,1,2,3,4,5]
+
+        // b = a.reshape(2,3)
+        // [[0,1,2],
+        //  [3,4,5]]
+        assert_eq!(b.shape(), Shape(vec![2, 3]));
+        assert_eq!(b.strides(), &[3, 1]);
+        assert_eq!(b.approx(1), &[0., 1., 2., 3., 4., 5.]);
+
+        // c = b.transpose(0,1)
+        // [[0,3],
+        //  [1,4]
+        //  [2,5]]
+        assert_eq!(c.shape(), Shape(vec![3, 2]));
+        // assert_eq!(c.strides(), &[1, 3]);
+        assert_eq!(c.get(&[0, 0]), 0.);
+        assert_eq!(c.get(&[0, 1]), 3.);
+        assert_eq!(c.get(&[1, 0]), 1.);
+        assert_eq!(c.get(&[1, 1]), 4.);
+        assert_eq!(c.get(&[2, 0]), 2.);
+        assert_eq!(c.get(&[2, 1]), 5.);
+
+        // n = -c
+        // [[-0,-3],
+        //  [-1,-4]
+        //  [-2,-5]]
+        assert_eq!(n.shape(), Shape(vec![3, 2]));
+        assert_eq!(n.strides(), &[2, 1]);
+        assert_eq!(n.get(&[0, 0]), 0.);
+        assert_eq!(n.get(&[0, 1]), -3.);
+        assert_eq!(n.get(&[1, 0]), -1.);
+        assert_eq!(n.get(&[1, 1]), -4.);
+        assert_eq!(n.get(&[2, 0]), -2.);
+        assert_eq!(n.get(&[2, 1]), -5.);
+
+        // d = a.reshape(3,2)
+        // [[0,1],
+        //  [2,3]
+        //  [4,5]]
+        assert_eq!(d.shape(), Shape(vec![3, 2]));
+        assert_eq!(d.strides(), &[2, 1]);
+
+        assert_eq!(d.get(&[0, 0]), 0.);
+        assert_eq!(d.get(&[0, 1]), 1.);
+        assert_eq!(d.get(&[1, 0]), 2.);
+        assert_eq!(d.get(&[1, 1]), 3.);
+        assert_eq!(d.get(&[2, 0]), 4.);
+        assert_eq!(d.get(&[2, 1]), 5.);
+
+        // s = c+d
+        // [[0,4],
+        //  [3,7]
+        //  [6,10]]
+        assert_eq!(s.shape(), Shape(vec![3, 2]));
+        assert_eq!(s.strides(), &[2, 1]);
+        assert_eq!(s.get(&[0, 0]), 0.);
+        assert_eq!(s.get(&[0, 1]), 4.);
+        assert_eq!(s.get(&[1, 0]), 3.);
+        assert_eq!(s.get(&[1, 1]), 7.);
+        assert_eq!(s.get(&[2, 0]), 6.);
+        assert_eq!(s.get(&[2, 1]), 10.);
     }
 
     #[test]
