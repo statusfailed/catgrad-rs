@@ -12,16 +12,16 @@ use catgrad::{
         ndarray::{NdArray, TaggedNdArray},
     },
     core::{
-        nn::{
-            layers::{
-                arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
-                softmax, transpose,
-            },
-            utils::read_safetensors,
+        nn::layers::{
+            arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
+            softmax, transpose,
         },
         Dtype, NdArrayType, Shape, Var,
     },
 };
+
+mod utils;
+use utils::read_safetensors;
 
 #[allow(unused)]
 fn show(name: &str, var: &Var) {
