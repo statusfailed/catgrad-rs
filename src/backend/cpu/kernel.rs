@@ -324,7 +324,13 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             b.shape.size(),
             "ReshapeOp: input shape must be compatible with target shape"
         );
-        b.data.clone_from(&a.data);
+        if a.is_contiguous() {
+            b.data.clone_from(&a.data);
+        } else {
+            a.for_each_index(|i, indices| {
+                b.data[i] = a[indices];
+            });
+        }
     }
 }
 
