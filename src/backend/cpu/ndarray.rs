@@ -57,6 +57,33 @@ impl<T> NdArray<T> {
         self.shape.size()
     }
 
+    pub fn is_contiguous(&self) -> bool {
+        self.strides == compute_strides(&self.shape)
+    }
+
+    pub fn for_each_index<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, &[usize]),
+    {
+        let mut indices = vec![0; self.shape.0.len()];
+        let total_elements = self.shape.size();
+
+        for i in 0..total_elements {
+            f(i, &indices);
+
+            // Increment indices with carry
+            let mut d = indices.len() - 1;
+            loop {
+                indices[d] += 1;
+                if indices[d] < self.shape.0[d] || d == 0 {
+                    break;
+                }
+                indices[d] = 0;
+                d -= 1;
+            }
+        }
+    }
+
     /// Compute slice indices for fixed first n dimension.
     /// Returns (start_index, slice_shape)
     fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape, Vec<isize>) {
@@ -270,6 +297,14 @@ impl TaggedNdArray {
             TaggedNdArray::F16(vec) => vec.len(),
             TaggedNdArray::F32(vec) => vec.len(),
             TaggedNdArray::I32(vec) => vec.len(),
+        }
+    }
+
+    pub fn is_contiguous(&self) -> bool {
+        match self {
+            TaggedNdArray::F16(a) => a.is_contiguous(),
+            TaggedNdArray::F32(a) => a.is_contiguous(),
+            TaggedNdArray::I32(a) => a.is_contiguous(),
         }
     }
 

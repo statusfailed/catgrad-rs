@@ -192,23 +192,9 @@ where
         return;
     };
 
-    // Create index vector and iterate through all elements
-    let mut indices = vec![0; a.shape.0.len()];
-    let total_elements = a.shape.size();
-
-    for _ in 0..total_elements {
-        c[&indices] = op(a[&indices], b[&indices]);
-
-        let mut d = indices.len() - 1;
-        loop {
-            indices[d] += 1;
-            if indices[d] < a.shape.0[d] || d == 0 {
-                break;
-            }
-            indices[d] = 0;
-            d -= 1;
-        }
-    }
+    a.for_each_index(|_, indices| {
+        c[indices] = op(a[indices], b[indices]);
+    });
 }
 
 pub struct AddOp;
@@ -296,23 +282,9 @@ where
         }
         return;
     }
-    // Create index vector and iterate through all elements
-    let mut indices = vec![0; a.shape.0.len()];
-    let total_elements = a.shape.size();
-
-    for _ in 0..total_elements {
-        b[&indices] = op(a[&indices]);
-
-        let mut d = indices.len() - 1;
-        loop {
-            indices[d] += 1;
-            if indices[d] < a.shape.0[d] || d == 0 {
-                break;
-            }
-            indices[d] = 0;
-            d -= 1;
-        }
-    }
+    a.for_each_index(|_, indices| {
+        b[indices] = op(a[indices]);
+    });
 }
 
 pub struct NegOp;
@@ -352,7 +324,13 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             b.shape.size(),
             "ReshapeOp: input shape must be compatible with target shape"
         );
-        b.data.clone_from(&a.data);
+        if a.is_contiguous() {
+            b.data.clone_from(&a.data);
+        } else {
+            a.for_each_index(|i, indices| {
+                b.data[i] = a[indices];
+            });
+        }
     }
 }
 
