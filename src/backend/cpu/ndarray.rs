@@ -57,6 +57,10 @@ impl<T> NdArray<T> {
         self.shape.size()
     }
 
+    pub fn is_contiguous(&self) -> bool {
+        self.strides == compute_strides(&self.shape)
+    }
+
     /// Compute slice indices for fixed first n dimension.
     /// Returns (start_index, slice_shape)
     fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape, Vec<isize>) {
@@ -270,6 +274,14 @@ impl TaggedNdArray {
             TaggedNdArray::F16(vec) => vec.len(),
             TaggedNdArray::F32(vec) => vec.len(),
             TaggedNdArray::I32(vec) => vec.len(),
+        }
+    }
+
+    pub fn is_contiguous(&self) -> bool {
+        match self {
+            TaggedNdArray::F16(a) => a.is_contiguous(),
+            TaggedNdArray::F32(a) => a.is_contiguous(),
+            TaggedNdArray::I32(a) => a.is_contiguous(),
         }
     }
 
