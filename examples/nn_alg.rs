@@ -8,8 +8,11 @@ use catgrad::{
         eval::EvalState,
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{nn::utils::read_safetensors, Dtype, NdArrayType, Operation, Shape, Term},
+    core::{Dtype, NdArrayType, Operation, Shape, Term},
 };
+
+mod utils;
+use utils::read_safetensors;
 
 fn sigmoid_layer(typ: NdArrayType) -> Term {
     let one = Operation::constop(typ.clone(), 1.0);
