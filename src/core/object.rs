@@ -30,6 +30,29 @@ impl Shape {
     pub fn concatenate(&self, other: &Self) -> Self {
         Shape(self.0.iter().chain(other.0.iter()).cloned().collect())
     }
+
+    pub fn for_each_index<F>(&self, mut f: F)
+    where
+        F: FnMut(usize, &[usize]),
+    {
+        let mut indices = vec![0; self.0.len()];
+        let total_elements = self.size();
+
+        for i in 0..total_elements {
+            f(i, &indices);
+
+            // Increment indices with carry
+            let mut d = indices.len() - 1;
+            loop {
+                indices[d] += 1;
+                if indices[d] < self.0[d] || d == 0 {
+                    break;
+                }
+                indices[d] = 0;
+                d -= 1;
+            }
+        }
+    }
 }
 
 /// The type of an NdArray is defined by shape and dtype.
