@@ -303,6 +303,7 @@ impl EvalState {
                     panic!("Parameters not loaded, requested parameter '{name}'");
                 }
             }
+
             Embedding => {
                 // The first source is the indices and second source is the embedding table
                 let i = sources[0]; // indices
@@ -336,9 +337,39 @@ impl EvalState {
                     _ => panic!("invalid type for embedding operation"),
                 }
             }
+
+            Index { dim } => {
+                // The first source is the indices and second source is the embedding table
+                let i = sources[0]; // indices
+                let j = sources[1]; // embedding weights
+                let k = targets[0]; // output
+
+                match self.data[..].get_disjoint_mut([i, j, k]) {
+                    Ok([F32(input), I32(indices), F32(output)]) => {
+                        let input_dim_size = input.shape.0[*dim];
+
+                        output.shape.clone().for_each_index(|_, output_indices| {
+                            let mut input_indices = output_indices.to_vec();
+
+                            let idx_pos = output_indices[*dim];
+                            let input_idx: usize = (indices[&[idx_pos]]) as usize;
+
+                            if input_idx >= input_dim_size {
+                                panic!(
+                                    "Index {} out of bounds for dimension size {}",
+                                    input_idx, input_dim_size
+                                );
+                            }
+
+                            input_indices[*dim] = input_idx;
+                            output[output_indices] = input[&input_indices];
+                        });
+                    }
+                    _ => panic!("invalid type for Index operation"),
+                }
+            }
         }
     }
-
     /// mutably evaluate self with args, returning a reference to output arrays.
     pub fn eval_with(&mut self, args: Vec<TaggedNdArray>) -> Vec<&TaggedNdArray> {
         let sources = &self.term.s.table;

@@ -57,6 +57,11 @@ pub enum Operation {
     /// Embedding lookup
     Embedding,
 
+    /// Index operator
+    Index {
+        dim: usize,
+    },
+
     /// Arange
     Arange,
 
