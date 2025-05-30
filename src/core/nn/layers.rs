@@ -79,6 +79,21 @@ pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
     operation(builder, &[input, indices], output_type, op)
 }
 
+pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
+    assert!(x.label.shape.0[dim] % splits == 0);
+
+    let d = x.label.shape.0[dim] / splits;
+
+    let mut outputs = vec![];
+    for i in 0..splits {
+        let indices = range_indices(builder, i * d, (i + 1) * d);
+        let s = index(builder, dim, x.clone(), indices);
+        outputs.push(s);
+    }
+
+    outputs
+}
+
 pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
     let op = Operation::Const(k);
     operation(builder, &[], param_type, op)
@@ -956,5 +971,66 @@ mod test {
         assert_eq!(y2.get(&[0, 0]), 2.);
         assert_eq!(y2.get(&[1, 1]), 3.);
         assert_eq!(y2.get(&[2, 2]), 4.);
+    }
+
+    #[test]
+    fn test_split() {
+        let xt = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let x = arange(builder, xt.clone());
+            let x = expand(builder, Shape(vec![4, 6]), x);
+            let v = split(builder, 1, 3, x.clone());
+            let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
+
+            let v = split(builder, 0, 2, y1.clone());
+            let y1 = v[0].clone();
+
+            (vec![], vec![y0, y1, y2])
+        });
+
+        let [y0, y1, y2] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // x
+        // [[0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]]
+        // [0, 1, 2, 3, 4, 5]]
+        //
+
+        // y0 = x[:, :2]
+        // [[0, 1]
+        // [0, 1]
+        // [0, 1]]
+        //
+        assert_eq!(y0.shape(), Shape(vec![4, 2]));
+        assert_eq!(y0.get(&[0, 0]), 0.);
+        assert_eq!(y0.get(&[0, 1]), 1.);
+        assert_eq!(y0.get(&[3, 0]), 0.);
+        assert_eq!(y0.get(&[3, 1]), 1.);
+
+        // y1 = x[:, 2:4][:2,:]
+        // [[2, 3]
+        // [2, 3]
+        //
+        assert_eq!(y1.shape(), Shape(vec![2, 2]));
+        assert_eq!(y1.get(&[0, 0]), 2.);
+        assert_eq!(y1.get(&[0, 1]), 3.);
+        assert_eq!(y1.get(&[1, 0]), 2.);
+        assert_eq!(y1.get(&[1, 1]), 3.);
+
+        // y2 = x[:,4:]
+        // [[4, 5]
+        // [4, 5]
+        // [4, 5]]
+        // [4, 5]]
+        //
+        assert_eq!(y2.shape(), Shape(vec![4, 2]));
+        assert_eq!(y2.get(&[0, 0]), 4.);
+        assert_eq!(y2.get(&[0, 1]), 5.);
+        assert_eq!(y2.get(&[3, 0]), 4.);
+        assert_eq!(y2.get(&[3, 1]), 5.);
     }
 }
