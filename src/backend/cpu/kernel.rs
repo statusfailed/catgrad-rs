@@ -192,7 +192,7 @@ where
         return;
     };
 
-    a.for_each_index(|_, indices| {
+    a.shape.for_each_index(|_, indices| {
         c[indices] = op(a[indices], b[indices]);
     });
 }
@@ -282,7 +282,7 @@ where
         }
         return;
     }
-    a.for_each_index(|_, indices| {
+    a.shape.for_each_index(|_, indices| {
         b[indices] = op(a[indices]);
     });
 }
@@ -327,7 +327,7 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
         if a.is_contiguous() {
             b.data.clone_from(&a.data);
         } else {
-            a.for_each_index(|i, indices| {
+            a.shape.for_each_index(|i, indices| {
                 b.data[i] = a[indices];
             });
         }

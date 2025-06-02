@@ -2,10 +2,8 @@
 
 use super::{Config, ModelBuilder};
 use catgrad::backend::cpu::eval::{Builder, EvalState};
-use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
 use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
-use std::collections::HashMap;
 
 pub struct Model;
 
@@ -53,10 +51,12 @@ impl Model {
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        // let c_attn = gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x.clone());
-        let k = Model::gpt_linear(builder, dim, dim, &format!("{name}.key"), x.clone());
-        let q = Model::gpt_linear(builder, dim, dim, &format!("{name}.query"), x.clone());
-        let v = Model::gpt_linear(builder, dim, dim, &format!("{name}.value"), x);
+        let c_attn = Model::gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x.clone());
+
+        let a = split(builder, 2, 3, c_attn);
+        let q = a[0].clone();
+        let k = a[1].clone();
+        let v = a[2].clone();
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
@@ -136,57 +136,5 @@ impl ModelBuilder for Model {
         });
 
         state
-    }
-
-    fn post_load(&mut self, tensors: &mut HashMap<String, TaggedNdArray>) {
-        let attn_keys: Vec<String> = tensors
-            .keys()
-            .filter(|k| k.contains("c_attn"))
-            .cloned()
-            .collect();
-
-        // Split these keys into component Q, K, and V
-        for attn_key in attn_keys {
-            if let Some(TaggedNdArray::F32(array)) = tensors.get(&attn_key) {
-                let mut shape = array.shape.clone();
-                let l = shape.0.len() - 1;
-                let dim = shape.0[l] / 3;
-
-                // Create the three tensors
-                let q_name = attn_key.replace("c_attn", "query");
-                let k_name = attn_key.replace("c_attn", "key");
-                let v_name = attn_key.replace("c_attn", "value");
-
-                let m = shape.size() / shape.0[l];
-
-                // Split the tensor data
-                let mut q_data: Vec<f32> = Vec::with_capacity(m * dim);
-                let mut k_data: Vec<f32> = Vec::with_capacity(m * dim);
-                let mut v_data: Vec<f32> = Vec::with_capacity(m * dim);
-                for (i, c) in array.data.chunks_exact(dim).enumerate() {
-                    if i % 3 == 0 {
-                        q_data.extend_from_slice(c);
-                    } else if i % 3 == 1 {
-                        k_data.extend_from_slice(c);
-                    } else {
-                        v_data.extend_from_slice(c);
-                    }
-                }
-
-                shape.0[l] = dim;
-
-                // Create new arrays with proper shapes
-                let q_shape = shape.clone();
-                let k_shape = shape.clone();
-                let v_shape = shape;
-
-                // Insert the new tensors
-                tensors.insert(q_name, TaggedNdArray::F32(NdArray::new(q_data, q_shape)));
-                tensors.insert(k_name, TaggedNdArray::F32(NdArray::new(k_data, k_shape)));
-                tensors.insert(v_name, TaggedNdArray::F32(NdArray::new(v_data, v_shape)));
-
-                tensors.remove(&attn_key);
-            }
-        }
     }
 }

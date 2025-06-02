@@ -61,29 +61,6 @@ impl<T> NdArray<T> {
         self.strides == compute_strides(&self.shape)
     }
 
-    pub fn for_each_index<F>(&self, mut f: F)
-    where
-        F: FnMut(usize, &[usize]),
-    {
-        let mut indices = vec![0; self.shape.0.len()];
-        let total_elements = self.shape.size();
-
-        for i in 0..total_elements {
-            f(i, &indices);
-
-            // Increment indices with carry
-            let mut d = indices.len() - 1;
-            loop {
-                indices[d] += 1;
-                if indices[d] < self.shape.0[d] || d == 0 {
-                    break;
-                }
-                indices[d] = 0;
-                d -= 1;
-            }
-        }
-    }
-
     /// Compute slice indices for fixed first n dimension.
     /// Returns (start_index, slice_shape)
     fn calculate_slice_info(&self, indices: &[usize]) -> (usize, Shape, Vec<isize>) {
@@ -221,27 +198,9 @@ impl<T: Copy> NdArray<T> {
         // For arrays with different strides, we need to copy element by element
         // using the proper indexing for each array
 
-        // Create a vector to hold the current index
-        let mut indices = vec![0; self.shape.0.len()];
-        let ndims = indices.len();
-
-        // Total number of elements to copy
-        let total_elements = self.shape.size();
-
-        for _ in 0..total_elements {
-            self[&indices] = other[&indices];
-
-            // Increment indices (like counting, with carry)
-            let mut d = ndims - 1;
-            loop {
-                indices[d] += 1;
-                if indices[d] < self.shape.0[d] || d == 0 {
-                    break;
-                }
-                indices[d] = 0;
-                d -= 1;
-            }
-        }
+        other.shape.for_each_index(|_, indices| {
+            self[indices] = other[indices];
+        });
     }
 }
 

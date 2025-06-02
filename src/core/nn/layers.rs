@@ -59,6 +59,41 @@ pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
     operation(builder, &[indices, weights], out_type, op)
 }
 
+// Create range indices for indexing
+pub fn range_indices(builder: &Builder, start: usize, end: usize) -> Var {
+    let count = end - start;
+    let range = arange(builder, NdArrayType::new(Shape(vec![count]), Dtype::I32));
+    if start > 0 {
+        let offset = constant(builder, range.label.clone(), start as f32);
+        range + offset
+    } else {
+        range
+    }
+}
+
+pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
+    let mut output_type = input.label.clone();
+    output_type.shape.0[dim] = indices.label.shape.0[0];
+
+    let op = Operation::Index { dim };
+    operation(builder, &[input, indices], output_type, op)
+}
+
+pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
+    assert!(x.label.shape.0[dim] % splits == 0);
+
+    let d = x.label.shape.0[dim] / splits;
+
+    let mut outputs = vec![];
+    for i in 0..splits {
+        let indices = range_indices(builder, i * d, (i + 1) * d);
+        let s = index(builder, dim, x.clone(), indices);
+        outputs.push(s);
+    }
+
+    outputs
+}
+
 pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
     let op = Operation::Const(k);
     operation(builder, &[], param_type, op)
@@ -762,15 +797,26 @@ mod test {
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
         // assert_eq!(i.strides(), vec![0, 1]);
-        assert_eq!(i.data(), &[0., 1., 2., 0., 1., 2., 0., 1., 2.]);
+        assert_eq!(i.get(&[0, 1]), 1.);
+        assert_eq!(i.get(&[2, 2]), 2.);
 
         assert_eq!(j.shape(), Shape(vec![3, 3]));
         // assert_eq!(j.strides(), vec![1, 0]);
-        assert_eq!(j.data(), &[0., 0., 0., 1., 1., 1., 2., 2., 2.]);
+        assert_eq!(j.get(&[0, 1]), 0.);
+        assert_eq!(j.get(&[1, 1]), 1.);
+        assert_eq!(j.get(&[2, 2]), 2.);
 
         assert_eq!(tri.shape(), Shape(vec![3, 3]));
         assert_eq!(tri.strides(), vec![3, 1]);
-        assert_eq!(tri.data(), &[1., 0., 0., 1., 1., 0., 1., 1., 1.]);
+        assert_eq!(tri.get(&[0, 0]), 1.);
+        assert_eq!(tri.get(&[0, 1]), 0.);
+        assert_eq!(tri.get(&[0, 2]), 0.);
+        assert_eq!(tri.get(&[1, 0]), 1.);
+        assert_eq!(tri.get(&[1, 1]), 1.);
+        assert_eq!(tri.get(&[1, 2]), 0.);
+        assert_eq!(tri.get(&[2, 0]), 1.);
+        assert_eq!(tri.get(&[2, 1]), 1.);
+        assert_eq!(tri.get(&[2, 2]), 1.);
     }
 
     #[test]
@@ -851,6 +897,140 @@ mod test {
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
         // assert_eq!(i.strides(), vec![0, 1]);
-        assert_eq!(i.approx(1), &[0., 1., 2., 0., 1., 2., 0., 1., 2.]);
+        assert_eq!(i.get(&[0, 0]), 0.);
+        assert_eq!(i.get(&[0, 1]), 1.);
+        assert_eq!(i.get(&[0, 2]), 2.);
+        assert_eq!(i.get(&[1, 0]), 0.);
+        assert_eq!(i.get(&[1, 1]), 1.);
+        assert_eq!(i.get(&[1, 2]), 2.);
+        assert_eq!(i.get(&[2, 0]), 0.);
+        assert_eq!(i.get(&[2, 1]), 1.);
+        assert_eq!(i.get(&[2, 2]), 2.);
+    }
+
+    #[test]
+    fn test_index() {
+        let xt = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
+        let it = NdArrayType::new(Shape(vec![3]), Dtype::I32);
+
+        let mut state = EvalState::build(|builder| {
+            let x = arange(builder, xt.clone());
+            let x = expand(builder, Shape(vec![4, 6]), x);
+            let i = arange(builder, it.clone());
+            let y0 = index(builder, 0, x.clone(), i.clone());
+            let y1 = index(builder, 1, x.clone(), i.clone());
+
+            let ri = range_indices(builder, 2, 5);
+            let y2 = index(builder, 1, x.clone(), ri);
+
+            (vec![], vec![x, y0, y1, y2])
+        });
+
+        let [x, y0, y1, y2] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // x
+        // [[0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]]
+        // [0, 1, 2, 3, 4, 5]]
+        assert_eq!(x.shape(), Shape(vec![4, 6]));
+        assert_eq!(x.get(&[0, 0]), 0.);
+        assert_eq!(x.get(&[0, 5]), 5.);
+        assert_eq!(x.get(&[3, 0]), 0.);
+        assert_eq!(x.get(&[3, 5]), 5.);
+
+        // y0 = x[:3, :]
+        // [[0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]]
+        //
+        assert_eq!(y0.shape(), Shape(vec![3, 6]));
+        assert_eq!(y0.get(&[0, 0]), 0.);
+        assert_eq!(y0.get(&[0, 5]), 5.);
+        assert_eq!(y0.get(&[2, 3]), 3.);
+        assert_eq!(y0.get(&[2, 5]), 5.);
+
+        // y1 = x[:, :3]
+        // [[0, 1, 2]
+        // [0, 1, 2]
+        // [[0, 1, 2]
+        // [0, 1, 2]
+        assert_eq!(y1.shape(), Shape(vec![4, 3]));
+        assert_eq!(y1.get(&[0, 0]), 0.);
+        assert_eq!(y1.get(&[0, 2]), 2.);
+        assert_eq!(y1.get(&[3, 2]), 2.);
+
+        // y2 = x[:, 2:5]
+        // [[2, 3, 4]
+        // [2, 3, 4]
+        // [2, 3, 4]]
+        //
+        assert_eq!(y2.shape(), Shape(vec![4, 3]));
+        assert_eq!(y2.get(&[0, 0]), 2.);
+        assert_eq!(y2.get(&[1, 1]), 3.);
+        assert_eq!(y2.get(&[2, 2]), 4.);
+    }
+
+    #[test]
+    fn test_split() {
+        let xt = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let x = arange(builder, xt.clone());
+            let x = expand(builder, Shape(vec![4, 6]), x);
+            let v = split(builder, 1, 3, x.clone());
+            let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
+
+            let v = split(builder, 0, 2, y1.clone());
+            let y1 = v[0].clone();
+
+            (vec![], vec![y0, y1, y2])
+        });
+
+        let [y0, y1, y2] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // x
+        // [[0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]
+        // [0, 1, 2, 3, 4, 5]]
+        // [0, 1, 2, 3, 4, 5]]
+        //
+
+        // y0 = x[:, :2]
+        // [[0, 1]
+        // [0, 1]
+        // [0, 1]]
+        //
+        assert_eq!(y0.shape(), Shape(vec![4, 2]));
+        assert_eq!(y0.get(&[0, 0]), 0.);
+        assert_eq!(y0.get(&[0, 1]), 1.);
+        assert_eq!(y0.get(&[3, 0]), 0.);
+        assert_eq!(y0.get(&[3, 1]), 1.);
+
+        // y1 = x[:, 2:4][:2,:]
+        // [[2, 3]
+        // [2, 3]
+        //
+        assert_eq!(y1.shape(), Shape(vec![2, 2]));
+        assert_eq!(y1.get(&[0, 0]), 2.);
+        assert_eq!(y1.get(&[0, 1]), 3.);
+        assert_eq!(y1.get(&[1, 0]), 2.);
+        assert_eq!(y1.get(&[1, 1]), 3.);
+
+        // y2 = x[:,4:]
+        // [[4, 5]
+        // [4, 5]
+        // [4, 5]]
+        // [4, 5]]
+        //
+        assert_eq!(y2.shape(), Shape(vec![4, 2]));
+        assert_eq!(y2.get(&[0, 0]), 4.);
+        assert_eq!(y2.get(&[0, 1]), 5.);
+        assert_eq!(y2.get(&[3, 0]), 4.);
+        assert_eq!(y2.get(&[3, 1]), 5.);
     }
 }
