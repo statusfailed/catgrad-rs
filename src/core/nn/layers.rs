@@ -214,8 +214,9 @@ pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
     let s = shape[2];
     let head_dim = shape[3];
 
-    let x = reshape(builder, Shape(vec![b, 1, num_kv_heads, s, head_dim]), x);
-    let x = expand(builder, Shape(vec![b, rep, num_kv_heads, s, head_dim]), x);
+    // equivalent of torch.repeat_interleave across dim 1
+    let x = reshape(builder, Shape(vec![b, num_kv_heads, 1, s, head_dim]), x);
+    let x = expand(builder, Shape(vec![b, num_kv_heads, rep, s, head_dim]), x);
     reshape(builder, Shape(vec![b, rep * num_kv_heads, s, head_dim]), x)
 }
 
@@ -1032,5 +1033,42 @@ mod test {
         assert_eq!(y2.get(&[0, 1]), 5.);
         assert_eq!(y2.get(&[3, 0]), 4.);
         assert_eq!(y2.get(&[3, 1]), 5.);
+    }
+
+    #[test]
+    fn test_repeat_kv() {
+        let t = NdArrayType::new(Shape(vec![1, 8]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, t.clone());
+            let i = reshape(builder, Shape(vec![1, 2, 1, 4]), i);
+            let i = repeat_kv(builder, 2, i);
+            (vec![], vec![i])
+        });
+
+        let [i] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // i = [[[[0,1,2,3]],
+        //      [[4,5,6,7]]]]
+        // repeated across dim 1 is
+        // i = [[[[0,1,2,3]],
+        //      [[0,1,2,3]],
+        //      [[4,5,6,7]],
+        //      [[4,5,6,7]]]]
+        assert_eq!(i.shape(), Shape(vec![1, 4, 1, 4]));
+        assert_eq!(i.get(&[0, 0, 0, 0]), 0.);
+        assert_eq!(i.get(&[0, 0, 0, 3]), 3.);
+        assert_eq!(i.get(&[0, 1, 0, 0]), 0.);
+        assert_eq!(i.get(&[0, 1, 0, 3]), 3.);
+        assert_eq!(i.get(&[0, 2, 0, 0]), 4.);
+        assert_eq!(i.get(&[0, 2, 0, 1]), 5.);
+        assert_eq!(i.get(&[0, 2, 0, 2]), 6.);
+        assert_eq!(i.get(&[0, 2, 0, 3]), 7.);
+        assert_eq!(i.get(&[0, 3, 0, 0]), 4.);
+        assert_eq!(i.get(&[0, 3, 0, 1]), 5.);
+        assert_eq!(i.get(&[0, 3, 0, 2]), 6.);
+        assert_eq!(i.get(&[0, 3, 0, 3]), 7.);
     }
 }
