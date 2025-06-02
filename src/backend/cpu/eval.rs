@@ -339,9 +339,9 @@ impl EvalState {
             }
 
             Index { dim } => {
-                // The first source is the indices and second source is the embedding table
+                // The first source is the indices and second source is the tensor
                 let i = sources[0]; // indices
-                let j = sources[1]; // embedding weights
+                let j = sources[1]; // tensor
                 let k = targets[0]; // output
 
                 match self.data[..].get_disjoint_mut([i, j, k]) {
