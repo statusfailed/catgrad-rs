@@ -94,6 +94,13 @@ pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
     outputs
 }
 
+pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
+    assert!(x.label.shape.0[dim] >= start + length);
+
+    let indices = range_indices(builder, start, start + length);
+    index(builder, dim, x.clone(), indices)
+}
+
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
     let mut output_shape = a.label.shape.0.clone();
     output_shape[dim] = a.label.shape.0[dim] + b.label.shape.0[dim];
@@ -1042,6 +1049,49 @@ mod test {
         assert_eq!(y2.get(&[0, 1]), 5.);
         assert_eq!(y2.get(&[3, 0]), 4.);
         assert_eq!(y2.get(&[3, 1]), 5.);
+    }
+
+    #[test]
+    fn test_narrow() {
+        let t = NdArrayType::new(Shape(vec![1, 12]), Dtype::F32);
+
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, t.clone());
+            let i = reshape(builder, Shape(vec![1, 3, 4]), i);
+            let nr = narrow(builder, 1, 1, 2, i.clone());
+            let nc = narrow(builder, 2, 2, 2, i.clone());
+            (vec![], vec![nr, nc])
+        });
+
+        let [nr, nc] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // i
+        // [[[0,1,2,3]
+        //   [4,5,6,7]
+        //   [8,9,10,11]]]
+        //
+        // nr, narrowed across rows 1-2
+        // [[[4,5,6,7]]
+        //   [8,9,10,11]]
+        assert_eq!(nr.shape(), Shape(vec![1, 2, 4]));
+        assert_eq!(nr.get(&[0, 0, 0]), 4.);
+        assert_eq!(nr.get(&[0, 0, 1]), 5.);
+        assert_eq!(nr.get(&[0, 1, 2]), 10.);
+        assert_eq!(nr.get(&[0, 1, 3]), 11.);
+
+        // nc, narrowed across columns 2-3
+        // [[[2,3],
+        //   [6,7]]
+        //   [10,11]]
+        assert_eq!(nc.shape(), Shape(vec![1, 3, 2]));
+        assert_eq!(nc.get(&[0, 0, 0]), 2.);
+        assert_eq!(nc.get(&[0, 0, 1]), 3.);
+        assert_eq!(nc.get(&[0, 1, 0]), 6.);
+        assert_eq!(nc.get(&[0, 1, 1]), 7.);
+        assert_eq!(nc.get(&[0, 2, 0]), 10.);
+        assert_eq!(nc.get(&[0, 2, 1]), 11.);
     }
 
     #[test]
