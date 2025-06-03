@@ -77,7 +77,7 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
         Shape(vec![config.max_position_embeddings, config.hidden_size]),
         Dtype::F32,
     );
-    let pos = arange(builder, x.label.clone());
+    let pos = arange(builder, x.label.size(), Dtype::F32);
     let weights = parameter(builder, t, format!("{name}.position_embeddings.weight"));
     let pe = embedding(builder, pos, weights);
 

@@ -62,7 +62,7 @@ pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
 // Create range indices for indexing
 pub fn range_indices(builder: &Builder, start: usize, end: usize) -> Var {
     let count = end - start;
-    let range = arange(builder, NdArrayType::new(Shape(vec![count]), Dtype::I32));
+    let range = arange(builder, count, Dtype::I32);
     if start > 0 {
         let offset = constant(builder, range.label.clone(), start as f32);
         range + offset
@@ -125,7 +125,8 @@ pub fn eq(builder: &Builder, a: Var, b: Var) -> Var {
     operation(builder, &[a.clone(), b], a.label, op)
 }
 
-pub fn arange(builder: &Builder, param_type: NdArrayType) -> Var {
+pub fn arange(builder: &Builder, count: usize, dtype: Dtype) -> Var {
+    let param_type = NdArrayType::new(Shape(vec![count]), dtype);
     let op = Operation::Arange;
     operation(builder, &[], param_type, op)
 }
@@ -237,12 +238,10 @@ pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
 }
 
 pub fn causal_mask(builder: &Builder, size: usize) -> Var {
-    let t = NdArrayType::new(Shape(vec![1, size]), Dtype::F32);
-
-    let i = arange(builder, t.clone());
+    let i = arange(builder, size, Dtype::F32);
     let i = expand(builder, Shape(vec![size, size]), i);
 
-    let j = arange(builder, t);
+    let j = arange(builder, size, Dtype::F32);
     let j = reshape(builder, Shape(vec![size, 1]), j);
     let j = expand(builder, Shape(vec![size, size]), j);
 
@@ -256,9 +255,7 @@ pub fn causal_mask(builder: &Builder, size: usize) -> Var {
 // Make a 2D mask with a single row set to 1 the rest to 0
 // to be used to pad 1D vectors into 2D tensors
 pub fn pad_mask(builder: &Builder, rows: usize, cols: usize) -> Var {
-    let t = NdArrayType::new(Shape(vec![1, rows]), Dtype::F32);
-
-    let a = arange(builder, t);
+    let a = arange(builder, rows, Dtype::F32);
     let a = reshape(builder, Shape(vec![rows, 1]), a);
     let a = expand(builder, Shape(vec![rows, cols]), a);
 
@@ -637,10 +634,8 @@ mod test {
 
     #[test]
     fn test_arange() {
-        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let i = arange(builder, t.clone());
+            let i = arange(builder, 6, Dtype::F32);
             let e = expand(builder, Shape(vec![2, 6]), i.clone());
             let r = reshape(builder, Shape(vec![6, 2]), e.clone());
             (vec![], vec![e, r])
@@ -668,10 +663,8 @@ mod test {
 
     #[test]
     fn test_transpose_reshape() {
-        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let a = arange(builder, t.clone());
+            let a = arange(builder, 6, Dtype::F32);
             let b = reshape(builder, Shape(vec![2, 3]), a.clone());
             let c = transpose(builder, 0, 1, b.clone());
             let d = reshape(builder, Shape(vec![3, 2]), c.clone());
@@ -700,10 +693,8 @@ mod test {
 
     #[test]
     fn test_strided_operations() {
-        let t = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let a = arange(builder, t.clone());
+            let a = arange(builder, 6, Dtype::F32);
             let b = reshape(builder, Shape(vec![2, 3]), a.clone());
             let c = transpose(builder, 0, 1, b.clone());
             let d = reshape(builder, Shape(vec![3, 2]), a.clone());
@@ -783,19 +774,17 @@ mod test {
     #[test]
     // Make a lower triangular matrix
     fn test_tril() {
-        let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
             // Create [[0, 1, 2],
             //         [0, 1, 2],
             //         [0, 1, 2]]
-            let i = arange(builder, t.clone());
+            let i = arange(builder, 3, Dtype::F32);
             let i = expand(builder, Shape(vec![3, 3]), i);
 
             // Create [[0, 0, 0],
             //         [1, 1, 1],
             //         [2, 2, 2]]
-            let j = arange(builder, t.clone());
+            let j = arange(builder, 3, Dtype::F32);
             let j = reshape(builder, Shape(vec![3, 1]), j);
             let j = expand(builder, Shape(vec![3, 3]), j);
 
@@ -900,10 +889,8 @@ mod test {
 
     #[test]
     fn test_expand() {
-        let t = NdArrayType::new(Shape(vec![1, 3]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let i = arange(builder, t.clone());
+            let i = arange(builder, 3, Dtype::F32);
             let i = expand(builder, Shape(vec![3, 3]), i);
             (vec![], vec![i])
         });
@@ -927,13 +914,10 @@ mod test {
 
     #[test]
     fn test_index() {
-        let xt = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
-        let it = NdArrayType::new(Shape(vec![3]), Dtype::I32);
-
         let mut state = EvalState::build(|builder| {
-            let x = arange(builder, xt.clone());
+            let x = arange(builder, 6, Dtype::F32);
             let x = expand(builder, Shape(vec![4, 6]), x);
-            let i = arange(builder, it.clone());
+            let i = arange(builder, 3, Dtype::I32);
             let y0 = index(builder, 0, x.clone(), i.clone());
             let y1 = index(builder, 1, x.clone(), i.clone());
 
@@ -992,10 +976,8 @@ mod test {
 
     #[test]
     fn test_split() {
-        let xt = NdArrayType::new(Shape(vec![1, 6]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let x = arange(builder, xt.clone());
+            let x = arange(builder, 6, Dtype::F32);
             let x = expand(builder, Shape(vec![4, 6]), x);
             let v = split(builder, 1, 3, x.clone());
             let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
@@ -1053,10 +1035,8 @@ mod test {
 
     #[test]
     fn test_narrow() {
-        let t = NdArrayType::new(Shape(vec![1, 12]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let i = arange(builder, t.clone());
+            let i = arange(builder, 12, Dtype::F32);
             let i = reshape(builder, Shape(vec![1, 3, 4]), i);
             let nr = narrow(builder, 1, 1, 2, i.clone());
             let nc = narrow(builder, 2, 2, 2, i.clone());
@@ -1096,10 +1076,8 @@ mod test {
 
     #[test]
     fn test_repeat_kv() {
-        let t = NdArrayType::new(Shape(vec![1, 8]), Dtype::F32);
-
         let mut state = EvalState::build(|builder| {
-            let i = arange(builder, t.clone());
+            let i = arange(builder, 8, Dtype::F32);
             let i = reshape(builder, Shape(vec![1, 2, 1, 4]), i);
             let i = repeat_kv(builder, 2, i);
             (vec![], vec![i])
