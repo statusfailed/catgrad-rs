@@ -233,6 +233,70 @@ impl<T: Clone + Zero> NdArray<T> {
     }
 }
 
+impl<T: std::fmt::Display + Copy> NdArray<T> {
+    /// Pretty print the array in PyTorch-like format
+    pub fn pretty_print(&self) -> String {
+        self.pretty_print_with_options(4, 4)
+    }
+
+    pub fn pretty_print_with_options(&self, edge_items: usize, precision: usize) -> String {
+        self.format_recursive(&[], 0, edge_items, precision)
+    }
+
+    fn format_recursive(
+        &self,
+        indices: &[usize],
+        depth: usize,
+        edge_items: usize,
+        precision: usize,
+    ) -> String {
+        if indices.len() == self.shape.0.len() {
+            return format!("{:.*}", precision, self[indices]);
+        }
+
+        let indent = " ".repeat(depth);
+        // Newline after closing ]
+        let comma = if indices.len() < self.shape.0.len() - 1 {
+            ",\n"
+        } else {
+            ","
+        };
+
+        let dim_size = self.shape.0[indices.len()];
+        let mut result = String::new();
+
+        result.push('\n');
+        result.push_str(&indent);
+        result.push('[');
+
+        for i in 0..dim_size {
+            if i == edge_items && dim_size > edge_items * 2 {
+                result.push_str(comma);
+                result.push_str(" ...");
+            }
+            if i >= edge_items && i + edge_items < dim_size {
+                continue;
+            }
+            if i > 0 {
+                result.push_str(comma);
+                result.push(' ');
+            }
+
+            let mut new_indices = indices.to_vec();
+            new_indices.push(i);
+            result.push_str(&self.format_recursive(&new_indices, depth + 1, edge_items, precision));
+        }
+        result.push(']');
+        result
+    }
+}
+
+impl<T: std::fmt::Display + Copy> std::fmt::Display for NdArray<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pretty_print())
+    }
+}
+
 /// A disjoint union of typed arrays
 /// intuition: the "values" assigned to each node in a [`Term`].
 #[derive(PartialEq, Debug, Clone)]
@@ -321,6 +385,32 @@ impl TaggedNdArray {
     pub fn approx(&self, digits: i32) -> Vec<f32> {
         let b = 10f32.powi(digits);
         self.data().iter().map(|x| (x * b).round() / b).collect()
+    }
+}
+
+impl TaggedNdArray {
+    /// Pretty print the tagged array in PyTorch-like format
+    pub fn pretty_print(&self) -> String {
+        match self {
+            TaggedNdArray::F16(arr) => arr.pretty_print(),
+            TaggedNdArray::F32(arr) => arr.pretty_print(),
+            TaggedNdArray::I32(arr) => arr.pretty_print(),
+        }
+    }
+
+    /// Pretty print with custom options
+    pub fn pretty_print_with_options(&self, edge_items: usize, precision: usize) -> String {
+        match self {
+            TaggedNdArray::F16(arr) => arr.pretty_print_with_options(edge_items, precision),
+            TaggedNdArray::F32(arr) => arr.pretty_print_with_options(edge_items, precision),
+            TaggedNdArray::I32(arr) => arr.pretty_print_with_options(edge_items, precision),
+        }
+    }
+}
+
+impl std::fmt::Display for TaggedNdArray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.pretty_print())
     }
 }
 
