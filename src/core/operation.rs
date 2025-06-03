@@ -62,6 +62,11 @@ pub enum Operation {
         dim: usize,
     },
 
+    /// Concatenate
+    Concat {
+        dim: usize,
+    },
+
     /// Arange
     Arange,
 

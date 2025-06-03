@@ -261,6 +261,25 @@ impl BinOp<f32> for PowOp {
     }
 }
 
+pub struct ConcatOp {
+    pub dim: usize,
+}
+
+impl<T: Numeric + Copy> BinOp<T> for ConcatOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        a.shape.for_each_index(|_, a_indices| {
+            c[a_indices] = a[a_indices];
+        });
+
+        b.shape.for_each_index(|_, b_indices| {
+            let mut c_indices = b_indices.to_vec();
+            // Offset the concat dimension by the size of the first array
+            c_indices[self.dim] += a.shape.0[self.dim];
+            c[&c_indices] = b[b_indices];
+        });
+    }
+}
+
 pub struct MatMulOp;
 impl<T: Numeric + 'static> BinOp<T> for MatMulOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
