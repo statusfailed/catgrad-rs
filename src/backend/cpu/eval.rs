@@ -95,6 +95,7 @@ impl EvalState {
                     Pow => Box::new(kernel::PowOp),
                     LT => Box::new(kernel::LTOp),
                     EQ => Box::new(kernel::EQOp),
+                    Concat { dim } => Box::new(kernel::ConcatOp { dim: *dim }),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -110,6 +111,7 @@ impl EvalState {
                     Pow => Box::new(kernel::PowOp),
                     LT => Box::new(kernel::LTOp),
                     EQ => Box::new(kernel::EQOp),
+                    Concat { dim } => Box::new(kernel::ConcatOp { dim: *dim }),
                     MatrixMultiply => Box::new(kernel::MatMulOp),
                     _ => panic!("invalid operation"),
                 };
@@ -124,6 +126,7 @@ impl EvalState {
                     Div => Box::new(kernel::DivOp),
                     LT => Box::new(kernel::LTOp),
                     EQ => Box::new(kernel::EQOp),
+                    Concat { dim } => Box::new(kernel::ConcatOp { dim: *dim }),
                     Pow => Box::new(kernel::PowOp),
                     _ => panic!("invalid operation"),
                 };
@@ -201,7 +204,7 @@ impl EvalState {
     /// Apply an operation to specified sources and target arrays in self.data.
     pub fn apply(&mut self, op: &Operation, sources: &[usize], targets: &[usize]) {
         match op {
-            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT | EQ => {
+            Add | Sub | Mul | Div | Pow | MatrixMultiply | LT | EQ | Concat { .. } => {
                 self.apply_binary_operation(sources, targets, op);
             }
             Sum

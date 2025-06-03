@@ -130,6 +130,11 @@ impl ModelBuilder for Model {
 
             result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);
 
+            // Get the logits for the last token only
+            if tokens > 1 {
+                result = narrow(builder, 1, tokens - 1, 1, result);
+            }
+
             // GPT-2 uses weight tying so lm_head is the same as wte
             let lm_head = linear_no_bias(builder, config.n_embd, config.vocab_size, "wte", result);
             (vec![x], vec![lm_head])

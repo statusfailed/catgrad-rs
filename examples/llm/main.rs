@@ -123,9 +123,6 @@ impl ModelRunner {
         let result = self.run(&input);
 
         let v = config.vocab_size;
-        for i in 0..l {
-            log::debug!("Token {i}: {:?}", &result.data()[i * v..i * v + 10]);
-        }
 
         let r = result.data();
 

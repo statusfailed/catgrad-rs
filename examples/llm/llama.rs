@@ -128,6 +128,11 @@ impl ModelBuilder for Model {
 
             result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
+            // Get the logits for the last token only
+            if tokens > 1 {
+                result = narrow(builder, 1, tokens - 1, 1, result);
+            }
+
             // Add lm_head if weight tying is used
             if config.tie_word_embeddings {
                 result = linear_no_bias(

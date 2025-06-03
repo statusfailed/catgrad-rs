@@ -22,6 +22,12 @@ impl ModelBuilder for Model {
             }
 
             result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+
+            // Get the logits for the last token only
+            if tokens > 1 {
+                result = narrow(builder, 1, tokens - 1, 1, result);
+            }
+
             let lm_head = linear_no_bias(
                 builder,
                 config.hidden_size,
