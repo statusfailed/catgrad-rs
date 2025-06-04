@@ -22,6 +22,9 @@ fn show(name: &str, var: &Var) {
     println!("{name} label: {:?}", var.label,);
 }
 
+// This configuration contains the union of relevant fields from all supported models.
+// Models ignore fields they don't need.
+// The alternative is to use a separate configuration for each model.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(default)]
 #[derive(Default)]
@@ -34,6 +37,8 @@ pub struct Config {
     pub head_dim: usize,
     pub rms_norm_eps: f32,
     pub rope_theta: f32,
+    pub sliding_window_pattern: usize,
+    pub rope_local_base_freq: f32,
     pub max_position_embeddings: usize,
     pub n_embd: usize,
     pub n_layer: usize,
