@@ -2,9 +2,7 @@
 
 These examples work with safetensor weights as found on [Huggingface Hub](https://huggingface.co/models)
 
-**They run but the implementations are still incomplete.**
-
-### Supported architectures (WIP): ###
+### Supported architectures: ###
 
 **BERT**, **GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**
 
