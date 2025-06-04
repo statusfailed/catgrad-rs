@@ -16,8 +16,7 @@ impl ModelBuilder for Model {
             let emb = Model::embeddings(builder, config, x.clone());
             let mut result = emb;
 
-            for i in 0..1 {
-                // for i in 0..config.num_hidden_layers {
+            for i in 0..config.num_hidden_layers {
                 result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
             }
 
