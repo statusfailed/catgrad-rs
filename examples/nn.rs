@@ -99,7 +99,7 @@ impl Model {
             let tok_emb = embeddings(builder, vocab_size, in_dim, "token_embeddings", x.clone());
             // TODO: fix hardcoded max_seq_len
             let max_seq_len = 16;
-            let pos = arange(builder, x.label.clone());
+            let pos = arange(builder, x.label.size(), Dtype::F32);
             let pos_emb = embeddings(builder, max_seq_len, in_dim, "position_embeddings", pos);
             let emb = tok_emb + pos_emb;
 
