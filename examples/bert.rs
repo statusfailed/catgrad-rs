@@ -11,13 +11,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{
-        nn::layers::{
-            arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
-            softmax, transpose,
-        },
-        Dtype, NdArrayType, Shape, Var,
-    },
+    core::{nn::layers::*, Dtype, NdArrayType, Shape, Var},
 };
 
 mod utils;
@@ -77,7 +71,8 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
         Shape(vec![config.max_position_embeddings, config.hidden_size]),
         Dtype::F32,
     );
-    let pos = arange(builder, x.label.size(), Dtype::F32);
+    let pos = arange(builder, x.label.size(), Dtype::I32);
+    let pos = expand(builder, x.label.shape.clone(), pos);
     let weights = parameter(builder, t, format!("{name}.position_embeddings.weight"));
     let pe = embedding(builder, pos, weights);
 

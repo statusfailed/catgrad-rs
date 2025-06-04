@@ -8,13 +8,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{
-        nn::layers::{
-            arange, constant, embedding, gelu, layernorm, linear, mat_mul, parameter, reshape,
-            rmsnorm, softmax, tanh, transpose,
-        },
-        Dtype, NdArrayType, Shape, Var,
-    },
+    core::{nn::layers::*, Dtype, NdArrayType, Shape, Var},
 };
 
 mod utils;
@@ -99,7 +93,8 @@ impl Model {
             let tok_emb = embeddings(builder, vocab_size, in_dim, "token_embeddings", x.clone());
             // TODO: fix hardcoded max_seq_len
             let max_seq_len = 16;
-            let pos = arange(builder, x.label.size(), Dtype::F32);
+            let pos = arange(builder, x.label.size(), Dtype::I32);
+            let pos = expand(builder, x.label.shape.clone(), pos);
             let pos_emb = embeddings(builder, max_seq_len, in_dim, "position_embeddings", pos);
             let emb = tok_emb + pos_emb;
 

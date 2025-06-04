@@ -36,7 +36,8 @@ impl Model {
         let we = embedding(builder, x.clone(), weights);
 
         let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
-        let pos = arange(builder, x.label.size(), Dtype::F32);
+        let pos = arange(builder, x.label.size(), Dtype::I32);
+        let pos = expand(builder, x.label.shape, pos);
         let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
 
