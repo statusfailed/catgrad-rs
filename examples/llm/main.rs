@@ -23,28 +23,27 @@ fn show(name: &str, var: &Var) {
 }
 
 // This configuration contains the union of relevant fields from all supported models.
-// Models ignore fields they don't need.
-// The alternative is to use a separate configuration for each model.
+// Models ignore fields they don't need. The aliases are for GPT-2 alternative names.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(default)]
 #[derive(Default)]
 pub struct Config {
+    #[serde(alias = "n_embd")]
     pub hidden_size: usize,
     pub intermediate_size: usize,
+    #[serde(alias = "n_layer")]
     pub num_hidden_layers: usize,
+    #[serde(alias = "n_head")]
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
     pub head_dim: usize,
-    pub rms_norm_eps: f32,
     pub rope_theta: f32,
     pub sliding_window_pattern: usize,
     pub rope_local_base_freq: f32,
+    #[serde(alias = "n_positions")]
     pub max_position_embeddings: usize,
-    pub n_embd: usize,
-    pub n_layer: usize,
-    pub n_head: usize,
-    pub n_positions: usize,
     pub layer_norm_epsilon: f32,
+    pub rms_norm_eps: f32,
     pub tie_word_embeddings: bool,
     pub vocab_size: usize,
     pub architectures: Vec<String>,

@@ -31,11 +31,17 @@ impl Model {
     }
 
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
-        let t = NdArrayType::new(Shape(vec![config.vocab_size, config.n_embd]), Dtype::F32);
+        let t = NdArrayType::new(
+            Shape(vec![config.vocab_size, config.hidden_size]),
+            Dtype::F32,
+        );
         let weights = parameter(builder, t, "wte.weight".to_string());
         let we = embedding(builder, x.clone(), weights);
 
-        let t = NdArrayType::new(Shape(vec![config.n_positions, config.n_embd]), Dtype::F32);
+        let t = NdArrayType::new(
+            Shape(vec![config.max_position_embeddings, config.hidden_size]),
+            Dtype::F32,
+        );
         let pos = arange(builder, x.label.size(), Dtype::I32);
         let pos = expand(builder, x.label.shape, pos);
         let weights = parameter(builder, t, "wpe.weight".to_string());
@@ -45,8 +51,8 @@ impl Model {
     }
 
     pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
-        let dim = config.n_embd;
-        let num_heads = config.n_head;
+        let dim = config.hidden_size;
+        let num_heads = config.num_attention_heads;
         let head_dim = dim / num_heads;
 
         let b = x.label.shape.0[0];
@@ -110,7 +116,7 @@ impl Model {
             &format!("{name}.ln_2"),
             x,
         );
-        let x = Model::mlp(builder, config.n_embd, &format!("{name}.mlp"), x);
+        let x = Model::mlp(builder, config.hidden_size, &format!("{name}.mlp"), x);
         x + res
     }
 }
@@ -125,7 +131,7 @@ impl ModelBuilder for Model {
 
             let mut result = emb;
 
-            for i in 0..config.n_layer {
+            for i in 0..config.num_hidden_layers {
                 result = Model::layer(builder, config, &format!("h.{i}"), result);
             }
 
@@ -137,7 +143,13 @@ impl ModelBuilder for Model {
             }
 
             // GPT-2 uses weight tying so lm_head is the same as wte
-            let lm_head = linear_no_bias(builder, config.n_embd, config.vocab_size, "wte", result);
+            let lm_head = linear_no_bias(
+                builder,
+                config.hidden_size,
+                config.vocab_size,
+                "wte",
+                result,
+            );
             (vec![x], vec![lm_head])
         });
 
