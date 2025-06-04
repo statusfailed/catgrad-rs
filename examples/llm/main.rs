@@ -45,11 +45,13 @@ pub struct Config {
     pub architectures: Vec<String>,
 }
 
+mod gemma;
 mod gpt2;
 mod llama;
 mod olmo;
 mod qwen;
 
+use gemma::Model as GemmaModel;
 use gpt2::Model as GPT2Model;
 use llama::Model as LlamaModel;
 use olmo::Model as OlmoModel;
@@ -85,6 +87,7 @@ impl ModelRunner {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
             "Qwen3ForCausalLM" => Box::new(QwenModel {}),
+            "Gemma3ForCausalLM" => Box::new(GemmaModel {}),
             "GPT2LMHeadModel" => Box::new(GPT2Model {}),
             _ => panic!("Unknown architecture {arch}"),
         };
