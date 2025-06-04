@@ -44,6 +44,9 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
+        let q = rope(builder, config.rope_theta, s, q);
+        let k = rope(builder, config.rope_theta, s, k);
+
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
 

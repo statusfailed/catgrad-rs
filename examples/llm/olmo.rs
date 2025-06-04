@@ -16,8 +16,7 @@ impl ModelBuilder for Model {
             let emb = Model::embeddings(builder, config, x.clone());
             let mut result = emb;
 
-            for i in 0..1 {
-                // for i in 0..config.num_hidden_layers {
+            for i in 0..config.num_hidden_layers {
                 result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
             }
 
@@ -87,16 +86,8 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        // TODO KV cache
-        // let max_seq_len = 10;
-        // let m = pad_mask(builder, max_seq_len, k.label.shape.0[3]);
-        // let mut kv_shape = k.label.shape.clone();
-        // kv_shape.0[2] = max_seq_len;
-        // let ke = expand(builder, kv_shape.clone(), k.clone());
-        // let m = expand(builder, kv_shape, m);
-        // print(builder, "KE", false, &ke);
-        // print(builder, "M", true, &m);
-        // let res = ke * m;
+        let q = rope(builder, config.rope_theta, s, q);
+        let k = rope(builder, config.rope_theta, s, k);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);

@@ -17,7 +17,9 @@ if __name__ == "__main__":
     model = AutoModelForCausalLM.from_pretrained(args.model)
 
     inputs = tokenizer(args.prompt, return_tensors="pt")
-    logits = model.generate(**inputs, max_new_tokens=args.seq_len)
+    logits = model.generate(
+        **inputs, max_new_tokens=args.seq_len, do_sample=False, temperature=0.0
+    )
     output = tokenizer.decode(logits[0])
 
     print(output)

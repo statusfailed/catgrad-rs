@@ -143,6 +143,21 @@ pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
     operation(builder, &[x], out_t, op)
 }
 
+pub fn inverse(builder: &Builder, x: Var) -> Var {
+    let one = constant(builder, x.label.clone(), 1.0);
+    one / x
+}
+
+pub fn sin(builder: &Builder, x: Var) -> Var {
+    let op = Operation::Sin;
+    operation(builder, &[x.clone()], x.label, op)
+}
+
+pub fn cos(builder: &Builder, x: Var) -> Var {
+    let op = Operation::Cos;
+    operation(builder, &[x.clone()], x.label, op)
+}
+
 pub fn power(builder: &Builder, base: Var, power: Var) -> Var {
     let op = Operation::Pow;
     operation(builder, &[base.clone(), power], base.label, op)
@@ -348,6 +363,49 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
     let s = sum(builder, ex.clone());
     let bsum = expand(builder, x.label.shape, s);
     ex / bsum
+}
+
+// Generate rope tables. This part is usually precomputed
+fn rope_tables(builder: &Builder, theta: f32, seq_len: usize, head_dim: usize) -> (Var, Var) {
+    let half_dim = head_dim / 2;
+
+    let f = arange(builder, half_dim, Dtype::F32);
+    let two = constant(builder, f.label.clone(), 2.0 / (head_dim as f32));
+    let f = f * two;
+    let theta = constant(builder, f.label.clone(), theta);
+    let freq = power(builder, theta, f);
+    let inv_freq = inverse(builder, freq);
+    let inv_freq = expand(builder, Shape(vec![seq_len, half_dim]), inv_freq);
+
+    let pos = arange(builder, seq_len, Dtype::F32);
+    let pos = reshape(builder, Shape(vec![seq_len, 1]), pos);
+    let pos = expand(builder, inv_freq.label.shape.clone(), pos);
+    let pos = pos * inv_freq;
+    let cos = cos(builder, pos.clone());
+    let sin = sin(builder, pos);
+
+    let cos = concat(builder, 1, cos.clone(), cos);
+    let sin = concat(builder, 1, sin.clone(), sin);
+
+    (cos, sin)
+}
+
+fn rotate_half(builder: &Builder, x: Var) -> Var {
+    let v = split(builder, 3, 2, x);
+
+    concat(builder, 3, -v[1].clone(), v[0].clone())
+}
+
+pub fn rope(builder: &Builder, theta: f32, seq_len: usize, x: Var) -> Var {
+    let head_dim = x.label.shape.0[3];
+    let (cos, sin) = rope_tables(builder, theta, seq_len, head_dim);
+
+    let cos = expand(builder, x.label.shape.clone(), cos);
+    let sin = expand(builder, x.label.shape.clone(), sin);
+
+    let rotated_x = rotate_half(builder, x.clone());
+
+    cos * x + sin * rotated_x
 }
 
 pub fn generate_rope_tables(

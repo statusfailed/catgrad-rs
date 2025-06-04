@@ -101,7 +101,8 @@ impl Model {
         let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
 
         // Rope
-        // ....
+        let q = rope(builder, config.rope_theta, s, q);
+        let k = rope(builder, config.rope_theta, s, k);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
