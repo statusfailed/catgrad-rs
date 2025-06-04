@@ -18,7 +18,7 @@ impl ModelBuilder for Model {
             let mut result = emb;
 
             for i in 0..config.num_hidden_layers {
-                result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
+                result = Model::layer(builder, config, i, &format!("model.layers.{i}"), result);
             }
 
             result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
@@ -53,7 +53,7 @@ impl Model {
         embedding(builder, x, weights)
     }
 
-    pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn attention(builder: &Builder, config: &Config, idx: usize, name: &str, x: Var) -> Var {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
@@ -101,8 +101,14 @@ impl Model {
         let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
 
         // Rope
-        let q = rope(builder, config.rope_theta, s, q);
-        let k = rope(builder, config.rope_theta, s, k);
+        // Every 6th layer uses global attention, otherwise local attention
+        let theta = if (idx + 1) % config.sliding_window_pattern > 0 {
+            config.rope_local_base_freq
+        } else {
+            config.rope_theta
+        };
+        let q = rope(builder, theta, s, q);
+        let k = rope(builder, theta, s, k);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -156,7 +162,7 @@ impl Model {
         x
     }
 
-    pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn layer(builder: &Builder, config: &Config, idx: usize, name: &str, x: Var) -> Var {
         let res = x.clone();
         let x = rmsnorm(
             builder,
@@ -164,7 +170,7 @@ impl Model {
             &format!("{name}.input_layernorm"),
             x,
         );
-        let x = Model::attention(builder, config, &format!("{name}.self_attn"), x);
+        let x = Model::attention(builder, config, idx, &format!("{name}.self_attn"), x);
         let x = res + x;
         let res = x.clone();
         let x = rmsnorm(
