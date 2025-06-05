@@ -193,7 +193,7 @@ pub fn main() -> Result<()> {
 
     log::info!("Input tokens {:?}", &input);
     let mut model_runner = ModelRunner::new(model_path.to_str().unwrap(), &config.architectures[0]);
-    let mut input_tokens = input.data;
+    let mut input_tokens = input.data.to_vec();
 
     print!("{}", args.prompt);
     for _ in 0..args.seq_len {

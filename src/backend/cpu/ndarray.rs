@@ -379,7 +379,7 @@ impl TaggedNdArray {
     pub fn data(&self) -> Vec<f32> {
         match self {
             TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
-            TaggedNdArray::F32(vec) => vec.data.clone(),
+            TaggedNdArray::F32(vec) => vec.data.to_vec(),
             TaggedNdArray::I32(vec) => vec.data.iter().map(|&x| x as f32).collect(),
         }
     }
