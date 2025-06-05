@@ -17,11 +17,19 @@ impl ModelBuilder for Model {
 
             let mut result = emb;
 
+            let normalizer = constant(
+                builder,
+                result.label.clone(),
+                (config.hidden_size as f32).sqrt(),
+            );
+
+            result = result * normalizer;
+
             for i in 0..config.num_hidden_layers {
                 result = Model::layer(builder, config, i, &format!("model.layers.{i}"), result);
             }
 
-            result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+            result = Model::rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
             // Get the logits for the last token only
             if tokens > 1 {
@@ -44,6 +52,17 @@ impl ModelBuilder for Model {
 }
 
 impl Model {
+    // Gemma uses a non-standard RMSNorm
+    fn rmsnorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
+        let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
+        let t = NdArrayType::new(Shape(shape), x.label.dtype);
+        let gamma = parameter(builder, t, format!("{name}.weight"));
+        let lr = rmsnorm_raw(builder, eps, x);
+        let gamma = expand(builder, lr.label.shape.clone(), gamma);
+        // this is different for Gemma, standard RMSNorm multiplies by gamma
+        lr * increment(builder, gamma)
+    }
+
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(
             Shape(vec![config.vocab_size, config.hidden_size]),
@@ -95,8 +114,8 @@ impl Model {
         // Norm
         let q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b * s * num_kv_heads, head_dim]), k);
-        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
-        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
+        let q = Model::rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
+        let k = Model::rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
         let q = reshape(builder, Shape(vec![b, num_heads, s, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
 
@@ -151,7 +170,7 @@ impl Model {
             &format!("{name}.up_proj"),
             x,
         );
-        let x = silu(builder, gated) * up; // SwiGLU
+        let x = gelu(builder, gated) * up;
         let x = linear_no_bias(
             builder,
             config.intermediate_size,
@@ -164,22 +183,34 @@ impl Model {
 
     pub fn layer(builder: &Builder, config: &Config, idx: usize, name: &str, x: Var) -> Var {
         let res = x.clone();
-        let x = rmsnorm(
+        let x = Model::rmsnorm(
             builder,
             config.rms_norm_eps,
             &format!("{name}.input_layernorm"),
             x,
         );
         let x = Model::attention(builder, config, idx, &format!("{name}.self_attn"), x);
-        let x = res + x;
-        let res = x.clone();
-        let x = rmsnorm(
+        let x = Model::rmsnorm(
             builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,
         );
+        let x = res + x;
+        let res = x.clone();
+        let x = Model::rmsnorm(
+            builder,
+            config.rms_norm_eps,
+            &format!("{name}.pre_feedforward_layernorm"),
+            x,
+        );
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+        let x = Model::rmsnorm(
+            builder,
+            config.rms_norm_eps,
+            &format!("{name}.post_feedforward_layernorm"),
+            x,
+        );
         x + res
     }
 }

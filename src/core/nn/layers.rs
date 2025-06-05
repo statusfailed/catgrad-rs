@@ -148,6 +148,11 @@ pub fn inverse(builder: &Builder, x: Var) -> Var {
     one / x
 }
 
+pub fn increment(builder: &Builder, x: Var) -> Var {
+    let one = constant(builder, x.label.clone(), 1.0);
+    x + one
+}
+
 pub fn sin(builder: &Builder, x: Var) -> Var {
     let op = Operation::Sin;
     operation(builder, &[x.clone()], x.label, op)
@@ -333,7 +338,7 @@ pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
     lr * gamma + beta
 }
 
-fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
+pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
     let s = sum(builder, x.clone() * x.clone());
     let constn = constant(builder, s.label, n as f32);
