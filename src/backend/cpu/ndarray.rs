@@ -450,12 +450,8 @@ mod tests {
     #[test]
     fn test_slice() {
         // Create a 2x3x4 array filled with zeros
-        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-
-        // Fill the array with a simple pattern for testing
-        for i in 0..24 {
-            array.data[i] = i as f32;
-        }
+        let v = (0..24).map(|i| i as f32).collect();
+        let array = NdArray::new(v, Shape(vec![2, 3, 4]));
 
         // Calculate the expected linear indices for a 2x3x4 array with row-major ordering
         // For [0,1,...] we should get indices [4,5,6,7]
@@ -480,11 +476,8 @@ mod tests {
         assert_eq!(slice_all.data.len(), 24);
 
         // Test slicing a 4D array
-        let mut array4d = NdArray::new(vec![0.0; 120], Shape(vec![2, 3, 4, 5]));
-
-        for i in 0..120 {
-            array4d.data[i] = i as f32;
-        }
+        let v = (0..120).map(|i| i as f32).collect();
+        let array4d = NdArray::new(v, Shape(vec![2, 3, 4, 5]));
 
         let slice4d = array4d.slice(&[0, 0]);
         assert_eq!(slice4d.shape, Shape(vec![4, 5]));
@@ -500,12 +493,8 @@ mod tests {
     #[test]
     fn test_slice_mut() {
         // Create a 2x3x4 array filled with zeros
-        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-
-        // Fill the array with a simple pattern for testing
-        for i in 0..24 {
-            array.data[i] = i as f32;
-        }
+        let v = (0..24).map(|i| i as f32).collect();
+        let mut array = NdArray::new(v, Shape(vec![2, 3, 4]));
 
         // Calculate the expected linear indices for a 2x3x4 array with row-major ordering
         // For [0,1,...] we should get indices [4,5,6,7]
@@ -534,11 +523,8 @@ mod tests {
         assert_eq!(slice_all.data.len(), 24);
 
         // Test slicing a 4D array
-        let mut array4d = NdArray::new(vec![0.0; 120], Shape(vec![2, 3, 4, 5]));
-
-        for i in 0..120 {
-            array4d.data[i] = i as f32;
-        }
+        let v = (0..120).map(|i| i as f32).collect();
+        let mut array4d = NdArray::new(v, Shape(vec![2, 3, 4, 5]));
 
         let slice4d = array4d.slice_mut(&[0, 0]);
         assert_eq!(slice4d.shape, Shape(vec![4, 5]));
@@ -553,11 +539,8 @@ mod tests {
 
     #[test]
     fn test_indexing() {
-        let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-        // Fill with 0..23
-        for i in 0..24 {
-            array.data[i] = i as f32;
-        }
+        let v = (0..24).map(|i| i as f32).collect();
+        let mut array = NdArray::new(v, Shape(vec![2, 3, 4]));
 
         // Test reading
         assert_eq!(array[&[0, 0, 0]], 0.0);
