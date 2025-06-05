@@ -35,7 +35,7 @@ fn compute_strides(shape: &Shape) -> Vec<isize> {
     strides
 }
 
-impl<T> NdArray<T> {
+impl<T: Clone> NdArray<T> {
     pub fn new(data: Vec<T>, shape: Shape) -> Self {
         assert_eq!(
             data.len(),
@@ -204,7 +204,7 @@ impl<T: Copy> NdArray<T> {
     }
 }
 
-impl<T> Index<&[usize]> for NdArray<T> {
+impl<T: Clone> Index<&[usize]> for NdArray<T> {
     type Output = T;
 
     fn index(&self, index: &[usize]) -> &Self::Output {
@@ -213,7 +213,7 @@ impl<T> Index<&[usize]> for NdArray<T> {
     }
 }
 
-impl<T> IndexMut<&[usize]> for NdArray<T> {
+impl<T: Clone> IndexMut<&[usize]> for NdArray<T> {
     fn index_mut(&mut self, index: &[usize]) -> &mut Self::Output {
         let flat_index = self.calculate_flat_index(index);
         &mut self.data[flat_index]

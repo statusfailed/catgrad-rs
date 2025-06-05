@@ -422,7 +422,7 @@ mod test {
     use crate::core::{Dtype, NdArrayType, Operation, Shape};
     use test_log::test;
 
-    fn test_unarynop_generic<T>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
+    fn test_unarynop_generic<T: Clone>(op: Term, x_data: Vec<T>, expected_data: Vec<T>)
     where
         TaggedNdArray: From<NdArray<T>>,
     {
@@ -488,7 +488,7 @@ mod test {
         );
     }
 
-    fn test_binop_generic<T>(op: Term, x_data: Vec<T>, y_data: Vec<T>, expected_data: Vec<T>)
+    fn test_binop_generic<T: Clone>(op: Term, x_data: Vec<T>, y_data: Vec<T>, expected_data: Vec<T>)
     where
         TaggedNdArray: From<NdArray<T>>,
     {
