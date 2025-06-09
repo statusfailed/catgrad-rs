@@ -26,13 +26,15 @@ fn layered_operations(f: &StrictTerm) -> Vec<Vec<usize>> {
 /// NOTE: some operations (like broadcasting) don't actually need to allocate a new array; they are
 /// really just "renamings" of the same underlying data. So this allocation strategy should be
 /// improved in future.
+/// This actually allocates empty NdArrays, with actual data being allocated on-demand at eval time,
+/// and freed when no longer needed.
 fn allocate(f: &StrictTerm) -> Vec<TaggedNdArray> {
     // Loop over all nodes in the term, allocate an array according to the size/dtype of its
     // labeled NdArrayType.
     let mut result = Vec::with_capacity(f.h.w.len());
 
     for t in f.h.w.0.iter() {
-        let t = TaggedNdArray::from_type(t);
+        let t = TaggedNdArray::from_type_empty(t);
         result.push(t);
     }
 
@@ -378,12 +380,39 @@ impl EvalState {
         #[rustfmt::skip]
         let targets: Vec<Vec<usize>> = self.term.h.t.clone().into_iter().map(|x| x.table.0).collect();
 
+        // Count the times each array is used as an operation source.
+        let mut uses = vec![0; self.data.len()];
+        for ops in layered_operations(&self.term).iter() {
+            for i in ops {
+                for s in &sources[*i] {
+                    uses[*s] += 1;
+                }
+            }
+        }
+
         for (l, ops) in layered_operations(&self.term).iter().enumerate() {
             // each layer has any number of ops. TODO: evaluate these in parallel!
             for i in ops {
                 let op = self.term.h.x.0[*i].clone();
                 log::debug!("{l} OP: {:?}", &op);
+                for t in &targets[*i] {
+                    self.data[*t].allocate();
+                }
                 self.apply(&op, &sources[*i], &targets[*i]);
+
+                // See if these sources are still going to be needed
+                for s in &sources[*i] {
+                    uses[*s] -= 1;
+                    if uses[*s] == 0 {
+                        // TODO: fix this by using a proper deallocation strategy
+                        // for now free the large arrays to allow running larger models
+                        // but leave small ones to avoid significant perf overhead of deallocations.
+                        // The large arrays are usually embeddings and weights.
+                        if self.data[*s].len() > 1024 * 1024 {
+                            self.data[*s].deallocate();
+                        }
+                    }
+                }
             }
         }
 
