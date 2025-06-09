@@ -1,3 +1,4 @@
+use super::kernel::Numeric;
 use crate::core::object::*;
 use std::ops::{Index, IndexMut};
 
@@ -35,7 +36,7 @@ fn compute_strides(shape: &Shape) -> Vec<isize> {
     strides
 }
 
-impl<T: Clone> NdArray<T> {
+impl<T: Numeric> NdArray<T> {
     pub fn new(data: Vec<T>, shape: Shape) -> Self {
         assert_eq!(
             data.len(),
@@ -47,6 +48,25 @@ impl<T: Clone> NdArray<T> {
             strides: compute_strides(&shape),
             shape,
         }
+    }
+
+    /// Create a new empty NdArray with the given shape.
+    pub fn new_empty(shape: Shape) -> Self {
+        Self {
+            data: vec![],
+            strides: compute_strides(&shape),
+            shape,
+        }
+    }
+
+    /// Allocate memory for the NdArray's data field.
+    pub fn allocate(&mut self) {
+        self.data.resize(self.shape.size(), T::zero());
+    }
+
+    /// Deallocate memory for the NdArray's data field.
+    pub fn deallocate(&mut self) {
+        self.data = vec![];
     }
 
     pub fn is_empty(&self) -> bool {
@@ -178,7 +198,7 @@ impl<T: Clone> NdArray<T> {
     }
 }
 
-impl<T: Copy> NdArray<T> {
+impl<T: Numeric> NdArray<T> {
     /// Copy data from another NdArray into this one.
     /// Panics if the shapes don't match.
     pub fn copy_from(&mut self, other: &NdArray<T>) {
@@ -204,7 +224,7 @@ impl<T: Copy> NdArray<T> {
     }
 }
 
-impl<T: Clone> Index<&[usize]> for NdArray<T> {
+impl<T: Numeric> Index<&[usize]> for NdArray<T> {
     type Output = T;
 
     fn index(&self, index: &[usize]) -> &Self::Output {
@@ -213,27 +233,28 @@ impl<T: Clone> Index<&[usize]> for NdArray<T> {
     }
 }
 
-impl<T: Clone> IndexMut<&[usize]> for NdArray<T> {
+impl<T: Numeric> IndexMut<&[usize]> for NdArray<T> {
     fn index_mut(&mut self, index: &[usize]) -> &mut Self::Output {
         let flat_index = self.calculate_flat_index(index);
         &mut self.data[flat_index]
     }
 }
 
-impl<T: Clone + Zero> NdArray<T> {
+impl<T: Numeric + Zero> NdArray<T> {
     pub fn from_shape(shape: Shape) -> Self {
         // TODO: don't really need to initialize to zero; is there a better way here? bytemuck?
         log::debug!("New NdArray {:?} {:?}", shape, shape.size());
         NdArray::new(vec![T::zero(); shape.size()], shape)
     }
+
     pub fn fill(&mut self, value: T) {
         for i in 0..self.data.len() {
-            self.data[i] = value.clone();
+            self.data[i] = value;
         }
     }
 }
 
-impl<T: std::fmt::Display + Copy> NdArray<T> {
+impl<T: std::fmt::Display + Numeric> NdArray<T> {
     /// Pretty print the array in PyTorch-like format
     pub fn pretty_print(&self) -> String {
         self.pretty_print_with_options(4, 4)
@@ -291,7 +312,7 @@ impl<T: std::fmt::Display + Copy> NdArray<T> {
     }
 }
 
-impl<T: std::fmt::Display + Copy> std::fmt::Display for NdArray<T> {
+impl<T: std::fmt::Display + Numeric> std::fmt::Display for NdArray<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.pretty_print())
     }
@@ -347,6 +368,14 @@ impl TaggedNdArray {
         }
     }
 
+    pub fn from_type_empty(t: &NdArrayType) -> Self {
+        match t.dtype {
+            Dtype::F16 => TaggedNdArray::F16(NdArray::new_empty(t.shape.clone())),
+            Dtype::F32 => TaggedNdArray::F32(NdArray::new_empty(t.shape.clone())),
+            Dtype::I32 => TaggedNdArray::I32(NdArray::new_empty(t.shape.clone())),
+        }
+    }
+
     pub fn data(&self) -> Vec<f32> {
         match self {
             TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
@@ -368,6 +397,21 @@ impl TaggedNdArray {
             TaggedNdArray::F16(vec) => vec.strides.clone(),
             TaggedNdArray::F32(vec) => vec.strides.clone(),
             TaggedNdArray::I32(vec) => vec.strides.clone(),
+        }
+    }
+    pub fn allocate(&mut self) {
+        match self {
+            TaggedNdArray::F16(a) => a.allocate(),
+            TaggedNdArray::F32(a) => a.allocate(),
+            TaggedNdArray::I32(a) => a.allocate(),
+        }
+    }
+
+    pub fn deallocate(&mut self) {
+        match self {
+            TaggedNdArray::F16(a) => a.deallocate(),
+            TaggedNdArray::F32(a) => a.deallocate(),
+            TaggedNdArray::I32(a) => a.deallocate(),
         }
     }
 
