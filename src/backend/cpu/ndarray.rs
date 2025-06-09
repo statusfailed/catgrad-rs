@@ -50,6 +50,25 @@ impl<T: Numeric> NdArray<T> {
         }
     }
 
+    /// Create a new empty NdArray with the given shape.
+    pub fn new_empty(shape: Shape) -> Self {
+        Self {
+            data: vec![],
+            strides: compute_strides(&shape),
+            shape,
+        }
+    }
+
+    /// Allocate memory for the NdArray's data field.
+    pub fn allocate(&mut self) {
+        self.data.resize(self.shape.size(), T::zero());
+    }
+
+    /// Deallocate memory for the NdArray's data field.
+    pub fn deallocate(&mut self) {
+        self.data = vec![];
+    }
+
     pub fn is_empty(&self) -> bool {
         self.shape.size() == 0
     }
@@ -349,6 +368,14 @@ impl TaggedNdArray {
         }
     }
 
+    pub fn from_type_empty(t: &NdArrayType) -> Self {
+        match t.dtype {
+            Dtype::F16 => TaggedNdArray::F16(NdArray::new_empty(t.shape.clone())),
+            Dtype::F32 => TaggedNdArray::F32(NdArray::new_empty(t.shape.clone())),
+            Dtype::I32 => TaggedNdArray::I32(NdArray::new_empty(t.shape.clone())),
+        }
+    }
+
     pub fn data(&self) -> Vec<f32> {
         match self {
             TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
@@ -370,6 +397,21 @@ impl TaggedNdArray {
             TaggedNdArray::F16(vec) => vec.strides.clone(),
             TaggedNdArray::F32(vec) => vec.strides.clone(),
             TaggedNdArray::I32(vec) => vec.strides.clone(),
+        }
+    }
+    pub fn allocate(&mut self) {
+        match self {
+            TaggedNdArray::F16(a) => a.allocate(),
+            TaggedNdArray::F32(a) => a.allocate(),
+            TaggedNdArray::I32(a) => a.allocate(),
+        }
+    }
+
+    pub fn deallocate(&mut self) {
+        match self {
+            TaggedNdArray::F16(a) => a.deallocate(),
+            TaggedNdArray::F32(a) => a.deallocate(),
+            TaggedNdArray::I32(a) => a.deallocate(),
         }
     }
 
