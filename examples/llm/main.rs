@@ -15,7 +15,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 
 #[path = "../utils/mod.rs"]
 mod utils;
-use utils::read_safetensors;
+use utils::read_safetensors_multiple;
 
 #[allow(unused)]
 fn show(name: &str, var: &Var) {
@@ -86,7 +86,7 @@ impl ModelRunner {
     }
 
     // Create model and load weights from file
-    pub fn new(model_path: &str, arch: &str) -> Self {
+    pub fn new(model_paths: Vec<PathBuf>, arch: &str) -> Self {
         let mut model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -96,7 +96,7 @@ impl ModelRunner {
             _ => panic!("Unknown architecture {arch}"),
         };
 
-        let mut tensors = read_safetensors(model_path);
+        let mut tensors = read_safetensors_multiple(model_paths);
         model.post_load(&mut tensors);
         println!("Model weights loaded...");
 
@@ -165,13 +165,29 @@ struct Args {
     seq_len: usize,
 }
 
-fn get_model_files(model: &str) -> (PathBuf, PathBuf, PathBuf) {
+fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
     let api = Api::new().unwrap();
 
     let repo = api.model(model.to_string());
-    let m = repo.get("model.safetensors").unwrap();
+
+    // Get the model.safetensor file(s)
+    let m = if let Ok(index) = repo.get("model.safetensors.index.json") {
+        let index = std::fs::File::open(index).unwrap();
+        let json: serde_json::Value = serde_json::from_reader(&index).unwrap();
+        let mut set = std::collections::HashSet::new();
+        if let Some(weight_map) = json.get("weight_map").unwrap().as_object() {
+            for v in weight_map.values() {
+                set.insert(v.as_str().unwrap().to_string());
+            }
+        }
+        set.iter().map(|p| repo.get(p).unwrap()).collect()
+    } else {
+        vec![repo.get("model.safetensors").unwrap()]
+    };
+
     let c = repo.get("config.json").unwrap();
     let t = repo.get("tokenizer.json").unwrap();
+
     (m, c, t)
 }
 
@@ -180,7 +196,7 @@ pub fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let (model_path, config_path, tokenizer_path) = get_model_files(&args.model_name);
+    let (model_paths, config_path, tokenizer_path) = get_model_files(&args.model_name);
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
     let config: Config = serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
 
@@ -192,7 +208,7 @@ pub fn main() -> Result<()> {
     let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
 
     log::info!("Input tokens {:?}", &input);
-    let mut model_runner = ModelRunner::new(model_path.to_str().unwrap(), &config.architectures[0]);
+    let mut model_runner = ModelRunner::new(model_paths, &config.architectures[0]);
     let mut input_tokens = input.data.to_vec();
 
     print!("{}", args.prompt);
