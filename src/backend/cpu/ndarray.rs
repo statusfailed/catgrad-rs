@@ -11,6 +11,7 @@ pub struct NdArray<T> {
     pub data: Vec<T>,        // raw data of the array
     pub shape: Shape,        // shape information (erasable?)
     pub strides: Vec<isize>, // strides for each dimension
+    pub offset: usize,       // offset for the array
 }
 
 /// Immutable slice into an NdArray
@@ -47,6 +48,7 @@ impl<T: Numeric> NdArray<T> {
             data,
             strides: compute_strides(&shape),
             shape,
+            offset: 0,
         }
     }
 
@@ -56,6 +58,7 @@ impl<T: Numeric> NdArray<T> {
             data: vec![],
             strides: compute_strides(&shape),
             shape,
+            offset: 0,
         }
     }
 
@@ -379,7 +382,7 @@ impl TaggedNdArray {
     pub fn data(&self) -> Vec<f32> {
         match self {
             TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
-            TaggedNdArray::F32(vec) => vec.data.clone(),
+            TaggedNdArray::F32(vec) => vec.data.to_vec(),
             TaggedNdArray::I32(vec) => vec.data.iter().map(|&x| x as f32).collect(),
         }
     }

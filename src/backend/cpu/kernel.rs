@@ -25,7 +25,10 @@ fn matmul<T: Numeric + 'static>(
         panic!("Incompatible dimensions for matrix multiplication");
     }
     if c.shape.0[0] != m || c.shape.0[1] != n {
-        panic!("Output matrix has incorrect dimensions");
+        panic!(
+            "Output matrix has incorrect dimensions {:?} for input matrices {:?} and {:?}",
+            c.shape.0, a.shape.0, b.shape.0
+        );
     }
 
     // Call gemm with the correct parameters
@@ -114,7 +117,10 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
         panic!("Incompatible dimensions for matrix multiplication");
     }
     if h.shape.0[ndims - 2] != a || h.shape.0[ndims - 1] != c {
-        panic!("Output matrix has incorrect dimensions");
+        panic!(
+            "Output matrix has incorrect dimensions {:?} for input matrices {:?} and {:?}",
+            h.shape.0, f.shape.0, g.shape.0
+        );
     }
 
     // Check that batch dimensions are compatible
