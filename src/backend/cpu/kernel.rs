@@ -4,16 +4,16 @@ use crate::core::object::Shape;
 use core::fmt::Debug;
 use gemm::{gemm, Parallelism};
 use log;
+use std::rc::Rc;
 
-fn matmul<T: Numeric + 'static>(
-    a: &NdArraySlice<T>,
-    b: &NdArraySlice<T>,
-    c: &mut NdArrayMutSlice<T>,
-) {
+fn matmul<T: Numeric + 'static>(a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
     // Extract dimensions from input slices
     // For matrix multiplication: (m×k) × (k×n) → (m×n)
     if a.shape.0.len() != 2 || b.shape.0.len() != 2 || c.shape.0.len() != 2 {
-        panic!("Matrix multiplication requires 2D arrays");
+        panic!(
+            "Matrix multiplication requires 2D arrays a:{:?} b:{:?} c:{:?}",
+            a.shape, b.shape, c.shape
+        );
     }
 
     let m = a.shape.0[0];
@@ -43,24 +43,24 @@ fn matmul<T: Numeric + 'static>(
 
     unsafe {
         gemm(
-            m,                   // m: rows in matrices A and C
-            n,                   // n: cols in matrices B and C
-            k,                   // k: cols in A, rows in B
-            c.data.as_mut_ptr(), // c: pointer to result matrix C
-            c.strides[1],        // column stride for C
-            c.strides[0],        // row stride for C
-            false,               // read C
-            a.data.as_ptr(),     // a: pointer to first matrix A
-            a.strides[1],        // column stride for A
-            a.strides[0],        // row stride for A
-            b.data.as_ptr(),     // b: pointer to second matrix B
-            b.strides[1],        // column stride for B
-            b.strides[0],        // row stride for B
-            T::zero(),           // alpha scaling factor for A*B
-            T::one(),            // beta scaling factor for C
-            false,               // conj C
-            false,               // conj A
-            false,               // conj B
+            m,                                              // m: rows in matrices A and C
+            n,                                              // n: cols in matrices B and C
+            k,                                              // k: cols in A, rows in B
+            c.data.borrow_mut().as_mut_ptr().add(c.offset), // c: pointer to result matrix C
+            c.strides[1],                                   // column stride for C
+            c.strides[0],                                   // row stride for C
+            false,                                          // read C
+            a.data.borrow().as_ptr().add(a.offset),         // a: pointer to first matrix A
+            a.strides[1],                                   // column stride for A
+            a.strides[0],                                   // row stride for A
+            b.data.borrow().as_ptr().add(b.offset),         // b: pointer to second matrix B
+            b.strides[1],                                   // column stride for B
+            b.strides[0],                                   // row stride for B
+            T::zero(),                                      // alpha scaling factor for A*B
+            T::one(),                                       // beta scaling factor for C
+            false,                                          // conj C
+            false,                                          // conj A
+            false,                                          // conj B
             Parallelism::None,
         )
     }
@@ -88,11 +88,7 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
             panic!("Output matrix has incorrect dimensions");
         }
 
-        let f_slice = f.slice(&[]);
-        let g_slice = g.slice(&[]);
-        let mut h_slice = h.slice_mut(&[]);
-
-        matmul(&f_slice, &g_slice, &mut h_slice);
+        matmul(f, g, h);
         return;
     }
 
@@ -136,12 +132,11 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
     // If there's only one batch dimension, we can use the simple loop
     if batch_dims == 1 {
         let batch_size = f.shape.0[0];
-
         // Loop over batch dimension calling matmul
         for i in 0..batch_size {
             let f_slice = f.slice(&[i]);
             let g_slice = g.slice(&[i]);
-            let mut h_slice = h.slice_mut(&[i]);
+            let mut h_slice = h.slice(&[i]);
 
             matmul(&f_slice, &g_slice, &mut h_slice);
         }
@@ -167,7 +162,7 @@ pub fn batch_matmul<T: Numeric + 'static>(f: &NdArray<T>, g: &NdArray<T>, h: &mu
 
             let f_slice = f.slice(&indices);
             let g_slice = g.slice(&indices);
-            let mut h_slice = h.slice_mut(&indices);
+            let mut h_slice = h.slice(&indices);
 
             matmul(&f_slice, &g_slice, &mut h_slice);
         }
@@ -192,8 +187,11 @@ where
     F: Fn(T, T) -> T,
 {
     if a.strides == b.strides && a.strides == c.strides {
-        for i in 0..a.data.len() {
-            c.data[i] = op(a.data[i], b.data[i]);
+        let a_data = a.data.borrow();
+        let b_data = b.data.borrow();
+        let mut c_data = c.data.borrow_mut();
+        for i in 0..a_data.len() {
+            c_data[i] = op(a_data[i], b_data[i]);
         }
         return;
     };
@@ -302,8 +300,10 @@ where
     F: Fn(T) -> T,
 {
     if a.strides == b.strides {
-        for i in 0..a.data.len() {
-            b.data[i] = op(a.data[i]);
+        let a_data = a.data.borrow();
+        let mut b_data = b.data.borrow_mut();
+        for i in 0..a_data.len() {
+            b_data[i] = op(a_data[i]);
         }
         return;
     }
@@ -350,10 +350,11 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             "ReshapeOp: input shape must be compatible with target shape"
         );
         if a.is_contiguous() {
-            b.data.clone_from(&a.data);
+            b.data = Rc::clone(&a.data);
         } else {
+            let mut b_data = b.data.borrow_mut();
             a.shape.for_each_index(|i, indices| {
-                b.data[i] = a.get(indices);
+                b_data[i] = a.get(indices);
             });
         }
     }
@@ -367,8 +368,9 @@ pub struct MaxOp;
 impl<T: Numeric + PartialOrd> UnaryOp<T> for MaxOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
         let last_dim = a.shape.0[a.shape.0.len() - 1];
-        for (i, chunk) in a.data.chunks(last_dim).enumerate() {
-            b.data[i] = chunk
+        let mut b_data = b.data.borrow_mut();
+        for (i, chunk) in a.data.borrow().chunks(last_dim).enumerate() {
+            b_data[i] = chunk
                 .iter()
                 .fold(T::min_value(), |acc, &x| if acc > x { acc } else { x })
         }
@@ -380,8 +382,9 @@ pub struct SumOp;
 impl<T: Numeric + PartialOrd + std::iter::Sum> UnaryOp<T> for SumOp {
     fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
         let last_dim = a.shape.0[a.shape.0.len() - 1];
-        for (i, chunk) in a.data.chunks(last_dim).enumerate() {
-            b.data[i] = chunk.iter().copied().sum();
+        let mut b_data = b.data.borrow_mut();
+        for (i, chunk) in a.data.borrow().chunks(last_dim).enumerate() {
+            b_data[i] = chunk.iter().copied().sum();
         }
     }
 }
@@ -431,8 +434,12 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
         }
 
         log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
-        b.data.clone_from(&a.data); //TODO: reuse vec instead of copy
-        log::debug!("A len: {:?} B len: {:?}", a.data.len(), b.data.len())
+        b.data = Rc::clone(&a.data);
+        log::debug!(
+            "A len: {:?} B len: {:?}",
+            a.data.borrow().len(),
+            b.data.borrow().len()
+        )
     }
 }
 
@@ -463,7 +470,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
         b.strides = new_strides;
 
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
-        b.data.clone_from(&a.data);
+        b.data = Rc::clone(&a.data);
     }
 }
 
@@ -488,15 +495,11 @@ mod tests {
         // [4 5 6]   [9 10]    [139 154]
         //          [11 12]
 
-        let a_slice = a.slice(&[]);
-        let b_slice = b.slice(&[]);
-        let mut c_slice = c.slice_mut(&[]);
-
         // Call matmul
-        matmul(&a_slice, &b_slice, &mut c_slice);
+        matmul(&a, &b, &mut c);
 
         // Check the result
-        assert_eq!(c.data, vec![58.0, 64.0, 139.0, 154.0]);
+        assert_eq!(*c.data.borrow(), vec![58.0, 64.0, 139.0, 154.0]);
     }
 
     #[test]
@@ -542,7 +545,7 @@ mod tests {
 
         // Check the results for both batches
         assert_eq!(
-            h.data,
+            *h.data.borrow(),
             vec![
                 // Batch 0
                 22.0, 28.0, 49.0, 64.0, // Batch 1

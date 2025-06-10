@@ -1,30 +1,17 @@
 use super::kernel::Numeric;
 use crate::core::object::*;
-
 use half::f16;
 use num_traits::Zero;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 /// N-dimensional arrays of elements T with a given shape.
 #[derive(PartialEq, Debug, Clone)]
 pub struct NdArray<T> {
-    pub data: Vec<T>,        // raw data of the array
-    pub shape: Shape,        // shape information (erasable?)
-    pub strides: Vec<isize>, // strides for each dimension
-    pub offset: usize,       // offset for the array
-}
-
-/// Immutable slice into an NdArray
-pub struct NdArraySlice<'a, T> {
-    pub data: &'a [T],
-    pub shape: Shape,
-    pub strides: Vec<isize>, // strides for each dimension
-}
-
-/// Mutable slice into an NdArray
-pub struct NdArrayMutSlice<'a, T> {
-    pub data: &'a mut [T],
-    pub shape: Shape,
-    pub strides: Vec<isize>,
+    pub data: Rc<RefCell<Vec<T>>>, // raw data of the array
+    pub shape: Shape,              // shape information (erasable?)
+    pub strides: Vec<isize>,       // strides for each dimension
+    pub offset: usize,             // offset for the array
 }
 
 fn compute_strides(shape: &Shape) -> Vec<isize> {
@@ -44,7 +31,7 @@ impl<T: Numeric> NdArray<T> {
             "Data length must match shape size"
         );
         Self {
-            data,
+            data: Rc::new(RefCell::new(data)),
             strides: compute_strides(&shape),
             shape,
             offset: 0,
@@ -54,7 +41,7 @@ impl<T: Numeric> NdArray<T> {
     /// Create a new empty NdArray with the given shape.
     pub fn new_empty(shape: Shape) -> Self {
         Self {
-            data: vec![],
+            data: Rc::new(RefCell::new(vec![])),
             strides: compute_strides(&shape),
             shape,
             offset: 0,
@@ -63,12 +50,12 @@ impl<T: Numeric> NdArray<T> {
 
     /// Allocate memory for the NdArray's data field.
     pub fn allocate(&mut self) {
-        self.data.resize(self.shape.size(), T::zero());
+        self.data.borrow_mut().resize(self.shape.size(), T::zero());
     }
 
     /// Deallocate memory for the NdArray's data field.
     pub fn deallocate(&mut self) {
-        self.data = vec![];
+        self.data = Rc::new(RefCell::new(vec![]));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -125,53 +112,14 @@ impl<T: Numeric> NdArray<T> {
         (start_index, slice_shape, slice_strides)
     }
 
-    /// Creates an immutable slice from the array by fixing the first n dimensions
-    ///
-    /// # Example
-    /// ```
-    /// use catgrad::backend::cpu::ndarray::NdArray;
-    /// use catgrad::core::object::Shape;
-    /// use num_traits::Zero;
-    ///
-    /// let array: NdArray<f32> = NdArray::from_shape(Shape(vec![2, 3, 4, 5]));
-    /// let slice = array.slice(&[0, 1]); // Slice with shape [4, 5]
-    /// ```
-    pub fn slice<'a>(&'a self, indices: &[usize]) -> NdArraySlice<'a, T> {
+    pub fn slice(&self, indices: &[usize]) -> NdArray<T> {
         let (start_index, slice_shape, slice_strides) = self.calculate_slice_info(indices);
-        let slice_len = slice_shape.size();
 
-        // Create slice from data
-        let data_slice = &self.data[start_index..(start_index + slice_len)];
-
-        NdArraySlice {
-            data: data_slice,
+        NdArray {
+            data: Rc::clone(&self.data),
             shape: slice_shape,
             strides: slice_strides,
-        }
-    }
-
-    /// Creates a mutable slice from the array by fixing the first n dimensions
-    ///
-    /// # Example
-    /// ```
-    /// use catgrad::backend::cpu::ndarray::NdArray;
-    /// use catgrad::core::object::Shape;
-    /// use num_traits::Zero;
-    ///
-    /// let mut array: NdArray<f32> = NdArray::from_shape(Shape(vec![2, 3, 4, 5]));
-    /// let slice = array.slice_mut(&[0, 1]); // Slice with shape [4, 5]
-    /// ```
-    pub fn slice_mut<'a>(&'a mut self, indices: &[usize]) -> NdArrayMutSlice<'a, T> {
-        let (start_index, slice_shape, slice_strides) = self.calculate_slice_info(indices);
-        let slice_len = slice_shape.size();
-
-        // Create slice from data
-        let data_slice = &mut self.data[start_index..(start_index + slice_len)];
-
-        NdArrayMutSlice {
-            data: data_slice,
-            shape: slice_shape,
-            strides: slice_strides,
+            offset: self.offset + start_index,
         }
     }
 
@@ -186,7 +134,7 @@ impl<T: Numeric> NdArray<T> {
             );
         }
 
-        let mut flat_index = 0;
+        let mut flat_index = self.offset;
         for (i, &idx) in index.iter().enumerate() {
             if idx >= self.shape.0[i] {
                 panic!(
@@ -213,7 +161,8 @@ impl<T: Numeric> NdArray<T> {
         }
 
         if self.strides == other.strides {
-            self.data.clone_from_slice(&other.data);
+            let mut data = self.data.borrow_mut();
+            data.clone_from_slice(&other.data.borrow());
             return;
         }
 
@@ -227,12 +176,12 @@ impl<T: Numeric> NdArray<T> {
 
     pub fn get(&self, index: &[usize]) -> T {
         let flat_index = self.calculate_flat_index(index);
-        self.data[flat_index]
+        self.data.borrow()[flat_index]
     }
 
     pub fn set(&mut self, index: &[usize], value: T) {
         let flat_index = self.calculate_flat_index(index);
-        self.data[flat_index] = value;
+        self.data.borrow_mut()[flat_index] = value;
     }
 }
 
@@ -244,8 +193,9 @@ impl<T: Numeric + Zero> NdArray<T> {
     }
 
     pub fn fill(&mut self, value: T) {
-        for i in 0..self.data.len() {
-            self.data[i] = value;
+        let mut data = self.data.borrow_mut();
+        for i in 0..data.len() {
+            data[i] = value;
         }
     }
 }
@@ -374,9 +324,9 @@ impl TaggedNdArray {
 
     pub fn data(&self) -> Vec<f32> {
         match self {
-            TaggedNdArray::F16(vec) => vec.data.iter().map(|&x| x.into()).collect(),
-            TaggedNdArray::F32(vec) => vec.data.to_vec(),
-            TaggedNdArray::I32(vec) => vec.data.iter().map(|&x| x as f32).collect(),
+            TaggedNdArray::F16(vec) => vec.data.borrow().iter().map(|&x| x.into()).collect(),
+            TaggedNdArray::F32(vec) => vec.data.borrow().to_vec(),
+            TaggedNdArray::I32(vec) => vec.data.borrow().iter().map(|&x| x as f32).collect(),
         }
     }
 
@@ -497,23 +447,33 @@ mod tests {
         // For [0,1,...] we should get indices [4,5,6,7]
 
         // Get a slice at [0, 1, ...]
-        let slice = array.slice(&[0, 1]);
+        let mut slice = array.slice(&[0, 1]);
 
         // Check the shape of the slice
         assert_eq!(slice.shape, Shape(vec![4]));
 
         // Check the data in the slice
-        assert_eq!(slice.data, &[4.0, 5.0, 6.0, 7.0]);
+        assert_eq!(slice.get(&[0]), 4.0);
+        assert_eq!(slice.get(&[1]), 5.0);
+        assert_eq!(slice.get(&[2]), 6.0);
+        assert_eq!(slice.get(&[3]), 7.0);
+
+        // Modify the slice and check that it affects the original array
+        slice.set(&[2], 99.0);
+        assert_eq!(array.get(&[0, 1, 2]), 99.0);
 
         // Test with different indices [1, 2, ...]
         let slice2 = array.slice(&[1, 2]);
         assert_eq!(slice2.shape, Shape(vec![4]));
-        assert_eq!(slice2.data, &[20.0, 21.0, 22.0, 23.0]);
+        assert_eq!(slice2.get(&[0]), 20.0);
+        assert_eq!(slice2.get(&[1]), 21.0);
+        assert_eq!(slice2.get(&[2]), 22.0);
+        assert_eq!(slice2.get(&[3]), 23.0);
 
         // Test slicing with no indices (should return the whole array)
         let slice_all = array.slice(&[]);
         assert_eq!(slice_all.shape, Shape(vec![2, 3, 4]));
-        assert_eq!(slice_all.data.len(), 24);
+        assert_eq!(slice_all.len(), 24);
 
         // Test slicing a 4D array
         let v = (0..120).map(|i| i as f32).collect();
@@ -521,59 +481,13 @@ mod tests {
 
         let slice4d = array4d.slice(&[0, 0]);
         assert_eq!(slice4d.shape, Shape(vec![4, 5]));
-        assert_eq!(slice4d.data.len(), 20);
+        assert_eq!(slice4d.len(), 20);
 
-        // Check the data in the 4D slice
-        // In a 2x3x4x5 array, [0,0,...] should give the first 20 elements
-        for i in 0..20 {
-            assert_eq!(slice4d.data[i], i as f32);
-        }
-    }
-
-    #[test]
-    fn test_slice_mut() {
-        // Create a 2x3x4 array filled with zeros
-        let v = (0..24).map(|i| i as f32).collect();
-        let mut array = NdArray::new(v, Shape(vec![2, 3, 4]));
-
-        // Calculate the expected linear indices for a 2x3x4 array with row-major ordering
-        // For [0,1,...] we should get indices [4,5,6,7]
-
-        // Get a slice at [0, 1, ...]
-        let slice = array.slice_mut(&[0, 1]);
-
-        // Check the shape of the slice
-        assert_eq!(slice.shape, Shape(vec![4]));
-
-        // Check the data in the slice
-        assert_eq!(slice.data, &mut [4.0, 5.0, 6.0, 7.0]);
-
-        // Modify the slice and check that it affects the original array
-        slice.data[2] = 99.0;
-        assert_eq!(array.data[6], 99.0);
-
-        // Test with different indices [1, 2, ...]
-        let slice2 = array.slice_mut(&[1, 2]);
-        assert_eq!(slice2.shape, Shape(vec![4]));
-        assert_eq!(slice2.data, &mut [20.0, 21.0, 22.0, 23.0]);
-
-        // Test slicing with no indices (should return the whole array)
-        let slice_all = array.slice_mut(&[]);
-        assert_eq!(slice_all.shape, Shape(vec![2, 3, 4]));
-        assert_eq!(slice_all.data.len(), 24);
-
-        // Test slicing a 4D array
-        let v = (0..120).map(|i| i as f32).collect();
-        let mut array4d = NdArray::new(v, Shape(vec![2, 3, 4, 5]));
-
-        let slice4d = array4d.slice_mut(&[0, 0]);
-        assert_eq!(slice4d.shape, Shape(vec![4, 5]));
-        assert_eq!(slice4d.data.len(), 20);
-
-        // Check the data in the 4D slice
-        // In a 2x3x4x5 array, [0,0,...] should give the first 20 elements
-        for i in 0..20 {
-            assert_eq!(slice4d.data[i], i as f32);
+        // Check the data in the 2D slice
+        for i in 0..4 {
+            for j in 0..5 {
+                assert_eq!(slice4d.get(&[i, j]), (i * 5 + j) as f32);
+            }
         }
     }
 
@@ -590,11 +504,11 @@ mod tests {
 
         // Test writing
         array.set(&[0, 1, 2], 99.0);
-        assert_eq!(array.data[6], 99.0);
+        assert_eq!(array.data.borrow()[6], 99.0);
         assert_eq!(array.get(&[0, 1, 2]), 99.0);
 
         array.set(&[1, 2, 3], -1.0);
-        assert_eq!(array.data[23], -1.0);
+        assert_eq!(array.data.borrow()[23], -1.0);
         assert_eq!(array.get(&[1, 2, 3]), -1.0);
     }
 

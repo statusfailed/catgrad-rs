@@ -246,12 +246,12 @@ impl EvalState {
 
             Arange => match self.data.get_mut(targets[0]) {
                 Some(I32(a)) => {
-                    for (i, x) in a.data.iter_mut().enumerate() {
+                    for (i, x) in a.data.borrow_mut().iter_mut().enumerate() {
                         *x = i as i32;
                     }
                 }
                 Some(F32(a)) => {
-                    for (i, x) in a.data.iter_mut().enumerate() {
+                    for (i, x) in a.data.borrow_mut().iter_mut().enumerate() {
                         *x = i as f32;
                     }
                 }
@@ -275,7 +275,7 @@ impl EvalState {
                         Some(F32(a)) => {
                             let p = parameters.get(name);
                             if let Some(TaggedNdArray::F32(x)) = p {
-                                a.copy_from(x);
+                                a.data = Rc::clone(&x.data);
                             } else {
                                 panic!("Parameters loaded, parameter '{name}'::F32 not found.")
                             }
@@ -298,7 +298,7 @@ impl EvalState {
                         let embedding_dim = weights.shape.0[1];
 
                         // Flatten indices for processing
-                        let flat_indices: Vec<_> = indices.data.to_vec();
+                        let flat_indices: Vec<_> = indices.data.borrow().to_vec();
                         let mut flat_index = 0;
 
                         // For each index, look up the corresponding embedding vector
@@ -307,11 +307,12 @@ impl EvalState {
                                 panic!("Embedding index out of bounds");
                             }
 
+                            let mut data = output.data.borrow_mut();
                             // Copy embedding vector for this index
                             for j in 0..embedding_dim {
                                 // Get the vector at index idx
                                 let src_offset = (idx as usize) * embedding_dim + j;
-                                output.data[flat_index + j] = weights.data[src_offset];
+                                data[flat_index + j] = weights.data.borrow()[src_offset];
                             }
                             flat_index += embedding_dim;
                         }
