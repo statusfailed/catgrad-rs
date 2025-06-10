@@ -315,8 +315,8 @@ fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
 
     let s = sum(builder, x.clone());
-    let constn = constant(builder, s.label, n as f32);
-    let mean = sum(builder, x.clone()) / constn.clone();
+    let constn = constant(builder, s.label.clone(), n as f32);
+    let mean = s / constn.clone();
     let nom = x.clone() - expand(builder, x.label.shape.clone(), mean);
 
     let var = sum(builder, nom.clone() * nom.clone()) / constn;
@@ -341,8 +341,8 @@ pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
 pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
     let s = sum(builder, x.clone() * x.clone());
-    let constn = constant(builder, s.label, n as f32);
-    let ms = sum(builder, x.clone() * x.clone()) / constn;
+    let constn = constant(builder, s.label.clone(), n as f32);
+    let ms = s / constn;
     let epsilon = constant(builder, ms.label.clone(), eps);
     let rms = sqrt(builder, ms + epsilon);
     let b = expand(builder, x.label.shape.clone(), rms);
