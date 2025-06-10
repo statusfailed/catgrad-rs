@@ -28,6 +28,8 @@ Some models to test the `llm` example with:
 
 <https://huggingface.co/meta-llama/Llama-3.2-1B>
 
+<https://huggingface.co/meta-llama/Llama-3.2-3B>
+
 <https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct>
 
 <https://huggingface.co/Qwen/Qwen3-0.6B>
