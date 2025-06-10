@@ -47,8 +47,7 @@ pub fn parameter(builder: &Builder, param_type: NdArrayType, name: String) -> Va
 
 pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
     let op = Operation::Print(name.to_string(), verbose);
-    let out_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
-    operation(builder, &[x.clone()], out_type, op);
+    open_hypergraphs::lax::var::operation(builder, &[x.clone()], vec![], op);
 }
 
 pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
