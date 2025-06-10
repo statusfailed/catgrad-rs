@@ -199,7 +199,7 @@ where
     };
 
     a.shape.for_each_index(|_, indices| {
-        c[indices] = op(a[indices], b[indices]);
+        c.set(indices, op(a.get(indices), b.get(indices)));
     });
 }
 
@@ -274,14 +274,14 @@ pub struct ConcatOp {
 impl<T: Numeric + Copy> BinOp<T> for ConcatOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
         a.shape.for_each_index(|_, a_indices| {
-            c[a_indices] = a[a_indices];
+            c.set(a_indices, a.get(a_indices));
         });
 
         b.shape.for_each_index(|_, b_indices| {
             let mut c_indices = b_indices.to_vec();
             // Offset the concat dimension by the size of the first array
             c_indices[self.dim] += a.shape.0[self.dim];
-            c[&c_indices] = b[b_indices];
+            c.set(&c_indices, b.get(b_indices));
         });
     }
 }
@@ -308,7 +308,7 @@ where
         return;
     }
     a.shape.for_each_index(|_, indices| {
-        b[indices] = op(a[indices]);
+        b.set(indices, op(a.get(indices)));
     });
 }
 
@@ -353,7 +353,7 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
             b.data.clone_from(&a.data);
         } else {
             a.shape.for_each_index(|i, indices| {
-                b.data[i] = a[indices];
+                b.data[i] = a.get(indices);
             });
         }
     }
