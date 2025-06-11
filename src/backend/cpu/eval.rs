@@ -335,7 +335,7 @@ impl EvalState {
                             let mut input_indices = output_indices.to_vec();
 
                             let idx_pos = output_indices[*dim];
-                            let input_idx: usize = (indices[&[idx_pos]]) as usize;
+                            let input_idx: usize = indices.get(&[idx_pos]) as usize;
 
                             if input_idx >= input_dim_size {
                                 panic!(
@@ -345,7 +345,7 @@ impl EvalState {
                             }
 
                             input_indices[*dim] = input_idx;
-                            output[output_indices] = input[&input_indices];
+                            output.set(output_indices, input.get(&input_indices));
                         });
                     }
                     _ => panic!("invalid type for Index operation"),
@@ -898,12 +898,12 @@ mod test {
             assert_eq!(actual.shape.0, &[2, 1, 2, 3]);
             assert_eq!(actual.strides, [0, 0, 3, 1]);
 
-            assert_eq!(actual[&[0, 0, 0, 0]], 30);
-            assert_eq!(actual[&[1, 0, 0, 0]], 30);
-            assert_eq!(actual[&[0, 0, 0, 2]], 32);
-            assert_eq!(actual[&[1, 0, 0, 2]], 32);
-            assert_eq!(actual[&[0, 0, 1, 2]], 35);
-            assert_eq!(actual[&[1, 0, 1, 2]], 35);
+            assert_eq!(actual.get(&[0, 0, 0, 0]), 30);
+            assert_eq!(actual.get(&[1, 0, 0, 0]), 30);
+            assert_eq!(actual.get(&[0, 0, 0, 2]), 32);
+            assert_eq!(actual.get(&[1, 0, 0, 2]), 32);
+            assert_eq!(actual.get(&[0, 0, 1, 2]), 35);
+            assert_eq!(actual.get(&[1, 0, 1, 2]), 35);
         }
     }
 
@@ -927,12 +927,12 @@ mod test {
             assert_eq!(actual.shape.0, &[4, 3]);
             assert_eq!(actual.strides, [1, 0]);
 
-            assert_eq!(actual[&[0, 0]], 30);
-            assert_eq!(actual[&[0, 1]], 30);
-            assert_eq!(actual[&[0, 2]], 30);
-            assert_eq!(actual[&[1, 0]], 31);
-            assert_eq!(actual[&[2, 1]], 32);
-            assert_eq!(actual[&[3, 2]], 33);
+            assert_eq!(actual.get(&[0, 0]), 30);
+            assert_eq!(actual.get(&[0, 1]), 30);
+            assert_eq!(actual.get(&[0, 2]), 30);
+            assert_eq!(actual.get(&[1, 0]), 31);
+            assert_eq!(actual.get(&[2, 1]), 32);
+            assert_eq!(actual.get(&[3, 2]), 33);
         }
     }
     #[test]
@@ -949,12 +949,12 @@ mod test {
         match actual {
             TaggedNdArray::F32(array) => {
                 assert_eq!(array.shape, Shape(vec![3, 2]));
-                assert_eq!(array[&[0, 0]], 1.0);
-                assert_eq!(array[&[0, 1]], 4.0);
-                assert_eq!(array[&[1, 0]], 2.0);
-                assert_eq!(array[&[1, 1]], 5.0);
-                assert_eq!(array[&[2, 0]], 3.0);
-                assert_eq!(array[&[2, 1]], 6.0);
+                assert_eq!(array.get(&[0, 0]), 1.0);
+                assert_eq!(array.get(&[0, 1]), 4.0);
+                assert_eq!(array.get(&[1, 0]), 2.0);
+                assert_eq!(array.get(&[1, 1]), 5.0);
+                assert_eq!(array.get(&[2, 0]), 3.0);
+                assert_eq!(array.get(&[2, 1]), 6.0);
             }
             _ => panic!("Expected F32 array"),
         }

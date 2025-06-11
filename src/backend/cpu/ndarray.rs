@@ -1,6 +1,5 @@
 use super::kernel::Numeric;
 use crate::core::object::*;
-use std::ops::{Index, IndexMut};
 
 use half::f16;
 use num_traits::Zero;
@@ -222,24 +221,18 @@ impl<T: Numeric> NdArray<T> {
         // using the proper indexing for each array
 
         other.shape.for_each_index(|_, indices| {
-            self[indices] = other[indices];
+            self.set(indices, other.get(indices));
         });
     }
-}
 
-impl<T: Numeric> Index<&[usize]> for NdArray<T> {
-    type Output = T;
-
-    fn index(&self, index: &[usize]) -> &Self::Output {
+    pub fn get(&self, index: &[usize]) -> T {
         let flat_index = self.calculate_flat_index(index);
-        &self.data[flat_index]
+        self.data[flat_index]
     }
-}
 
-impl<T: Numeric> IndexMut<&[usize]> for NdArray<T> {
-    fn index_mut(&mut self, index: &[usize]) -> &mut Self::Output {
+    pub fn set(&mut self, index: &[usize], value: T) {
         let flat_index = self.calculate_flat_index(index);
-        &mut self.data[flat_index]
+        self.data[flat_index] = value;
     }
 }
 
@@ -275,7 +268,7 @@ impl<T: std::fmt::Display + Numeric> NdArray<T> {
         precision: usize,
     ) -> String {
         if indices.len() == self.shape.0.len() {
-            return format!("{:.*}", precision, self[indices]);
+            return format!("{:.*}", precision, self.get(indices));
         }
 
         let indent = " ".repeat(depth);
@@ -357,9 +350,9 @@ impl TaggedNdArray {
 
     pub fn get(&self, index: &[usize]) -> f32 {
         match self {
-            TaggedNdArray::F16(arr) => arr[index].to_f32(),
-            TaggedNdArray::F32(arr) => arr[index],
-            TaggedNdArray::I32(arr) => arr[index] as f32,
+            TaggedNdArray::F16(arr) => arr.get(index).to_f32(),
+            TaggedNdArray::F32(arr) => arr.get(index),
+            TaggedNdArray::I32(arr) => arr.get(index) as f32,
         }
     }
 
@@ -590,46 +583,46 @@ mod tests {
         let mut array = NdArray::new(v, Shape(vec![2, 3, 4]));
 
         // Test reading
-        assert_eq!(array[&[0, 0, 0]], 0.0);
-        assert_eq!(array[&[0, 1, 2]], 6.0); // 0*12 + 1*4 + 2*1 = 6
-        assert_eq!(array[&[1, 0, 0]], 12.0); // 1*12 + 0*4 + 0*1 = 12
-        assert_eq!(array[&[1, 2, 3]], 23.0); // 1*12 + 2*4 + 3*1 = 12 + 8 + 3 = 23
+        assert_eq!(array.get(&[0, 0, 0]), 0.0);
+        assert_eq!(array.get(&[0, 1, 2]), 6.0); // 0*12 + 1*4 + 2*1 = 6
+        assert_eq!(array.get(&[1, 0, 0]), 12.0); // 1*12 + 0*4 + 0*1 = 12
+        assert_eq!(array.get(&[1, 2, 3]), 23.0); // 1*12 + 2*4 + 3*1 = 12 + 8 + 3 = 23
 
         // Test writing
-        array[&[0, 1, 2]] = 99.0;
+        array.set(&[0, 1, 2], 99.0);
         assert_eq!(array.data[6], 99.0);
-        assert_eq!(array[&[0, 1, 2]], 99.0);
+        assert_eq!(array.get(&[0, 1, 2]), 99.0);
 
-        array[&[1, 2, 3]] = -1.0;
+        array.set(&[1, 2, 3], -1.0);
         assert_eq!(array.data[23], -1.0);
-        assert_eq!(array[&[1, 2, 3]], -1.0);
+        assert_eq!(array.get(&[1, 2, 3]), -1.0);
     }
 
     #[test]
     #[should_panic]
     fn test_indexing_out_of_bounds_dim() {
         let array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-        let _ = array[&[0, 0, 4]]; // Index 4 is out of bounds for the last dimension
+        let _ = array.get(&[0, 0, 4]); // Index 4 is out of bounds for the last dimension
     }
 
     #[test]
     #[should_panic]
     fn test_indexing_out_of_bounds_mut() {
         let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-        array[&[2, 0, 0]] = 5.0; // Index 2 is out of bounds for the first dimension
+        array.set(&[2, 0, 0], 5.0); // Index 2 is out of bounds for the first dimension
     }
 
     #[test]
     #[should_panic]
     fn test_indexing_wrong_ndim() {
         let array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-        let _ = array[&[0, 0]]; // Incorrect number of dimensions
+        let _ = array.get(&[0, 0]); // Incorrect number of dimensions
     }
 
     #[test]
     #[should_panic]
     fn test_indexing_wrong_ndim_mut() {
         let mut array = NdArray::new(vec![0.0; 24], Shape(vec![2, 3, 4]));
-        array[&[1, 1]] = 5.0; // Incorrect number of dimensions
+        array.set(&[1, 1], 5.0); // Incorrect number of dimensions
     }
 }
