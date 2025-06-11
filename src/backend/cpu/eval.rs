@@ -372,6 +372,14 @@ impl EvalState {
         self.eval()
     }
 
+    fn needs_alloc(&self, op: &Operation) -> bool {
+        // Operations that reuse existing data do not need to allocate new memory.
+        !matches!(
+            op,
+            Operation::Broadcast { .. } | Operation::Transpose { .. } | Operation::Parameter { .. }
+        )
+    }
+
     /// mutably evaluate self, returning a reference to output arrays.
     pub fn eval(&mut self) -> Vec<&TaggedNdArray> {
         // unpack the segmented array of sources into a vec of vecs.
@@ -397,7 +405,9 @@ impl EvalState {
                 let op = self.term.h.x.0[*i].clone();
                 log::debug!("{l} OP: {:?}", &op);
                 for t in &targets[*i] {
-                    self.data[*t].allocate();
+                    if self.needs_alloc(&op) {
+                        self.data[*t].allocate();
+                    }
                 }
                 self.apply(&op, &sources[*i], &targets[*i]);
 
