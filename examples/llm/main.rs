@@ -209,7 +209,7 @@ pub fn main() -> Result<()> {
 
     log::info!("Input tokens {:?}", &input);
     let mut model_runner = ModelRunner::new(model_paths, &config.architectures[0]);
-    let mut input_tokens = input.data.to_vec();
+    let mut input_tokens = input.data.borrow_mut();
 
     print!("{}", args.prompt);
     for _ in 0..args.seq_len {
