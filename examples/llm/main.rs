@@ -53,12 +53,14 @@ mod gemma;
 mod gpt2;
 mod llama;
 mod olmo;
+mod phi;
 mod qwen;
 
 use gemma::Model as GemmaModel;
 use gpt2::Model as GPT2Model;
 use llama::Model as LlamaModel;
 use olmo::Model as OlmoModel;
+use phi::Model as PhiModel;
 use qwen::Model as QwenModel;
 
 struct ModelRunner {
@@ -92,6 +94,7 @@ impl ModelRunner {
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
             "Qwen3ForCausalLM" => Box::new(QwenModel {}),
             "Gemma3ForCausalLM" => Box::new(GemmaModel {}),
+            "Phi3ForCausalLM" => Box::new(PhiModel {}),
             "GPT2LMHeadModel" => Box::new(GPT2Model {}),
             _ => panic!("Unknown architecture {arch}"),
         };
@@ -212,6 +215,10 @@ pub fn main() -> Result<()> {
     let mut input_tokens = input.data.borrow_mut();
 
     print!("{}", args.prompt);
+
+    let start_gen = std::time::Instant::now();
+
+    let mut total_tokens = 0;
     for _ in 0..args.seq_len {
         let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
         print!(
@@ -220,8 +227,15 @@ pub fn main() -> Result<()> {
         );
         std::io::stdout().flush().unwrap();
         input_tokens.push(next_token_id);
+        total_tokens += 1;
     }
-    println!();
+
+    let elapsed = start_gen.elapsed();
+    println!(
+        "\n{total_tokens} tokens generated in {} seconds. ({:.2} tokens/sec)",
+        elapsed.as_secs(),
+        total_tokens as f64 / elapsed.as_secs_f64(),
+    );
 
     Ok(())
 }

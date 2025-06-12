@@ -347,7 +347,9 @@ impl<T: Numeric> UnaryOp<T> for ReshapeOp {
         assert_eq!(
             a.shape.size(),
             b.shape.size(),
-            "ReshapeOp: input shape must be compatible with target shape"
+            "ReshapeOp: input shape {:?}must be compatible with target shape {:?}",
+            a.shape,
+            b.shape
         );
         if a.is_contiguous() {
             b.data = Rc::clone(&a.data);
