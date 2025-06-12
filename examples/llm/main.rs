@@ -215,6 +215,10 @@ pub fn main() -> Result<()> {
     let mut input_tokens = input.data.borrow_mut();
 
     print!("{}", args.prompt);
+
+    let start_gen = std::time::Instant::now();
+
+    let mut total_tokens = 0;
     for _ in 0..args.seq_len {
         let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
         print!(
@@ -223,8 +227,15 @@ pub fn main() -> Result<()> {
         );
         std::io::stdout().flush().unwrap();
         input_tokens.push(next_token_id);
+        total_tokens += 1;
     }
-    println!();
+
+    let elapsed = start_gen.elapsed();
+    println!(
+        "\n{total_tokens} tokens generated in {} seconds. ({:.2} tokens/sec)",
+        elapsed.as_secs(),
+        total_tokens as f64 / elapsed.as_secs_f64(),
+    );
 
     Ok(())
 }
