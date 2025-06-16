@@ -97,7 +97,7 @@ pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var
     assert!(x.label.shape.0[dim] >= start + length);
 
     let indices = range_indices(builder, start, start + length);
-    index(builder, dim, x.clone(), indices)
+    index(builder, dim, x, indices)
 }
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
@@ -703,7 +703,7 @@ mod test {
     fn test_arange() {
         let mut state = EvalState::build(|builder| {
             let i = arange(builder, 6, Dtype::F32);
-            let e = expand(builder, Shape(vec![2, 6]), i.clone());
+            let e = expand(builder, Shape(vec![2, 6]), i);
             let r = reshape(builder, Shape(vec![6, 2]), e.clone());
             (vec![], vec![e, r])
         });
@@ -732,7 +732,7 @@ mod test {
     fn test_transpose_reshape() {
         let mut state = EvalState::build(|builder| {
             let a = arange(builder, 6, Dtype::F32);
-            let b = reshape(builder, Shape(vec![2, 3]), a.clone());
+            let b = reshape(builder, Shape(vec![2, 3]), a);
             let c = transpose(builder, 0, 1, b.clone());
             let d = reshape(builder, Shape(vec![3, 2]), c.clone());
             let m = mat_mul(builder, d.clone(), b.clone());
@@ -764,7 +764,7 @@ mod test {
             let a = arange(builder, 6, Dtype::F32);
             let b = reshape(builder, Shape(vec![2, 3]), a.clone());
             let c = transpose(builder, 0, 1, b.clone());
-            let d = reshape(builder, Shape(vec![3, 2]), a.clone());
+            let d = reshape(builder, Shape(vec![3, 2]), a);
 
             let n = -c.clone();
             let s = c.clone() + d.clone();
@@ -986,7 +986,7 @@ mod test {
             let x = expand(builder, Shape(vec![4, 6]), x);
             let i = arange(builder, 3, Dtype::I32);
             let y0 = index(builder, 0, x.clone(), i.clone());
-            let y1 = index(builder, 1, x.clone(), i.clone());
+            let y1 = index(builder, 1, x.clone(), i);
 
             let ri = range_indices(builder, 2, 5);
             let y2 = index(builder, 1, x.clone(), ri);
@@ -1046,10 +1046,10 @@ mod test {
         let mut state = EvalState::build(|builder| {
             let x = arange(builder, 6, Dtype::F32);
             let x = expand(builder, Shape(vec![4, 6]), x);
-            let v = split(builder, 1, 3, x.clone());
+            let v = split(builder, 1, 3, x);
             let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
 
-            let v = split(builder, 0, 2, y1.clone());
+            let v = split(builder, 0, 2, y1);
             let y1 = v[0].clone();
 
             (vec![], vec![y0, y1, y2])
@@ -1106,7 +1106,7 @@ mod test {
             let i = arange(builder, 12, Dtype::F32);
             let i = reshape(builder, Shape(vec![1, 3, 4]), i);
             let nr = narrow(builder, 1, 1, 2, i.clone());
-            let nc = narrow(builder, 2, 2, 2, i.clone());
+            let nc = narrow(builder, 2, 2, 2, i);
             (vec![], vec![nr, nc])
         });
 

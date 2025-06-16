@@ -787,7 +787,7 @@ mod test {
 
         let const_a = Operation::constop(typ.clone(), 1.0);
         let const_b = Operation::constop(typ.clone(), 2.0);
-        let add = Operation::add(typ.clone());
+        let add = Operation::add(typ);
 
         let expected = NdArray::new(vec![3.0, 3.0, 3.0, 3.0], Shape(vec![2, 2]));
 
@@ -808,7 +808,7 @@ mod test {
         let param_a = Operation::parameter(typ.clone(), "param_a");
         let param_b = Operation::parameter(typ.clone(), "param_b");
 
-        let add = Operation::add(typ.clone());
+        let add = Operation::add(typ);
 
         let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
         let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));
@@ -835,7 +835,7 @@ mod test {
     fn test_missing_parameter() {
         let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
-        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_a = Operation::parameter(typ, "param_a");
 
         let mut state = EvalState::from_lax(param_a);
         let parameters = HashMap::new();
@@ -849,7 +849,7 @@ mod test {
     fn test_missing_parameters() {
         let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
-        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_a = Operation::parameter(typ, "param_a");
 
         let mut state = EvalState::from_lax(param_a);
 

@@ -26,13 +26,7 @@ impl Model {
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let qkv = linear_no_bias(
-            builder,
-            dim,
-            3 * dim,
-            &format!("{name}.qkv_proj"),
-            x.clone(),
-        );
+        let qkv = linear_no_bias(builder, dim, 3 * dim, &format!("{name}.qkv_proj"), x);
 
         let q = narrow(builder, 2, 0, num_heads * head_dim, qkv.clone());
         let k = narrow(
@@ -87,7 +81,7 @@ impl Model {
             config.hidden_size,
             config.intermediate_size * 2,
             &format!("{name}.gate_up_proj"),
-            x.clone(),
+            x,
         );
 
         let gate_up = split(builder, 2, 2, gate_up);
@@ -132,7 +126,7 @@ impl ModelBuilder for Model {
     fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
         let tokens = x.label.shape.0[1];
 
-        let emb = Model::embeddings(builder, config, x.clone());
+        let emb = Model::embeddings(builder, config, x);
 
         let mut result = emb;
 
