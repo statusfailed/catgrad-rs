@@ -1,9 +1,9 @@
 use catgrad::{
     backend::cpu::{
-        eval::EvalState,
+        eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{Shape, Var},
+    core::{Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
 use hf_hub::api::sync::Api;
@@ -72,14 +72,22 @@ struct ModelRunner {
 // Trait for model builders for various architectures (llama, qwen, gpt2, etc.)
 pub trait ModelBuilder {
     // Build the model architecture graph for a given input shape
-    fn build(&mut self, batches: usize, tokens: usize, config: &Config) -> EvalState;
+    fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var;
     // Optional post-processing of loaded weights (renaming, reshaping, etc.)
     fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
 }
 
 impl ModelRunner {
     fn build(&mut self, batches: usize, tokens: usize, config: &Config) {
-        let state = self.model.build(batches, tokens, config);
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
+
+        let state = EvalState::build(|builder| {
+            let x = Var::new(builder.clone(), in_type.clone());
+            let result = self.model.build(builder, config, x.clone());
+
+            (vec![x], vec![result])
+        });
+
         self.state = Some(state);
         self.state
             .as_mut()
