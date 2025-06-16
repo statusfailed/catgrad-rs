@@ -5,5 +5,5 @@ repos:
     - id: fmt
     - id: check
     - id: clippy
-      args: ["--all-targets", "--", "--deny", "warnings"]
+      args: ["--all-targets", "--", "--deny", "warnings", "-W",  "clippy::redundant_clone"]
     - id: test
