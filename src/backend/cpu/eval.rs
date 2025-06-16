@@ -175,6 +175,7 @@ impl EvalState {
                     }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
+                    Argmax => Box::new(kernel::ArgmaxOp),
                     Sin => Box::new(kernel::SinOp),
                     Cos => Box::new(kernel::CosOp),
                     _ => panic!("invalid operation"),
@@ -211,6 +212,7 @@ impl EvalState {
             }
             Sum
             | Max
+            | Argmax
             | Sin
             | Cos
             | Negate
@@ -1008,6 +1010,23 @@ mod test {
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
         let expected = NdArray::new(vec![2.0, 4.0], Shape(vec![2]));
+
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_argmax() {
+        let f = Operation::argmax(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32));
+
+        let x = NdArray::new(vec![1.0, 2.0, 4.0, 3.0], Shape(vec![2, 2]));
+
+        let expected = NdArray::new(vec![1.0, 0.0], Shape(vec![2]));
 
         let mut state = EvalState::from_lax(f);
 

@@ -137,6 +137,7 @@ pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
 }
 
 pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
+    assert_eq!(x.label.shape.size(), shape.size());
     let out_t = NdArrayType::new(shape, x.label.dtype);
     let op = Operation::Reshape;
     operation(builder, &[x], out_t, op)
@@ -193,6 +194,10 @@ pub fn sum(builder: &Builder, x: Var) -> Var {
 
 pub fn max(builder: &Builder, x: Var) -> Var {
     reduceop(builder, Operation::Max, x)
+}
+
+pub fn argmax(builder: &Builder, x: Var) -> Var {
+    reduceop(builder, Operation::Argmax, x)
 }
 
 pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {

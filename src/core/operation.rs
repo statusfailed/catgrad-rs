@@ -18,6 +18,9 @@ pub enum Operation {
     /// Sum value across last dimension
     Sum,
 
+    /// Argmax value across last dimension
+    Argmax,
+
     /// Broadcast a value to one of shape n+x.
     Broadcast(Shape),
 
@@ -254,6 +257,11 @@ impl Operation {
     // Make an OpenHypergraph for a Max operation
     pub fn max(x: NdArrayType) -> Term {
         Operation::reduceop(x, Operation::Max)
+    }
+
+    // Make an OpenHypergraph for an Argmax operation
+    pub fn argmax(x: NdArrayType) -> Term {
+        Operation::reduceop(x, Operation::Argmax)
     }
 }
 
