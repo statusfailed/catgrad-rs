@@ -1,53 +1,46 @@
 // Gemma-3 model description
 
 use super::{Config, ModelBuilder};
-use catgrad::backend::cpu::eval::{Builder, EvalState};
+use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
 impl ModelBuilder for Model {
-    fn build(&mut self, batches: usize, tokens: usize, config: &Config) -> EvalState {
-        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
+    fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
+        let tokens = x.label.shape.0[1];
+        let emb = Model::embeddings(builder, config, x.clone());
 
-        let state = EvalState::build(|builder| {
-            let x = Var::new(builder.clone(), in_type.clone());
-            let emb = Model::embeddings(builder, config, x.clone());
+        let mut result = emb;
 
-            let mut result = emb;
+        let normalizer = constant(
+            builder,
+            result.label.clone(),
+            (config.hidden_size as f32).sqrt(),
+        );
 
-            let normalizer = constant(
-                builder,
-                result.label.clone(),
-                (config.hidden_size as f32).sqrt(),
-            );
+        result = result * normalizer;
 
-            result = result * normalizer;
+        for i in 0..config.num_hidden_layers {
+            result = Model::layer(builder, config, i, &format!("model.layers.{i}"), result);
+        }
 
-            for i in 0..config.num_hidden_layers {
-                result = Model::layer(builder, config, i, &format!("model.layers.{i}"), result);
-            }
+        result = Model::rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
-            result = Model::rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+        // Get the logits for the last token only
+        if tokens > 1 {
+            result = narrow(builder, 1, tokens - 1, 1, result);
+        }
 
-            // Get the logits for the last token only
-            if tokens > 1 {
-                result = narrow(builder, 1, tokens - 1, 1, result);
-            }
-
-            // Gemma uses weight tying so lm_head is the same as embed_tokens
-            let result = linear_no_bias(
-                builder,
-                config.hidden_size,
-                config.vocab_size,
-                "model.embed_tokens",
-                result,
-            );
-
-            (vec![x], vec![result])
-        });
-        state
+        // Gemma uses weight tying so lm_head is the same as embed_tokens
+        linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            "model.embed_tokens",
+            result,
+        )
     }
 }
 
