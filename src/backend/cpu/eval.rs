@@ -458,7 +458,7 @@ impl EvalState {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::kernel::Numeric;
     use super::*;
     use crate::core::operation::Var;
