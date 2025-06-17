@@ -97,10 +97,12 @@ pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var
     assert!(x.label.shape.0[dim] >= start + length);
 
     let indices = range_indices(builder, start, start + length);
-    index(builder, dim, x.clone(), indices)
+    index(builder, dim, x, indices)
 }
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
+    assert!(dim < a.label.shape.0.len());
+
     let mut output_shape = a.label.shape.0.clone();
     output_shape[dim] = a.label.shape.0[dim] + b.label.shape.0[dim];
     let output_type = NdArrayType::new(Shape(output_shape), a.label.dtype);
@@ -137,6 +139,7 @@ pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
 }
 
 pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
+    assert_eq!(x.label.shape.size(), shape.size());
     let out_t = NdArrayType::new(shape, x.label.dtype);
     let op = Operation::Reshape;
     operation(builder, &[x], out_t, op)
@@ -160,6 +163,12 @@ pub fn sin(builder: &Builder, x: Var) -> Var {
 pub fn cos(builder: &Builder, x: Var) -> Var {
     let op = Operation::Cos;
     operation(builder, &[x.clone()], x.label, op)
+}
+
+pub fn cast(builder: &Builder, dtype: Dtype, x: Var) -> Var {
+    let op = Operation::Cast;
+    let out_t = NdArrayType::new(x.label.shape.clone(), dtype);
+    operation(builder, &[x], out_t, op)
 }
 
 pub fn power(builder: &Builder, base: Var, power: Var) -> Var {
@@ -193,6 +202,10 @@ pub fn sum(builder: &Builder, x: Var) -> Var {
 
 pub fn max(builder: &Builder, x: Var) -> Var {
     reduceop(builder, Operation::Max, x)
+}
+
+pub fn argmax(builder: &Builder, x: Var) -> Var {
+    reduceop(builder, Operation::Argmax, x)
 }
 
 pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
@@ -449,7 +462,7 @@ pub fn generate_rope_tables(
 
 #[cfg(test)]
 #[allow(clippy::excessive_precision)]
-mod test {
+mod tests {
     use super::*;
     use crate::backend::cpu::eval::EvalState;
     use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
@@ -695,10 +708,32 @@ mod test {
     }
 
     #[test]
+    fn test_cast() {
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, 4, Dtype::I32);
+            let ic = cast(builder, Dtype::F32, i);
+            let f = arange(builder, 4, Dtype::F32);
+            let fc = cast(builder, Dtype::I32, f);
+            (vec![], vec![ic, fc])
+        });
+
+        let [ic, fc] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        if let (TaggedNdArray::F32(ic), TaggedNdArray::I32(fc)) = (ic, fc) {
+            assert_eq!(ic.shape, Shape(vec![4]));
+            assert_eq!(*ic.data.borrow(), vec![0., 1., 2., 3.]);
+            assert_eq!(fc.shape, Shape(vec![4]));
+            assert_eq!(*fc.data.borrow(), vec![0, 1, 2, 3]);
+        };
+    }
+
+    #[test]
     fn test_arange() {
         let mut state = EvalState::build(|builder| {
             let i = arange(builder, 6, Dtype::F32);
-            let e = expand(builder, Shape(vec![2, 6]), i.clone());
+            let e = expand(builder, Shape(vec![2, 6]), i);
             let r = reshape(builder, Shape(vec![6, 2]), e.clone());
             (vec![], vec![e, r])
         });
@@ -708,13 +743,13 @@ mod test {
         };
 
         assert_eq!(e.shape(), Shape(vec![2, 6]));
-        // assert_eq!(e.strides(), &[0, 1]);
+        assert_eq!(e.strides(), &[0, 1]);
         assert_eq!(e.get(&[0, 0]), 0.);
         assert_eq!(e.get(&[0, 5]), 5.);
         assert_eq!(e.get(&[1, 0]), 0.);
         assert_eq!(e.get(&[1, 5]), 5.);
         assert_eq!(r.shape(), Shape(vec![6, 2]));
-        // assert_eq!(r.strides(), &[2, 1]);
+        assert_eq!(r.strides(), &[2, 1]);
         assert_eq!(r.get(&[0, 0]), 0.);
         assert_eq!(r.get(&[0, 1]), 1.);
         assert_eq!(r.get(&[1, 0]), 2.);
@@ -727,7 +762,7 @@ mod test {
     fn test_transpose_reshape() {
         let mut state = EvalState::build(|builder| {
             let a = arange(builder, 6, Dtype::F32);
-            let b = reshape(builder, Shape(vec![2, 3]), a.clone());
+            let b = reshape(builder, Shape(vec![2, 3]), a);
             let c = transpose(builder, 0, 1, b.clone());
             let d = reshape(builder, Shape(vec![3, 2]), c.clone());
             let m = mat_mul(builder, d.clone(), b.clone());
@@ -743,10 +778,10 @@ mod test {
         assert_eq!(b.approx(1), &[0., 1., 2., 3., 4., 5.]);
 
         assert_eq!(c.shape(), Shape(vec![3, 2]));
-        // assert_eq!(c.strides(), &[1, 3]);
+        assert_eq!(c.strides(), &[1, 3]);
 
         assert_eq!(d.shape(), Shape(vec![3, 2]));
-        // assert_eq!(d.strides(), &[2, 1]);
+        assert_eq!(d.strides(), &[2, 1]);
 
         assert_eq!(m.shape(), Shape(vec![3, 3]));
         assert_eq!(m.strides(), &[3, 1]);
@@ -759,7 +794,7 @@ mod test {
             let a = arange(builder, 6, Dtype::F32);
             let b = reshape(builder, Shape(vec![2, 3]), a.clone());
             let c = transpose(builder, 0, 1, b.clone());
-            let d = reshape(builder, Shape(vec![3, 2]), a.clone());
+            let d = reshape(builder, Shape(vec![3, 2]), a);
 
             let n = -c.clone();
             let s = c.clone() + d.clone();
@@ -784,7 +819,7 @@ mod test {
         //  [1,4]
         //  [2,5]]
         assert_eq!(c.shape(), Shape(vec![3, 2]));
-        // assert_eq!(c.strides(), &[1, 3]);
+        assert_eq!(c.strides(), &[1, 3]);
         assert_eq!(c.get(&[0, 0]), 0.);
         assert_eq!(c.get(&[0, 1]), 3.);
         assert_eq!(c.get(&[1, 0]), 1.);
@@ -864,12 +899,12 @@ mod test {
         };
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
-        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.strides(), vec![0, 1]);
         assert_eq!(i.get(&[0, 1]), 1.);
         assert_eq!(i.get(&[2, 2]), 2.);
 
         assert_eq!(j.shape(), Shape(vec![3, 3]));
-        // assert_eq!(j.strides(), vec![1, 0]);
+        assert_eq!(j.strides(), vec![1, 0]);
         assert_eq!(j.get(&[0, 1]), 0.);
         assert_eq!(j.get(&[1, 1]), 1.);
         assert_eq!(j.get(&[2, 2]), 2.);
@@ -962,7 +997,7 @@ mod test {
         };
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
-        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.strides(), vec![0, 1]);
         assert_eq!(i.get(&[0, 0]), 0.);
         assert_eq!(i.get(&[0, 1]), 1.);
         assert_eq!(i.get(&[0, 2]), 2.);
@@ -981,7 +1016,7 @@ mod test {
             let x = expand(builder, Shape(vec![4, 6]), x);
             let i = arange(builder, 3, Dtype::I32);
             let y0 = index(builder, 0, x.clone(), i.clone());
-            let y1 = index(builder, 1, x.clone(), i.clone());
+            let y1 = index(builder, 1, x.clone(), i);
 
             let ri = range_indices(builder, 2, 5);
             let y2 = index(builder, 1, x.clone(), ri);
@@ -1041,10 +1076,10 @@ mod test {
         let mut state = EvalState::build(|builder| {
             let x = arange(builder, 6, Dtype::F32);
             let x = expand(builder, Shape(vec![4, 6]), x);
-            let v = split(builder, 1, 3, x.clone());
+            let v = split(builder, 1, 3, x);
             let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
 
-            let v = split(builder, 0, 2, y1.clone());
+            let v = split(builder, 0, 2, y1);
             let y1 = v[0].clone();
 
             (vec![], vec![y0, y1, y2])
@@ -1101,7 +1136,7 @@ mod test {
             let i = arange(builder, 12, Dtype::F32);
             let i = reshape(builder, Shape(vec![1, 3, 4]), i);
             let nr = narrow(builder, 1, 1, 2, i.clone());
-            let nc = narrow(builder, 2, 2, 2, i.clone());
+            let nc = narrow(builder, 2, 2, 2, i);
             (vec![], vec![nr, nc])
         });
 

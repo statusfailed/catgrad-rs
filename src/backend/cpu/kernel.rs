@@ -391,6 +391,23 @@ impl<T: Numeric + PartialOrd + std::iter::Sum> UnaryOp<T> for SumOp {
     }
 }
 
+pub struct ArgmaxOp;
+
+impl UnaryOp<f32> for ArgmaxOp {
+    fn apply(&self, a: &NdArray<f32>, b: &mut NdArray<f32>) {
+        let last_dim = a.shape.0[a.shape.0.len() - 1];
+        let mut b_data = b.data.borrow_mut();
+        for (i, chunk) in a.data.borrow().chunks(last_dim).enumerate() {
+            b_data[i] = chunk
+                .iter()
+                .enumerate()
+                .max_by(|(_, x1), (_, x2)| x1.total_cmp(x2))
+                .map(|(idx, _)| idx)
+                .unwrap() as f32;
+        }
+    }
+}
+
 /// Broadcast input into a new shape.
 /// Ex: Input of shape [4, 5] broadcasted to shape [2, 3, 4, 5]
 /// will result in output of shape [2, 3, 4, 5] where the input is repeated 2x3 times.

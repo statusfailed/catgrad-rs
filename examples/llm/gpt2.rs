@@ -58,7 +58,7 @@ impl Model {
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let c_attn = Model::gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x.clone());
+        let c_attn = Model::gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x);
 
         let a = split(builder, 2, 3, c_attn);
         let q = a[0].clone();
@@ -125,7 +125,7 @@ impl ModelBuilder for Model {
     fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
         let tokens = x.label.shape.0[1];
 
-        let emb = Model::embeddings(builder, config, x.clone());
+        let emb = Model::embeddings(builder, config, x);
 
         let mut result = emb;
 

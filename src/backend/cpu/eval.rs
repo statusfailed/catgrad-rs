@@ -175,6 +175,7 @@ impl EvalState {
                     }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
+                    Argmax => Box::new(kernel::ArgmaxOp),
                     Sin => Box::new(kernel::SinOp),
                     Cos => Box::new(kernel::CosOp),
                     _ => panic!("invalid operation"),
@@ -211,6 +212,7 @@ impl EvalState {
             }
             Sum
             | Max
+            | Argmax
             | Sin
             | Cos
             | Negate
@@ -220,6 +222,24 @@ impl EvalState {
             | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
+            Cast => match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
+                Ok([F32(a), I32(b)]) => {
+                    let a_data = a.data.borrow();
+                    let mut b_data = b.data.borrow_mut();
+                    a_data.iter().zip(b_data.iter_mut()).for_each(|(src, dst)| {
+                        *dst = *src as i32;
+                    });
+                }
+                Ok([I32(a), F32(b)]) => {
+                    let a_data = a.data.borrow();
+                    let mut b_data = b.data.borrow_mut();
+                    a_data.iter().zip(b_data.iter_mut()).for_each(|(src, dst)| {
+                        *dst = *src as f32;
+                    });
+                }
+                _ => panic!("Unsupported types for cast operation"),
+            },
+
             Copy => {
                 assert_eq!(sources.len(), 1);
                 for t in targets {
@@ -456,7 +476,7 @@ impl EvalState {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::kernel::Numeric;
     use super::*;
     use crate::core::operation::Var;
@@ -785,7 +805,7 @@ mod test {
 
         let const_a = Operation::constop(typ.clone(), 1.0);
         let const_b = Operation::constop(typ.clone(), 2.0);
-        let add = Operation::add(typ.clone());
+        let add = Operation::add(typ);
 
         let expected = NdArray::new(vec![3.0, 3.0, 3.0, 3.0], Shape(vec![2, 2]));
 
@@ -806,7 +826,7 @@ mod test {
         let param_a = Operation::parameter(typ.clone(), "param_a");
         let param_b = Operation::parameter(typ.clone(), "param_b");
 
-        let add = Operation::add(typ.clone());
+        let add = Operation::add(typ);
 
         let a = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
         let b = NdArray::new(vec![-1.0, 2.0, -3.0, 4.0], Shape(vec![2, 2]));
@@ -833,7 +853,7 @@ mod test {
     fn test_missing_parameter() {
         let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
-        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_a = Operation::parameter(typ, "param_a");
 
         let mut state = EvalState::from_lax(param_a);
         let parameters = HashMap::new();
@@ -847,7 +867,7 @@ mod test {
     fn test_missing_parameters() {
         let typ = NdArrayType::new(Shape(vec![2, 2]), Dtype::F32);
 
-        let param_a = Operation::parameter(typ.clone(), "param_a");
+        let param_a = Operation::parameter(typ, "param_a");
 
         let mut state = EvalState::from_lax(param_a);
 
@@ -1008,6 +1028,23 @@ mod test {
         let x = NdArray::new(vec![1.0, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
 
         let expected = NdArray::new(vec![2.0, 4.0], Shape(vec![2]));
+
+        let mut state = EvalState::from_lax(f);
+
+        let [actual] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_argmax() {
+        let f = Operation::argmax(NdArrayType::new(Shape(vec![2, 2]), Dtype::F32));
+
+        let x = NdArray::new(vec![1.0, 2.0, 4.0, 3.0], Shape(vec![2, 2]));
+
+        let expected = NdArray::new(vec![1.0, 0.0], Shape(vec![2]));
 
         let mut state = EvalState::from_lax(f);
 

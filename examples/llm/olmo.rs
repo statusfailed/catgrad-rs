@@ -10,7 +10,7 @@ pub struct Model;
 impl ModelBuilder for Model {
     fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
         let tokens = x.label.shape.0[1];
-        let emb = Model::embeddings(builder, config, x.clone());
+        let emb = Model::embeddings(builder, config, x);
         let mut result = emb;
 
         for i in 0..config.num_hidden_layers {
