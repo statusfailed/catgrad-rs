@@ -713,13 +713,13 @@ mod tests {
         };
 
         assert_eq!(e.shape(), Shape(vec![2, 6]));
-        // assert_eq!(e.strides(), &[0, 1]);
+        assert_eq!(e.strides(), &[0, 1]);
         assert_eq!(e.get(&[0, 0]), 0.);
         assert_eq!(e.get(&[0, 5]), 5.);
         assert_eq!(e.get(&[1, 0]), 0.);
         assert_eq!(e.get(&[1, 5]), 5.);
         assert_eq!(r.shape(), Shape(vec![6, 2]));
-        // assert_eq!(r.strides(), &[2, 1]);
+        assert_eq!(r.strides(), &[2, 1]);
         assert_eq!(r.get(&[0, 0]), 0.);
         assert_eq!(r.get(&[0, 1]), 1.);
         assert_eq!(r.get(&[1, 0]), 2.);
@@ -748,10 +748,10 @@ mod tests {
         assert_eq!(b.approx(1), &[0., 1., 2., 3., 4., 5.]);
 
         assert_eq!(c.shape(), Shape(vec![3, 2]));
-        // assert_eq!(c.strides(), &[1, 3]);
+        assert_eq!(c.strides(), &[1, 3]);
 
         assert_eq!(d.shape(), Shape(vec![3, 2]));
-        // assert_eq!(d.strides(), &[2, 1]);
+        assert_eq!(d.strides(), &[2, 1]);
 
         assert_eq!(m.shape(), Shape(vec![3, 3]));
         assert_eq!(m.strides(), &[3, 1]);
@@ -789,7 +789,7 @@ mod tests {
         //  [1,4]
         //  [2,5]]
         assert_eq!(c.shape(), Shape(vec![3, 2]));
-        // assert_eq!(c.strides(), &[1, 3]);
+        assert_eq!(c.strides(), &[1, 3]);
         assert_eq!(c.get(&[0, 0]), 0.);
         assert_eq!(c.get(&[0, 1]), 3.);
         assert_eq!(c.get(&[1, 0]), 1.);
@@ -869,12 +869,12 @@ mod tests {
         };
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
-        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.strides(), vec![0, 1]);
         assert_eq!(i.get(&[0, 1]), 1.);
         assert_eq!(i.get(&[2, 2]), 2.);
 
         assert_eq!(j.shape(), Shape(vec![3, 3]));
-        // assert_eq!(j.strides(), vec![1, 0]);
+        assert_eq!(j.strides(), vec![1, 0]);
         assert_eq!(j.get(&[0, 1]), 0.);
         assert_eq!(j.get(&[1, 1]), 1.);
         assert_eq!(j.get(&[2, 2]), 2.);
@@ -967,7 +967,7 @@ mod tests {
         };
 
         assert_eq!(i.shape(), Shape(vec![3, 3]));
-        // assert_eq!(i.strides(), vec![0, 1]);
+        assert_eq!(i.strides(), vec![0, 1]);
         assert_eq!(i.get(&[0, 0]), 0.);
         assert_eq!(i.get(&[0, 1]), 1.);
         assert_eq!(i.get(&[0, 2]), 2.);
