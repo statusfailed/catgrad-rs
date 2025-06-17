@@ -70,6 +70,9 @@ pub enum Operation {
         dim: usize,
     },
 
+    /// Cast
+    Cast,
+
     /// Arange
     Arange,
 

@@ -222,6 +222,24 @@ impl EvalState {
             | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
+            Cast => match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
+                Ok([F32(a), I32(b)]) => {
+                    let a_data = a.data.borrow();
+                    let mut b_data = b.data.borrow_mut();
+                    a_data.iter().zip(b_data.iter_mut()).for_each(|(src, dst)| {
+                        *dst = *src as i32;
+                    });
+                }
+                Ok([I32(a), F32(b)]) => {
+                    let a_data = a.data.borrow();
+                    let mut b_data = b.data.borrow_mut();
+                    a_data.iter().zip(b_data.iter_mut()).for_each(|(src, dst)| {
+                        *dst = *src as f32;
+                    });
+                }
+                _ => panic!("Unsupported types for cast operation"),
+            },
+
             Copy => {
                 assert_eq!(sources.len(), 1);
                 for t in targets {

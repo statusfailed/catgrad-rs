@@ -101,6 +101,8 @@ pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var
 }
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
+    assert!(dim < a.label.shape.0.len());
+
     let mut output_shape = a.label.shape.0.clone();
     output_shape[dim] = a.label.shape.0[dim] + b.label.shape.0[dim];
     let output_type = NdArrayType::new(Shape(output_shape), a.label.dtype);
@@ -161,6 +163,12 @@ pub fn sin(builder: &Builder, x: Var) -> Var {
 pub fn cos(builder: &Builder, x: Var) -> Var {
     let op = Operation::Cos;
     operation(builder, &[x.clone()], x.label, op)
+}
+
+pub fn cast(builder: &Builder, dtype: Dtype, x: Var) -> Var {
+    let op = Operation::Cast;
+    let out_t = NdArrayType::new(x.label.shape.clone(), dtype);
+    operation(builder, &[x], out_t, op)
 }
 
 pub fn power(builder: &Builder, base: Var, power: Var) -> Var {
@@ -697,6 +705,28 @@ mod tests {
 
         let tagged: TaggedNdArray = expected.into();
         assert_eq!(&tagged, actual);
+    }
+
+    #[test]
+    fn test_cast() {
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, 4, Dtype::I32);
+            let ic = cast(builder, Dtype::F32, i);
+            let f = arange(builder, 4, Dtype::F32);
+            let fc = cast(builder, Dtype::I32, f);
+            (vec![], vec![ic, fc])
+        });
+
+        let [ic, fc] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        if let (TaggedNdArray::F32(ic), TaggedNdArray::I32(fc)) = (ic, fc) {
+            assert_eq!(ic.shape, Shape(vec![4]));
+            assert_eq!(*ic.data.borrow(), vec![0., 1., 2., 3.]);
+            assert_eq!(fc.shape, Shape(vec![4]));
+            assert_eq!(*fc.data.borrow(), vec![0, 1, 2, 3]);
+        };
     }
 
     #[test]
