@@ -382,7 +382,7 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 }
 
 // Generate rope tables. This part is usually precomputed
-fn rope_tables(builder: &Builder, theta: f32, seq_len: usize, head_dim: usize) -> (Var, Var) {
+pub fn rope_tables(builder: &Builder, theta: f32, seq_len: usize, head_dim: usize) -> (Var, Var) {
     let half_dim = head_dim / 2;
 
     let f = arange(builder, half_dim, Dtype::F32);
@@ -412,16 +412,22 @@ fn rotate_half(builder: &Builder, x: Var) -> Var {
     concat(builder, 3, -v[1].clone(), v[0].clone())
 }
 
-pub fn rope(builder: &Builder, theta: f32, seq_len: usize, x: Var) -> Var {
-    let head_dim = x.label.shape.0[3];
-    let (cos, sin) = rope_tables(builder, theta, seq_len, head_dim);
-
+/// Apply RoPE (Rotary Positional Embedding) to the input tensor by reusing calculated tables
+pub fn apply_rope_embedding(builder: &Builder, cos: Var, sin: Var, x: Var) -> Var {
     let cos = expand(builder, x.label.shape.clone(), cos);
     let sin = expand(builder, x.label.shape.clone(), sin);
 
     let rotated_x = rotate_half(builder, x.clone());
 
     cos * x + sin * rotated_x
+}
+
+/// Apply RoPE (Rotary Positional Embedding) to the input tensor by calculating the tables
+pub fn rope(builder: &Builder, theta: f32, seq_len: usize, x: Var) -> Var {
+    let head_dim = x.label.shape.0[3];
+    let (cos, sin) = rope_tables(builder, theta, seq_len, head_dim);
+
+    apply_rope_embedding(builder, cos, sin, x)
 }
 
 #[cfg(test)]
