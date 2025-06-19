@@ -809,8 +809,7 @@ mod tests {
 
         let expected = NdArray::new(vec![3.0, 3.0, 3.0, 3.0], Shape(vec![2, 2]));
 
-        let mut f = (&(&const_a | &const_b) >> &add).unwrap();
-        f.quotient();
+        let f = (&(&const_a | &const_b) >> &add).unwrap();
         let mut state = EvalState::from_lax(f);
 
         let [actual] = state.eval()[..] else {
@@ -838,8 +837,7 @@ mod tests {
 
         let expected = NdArray::new(vec![0., 4., 0., 8.], Shape(vec![2, 2]));
 
-        let mut f = (&(&param_a | &param_b) >> &add).unwrap();
-        f.quotient();
+        let f = (&(&param_a | &param_b) >> &add).unwrap();
         let mut state = EvalState::from_lax(f);
         state.set_parameters(Rc::new(parameters));
 
