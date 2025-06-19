@@ -206,8 +206,22 @@ pub fn main() -> Result<()> {
     env_logger::init();
 
     let args = Args::parse();
+    let models = HashMap::from([
+        ("gpt", "openai-community/gpt2"),
+        ("smol", "HuggingFaceTB/SmolLM2-135M-Instruct"),
+        ("llama", "meta-llama/Llama-3.2-1B"),
+        ("gemma", "google/gemma-3-1b-pt"),
+        ("qwen", "Qwen/Qwen3-0.6B"),
+        ("olmo", "allenai/OLMo-2-0425-1B"),
+        ("phi", "microsoft/Phi-4-mini-instruct"),
+    ]);
 
-    let (model_paths, config_path, tokenizer_path) = get_model_files(&args.model_name);
+    let model_name = models
+        .get(args.model_name.as_str())
+        .copied()
+        .unwrap_or(&args.model_name);
+
+    let (model_paths, config_path, tokenizer_path) = get_model_files(model_name);
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
     let config: Config = serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
 
