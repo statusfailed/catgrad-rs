@@ -174,6 +174,9 @@ struct Args {
     /// Number of tokens to generate
     #[arg(short = 's', long, default_value_t = 1)]
     seq_len: usize,
+
+    #[arg(long, default_value=None)]
+    save_dot: Option<PathBuf>,
 }
 
 fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
@@ -200,6 +203,16 @@ fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
     let t = repo.get("tokenizer.json").unwrap();
 
     (m, c, t)
+}
+
+fn save_dot(path: &PathBuf, model_runner: &ModelRunner) {
+    use graphviz_rust::{print, printer::PrinterContext};
+    // TODO: don't regenerate model hypergraph
+    let strict_term = model_runner.state.as_ref().unwrap().term.clone();
+    let lax_term = open_hypergraphs::lax::OpenHypergraph::from_strict(strict_term);
+    let dot_graph = open_hypergraphs_dot::generate_dot(&lax_term);
+    let dot_string = print(dot_graph, &mut PrinterContext::default());
+    let _ = std::fs::write(path, dot_string);
 }
 
 pub fn main() -> Result<()> {
@@ -229,6 +242,15 @@ pub fn main() -> Result<()> {
     let mut total_tokens = 0;
     for _ in 0..args.seq_len {
         let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
+
+        // Save .dot of model.
+        // TODO: this has to go here since model_runner.build doesn't get called until generate
+        // happens. This should probably change?
+        if let Some(ref path) = args.save_dot {
+            log::info!("writing model graph to {}", path.display());
+            save_dot(path, &model_runner)
+        }
+
         print!(
             "{}",
             tokenizer.decode(&[next_token_id as u32], false).unwrap()

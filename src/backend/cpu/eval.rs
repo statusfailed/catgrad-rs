@@ -55,7 +55,7 @@ pub type Builder = Rc<RefCell<Term>>;
 /// Evaluator state for a single term.
 #[derive(Debug, Clone)]
 pub struct EvalState {
-    term: StrictTerm,
+    pub term: StrictTerm,
     data: Vec<TaggedNdArray>,
     parameters: Option<Rc<HashMap<String, TaggedNdArray>>>,
 }
