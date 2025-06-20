@@ -5,6 +5,11 @@ use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
+pub struct Cache {
+    pub cos: Var,
+    pub sin: Var,
+}
+
 pub struct Model;
 
 impl Model {
@@ -17,7 +22,7 @@ impl Model {
         embedding(builder, x, weights)
     }
 
-    pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn attention(builder: &Builder, config: &Config, cache: &Cache, name: &str, x: Var) -> Var {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
@@ -44,8 +49,8 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let q = rope(builder, config.rope_theta, s, q);
-        let k = rope(builder, config.rope_theta, s, k);
+        let q = apply_rope_embedding(builder, cache.cos.clone(), cache.sin.clone(), q);
+        let k = apply_rope_embedding(builder, cache.cos.clone(), cache.sin.clone(), k);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -93,7 +98,7 @@ impl Model {
         x
     }
 
-    pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn layer(builder: &Builder, config: &Config, cache: &Cache, name: &str, x: Var) -> Var {
         let res = x.clone();
         let x = rmsnorm(
             builder,
@@ -101,7 +106,7 @@ impl Model {
             &format!("{name}.input_layernorm"),
             x,
         );
-        let x = Model::attention(builder, config, &format!("{name}.self_attn"), x);
+        let x = Model::attention(builder, config, cache, &format!("{name}.self_attn"), x);
         let x = res + x;
         let res = x.clone();
         let x = rmsnorm(
@@ -117,13 +122,22 @@ impl Model {
 
 impl ModelBuilder for Model {
     fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
+        let seq_len = x.label.shape.0[1];
+        let (cos, sin) = rope_tables(
+            builder,
+            config.rope_theta,
+            seq_len,
+            config.hidden_size / config.num_attention_heads,
+        );
+        let cache = &Cache { cos, sin };
+
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
 
         let mut result = emb;
 
         for i in 0..config.num_hidden_layers {
-            result = Model::layer(builder, config, &format!("model.layers.{i}"), result);
+            result = Model::layer(builder, config, cache, &format!("model.layers.{i}"), result);
         }
 
         result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
