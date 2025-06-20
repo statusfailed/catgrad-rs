@@ -290,6 +290,14 @@ impl TaggedNdArray {
         }
     }
 
+    pub fn data_len(&self) -> usize {
+        match self {
+            TaggedNdArray::F16(a) => a.data.borrow().len(),
+            TaggedNdArray::F32(a) => a.data.borrow().len(),
+            TaggedNdArray::I32(a) => a.data.borrow().len(),
+        }
+    }
+
     pub fn is_contiguous(&self) -> bool {
         match self {
             TaggedNdArray::F16(a) => a.is_contiguous(),

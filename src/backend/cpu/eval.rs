@@ -411,6 +411,9 @@ impl EvalState {
 
         // Count the times each array is used as an operation source.
         let mut uses = vec![0; self.data.len()];
+        // An extra use for the outputs of the Term
+        self.term.t.table.0.iter().for_each(|x| uses[*x] = 1);
+
         for ops in layered_operations(&self.term).iter() {
             for i in ops {
                 for s in &sources[*i] {
