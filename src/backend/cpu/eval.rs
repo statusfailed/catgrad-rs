@@ -461,16 +461,16 @@ impl EvalState {
             state.borrow_mut().sources = s.iter().map(|x| x.new_source()).collect();
             state.borrow_mut().targets = t.iter().map(|x| x.new_target()).collect();
         }
-        Rc::try_unwrap(state).unwrap().into_inner()
+        let term = Rc::try_unwrap(state).unwrap().into_inner();
+        // TODO: Add APIs for keeping the Copy edges around when there is a use-case
+        open_hypergraphs::lax::var::forget::Forget.map_arrow(&term)
     }
 
     pub fn build<F>(f: F) -> EvalState
     where
         F: Fn(&Builder) -> (Vec<Var>, Vec<Var>),
     {
-        let mut term = EvalState::build_lax(f);
-        // TODO: Add APIs for keeping the Copy edges around when there is a use-case
-        term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+        let term = EvalState::build_lax(f);
         EvalState::from_lax(term)
     }
 }
