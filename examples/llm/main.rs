@@ -3,6 +3,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
+    core::nn::layers::{argmax, cast, concat, reshape},
     core::{Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
@@ -78,12 +79,36 @@ pub trait ModelBuilder {
 }
 
 impl ModelRunner {
-    fn build(&mut self, batches: usize, tokens: usize, config: &Config) {
+    fn next_token(&self, builder: &Builder, logits: Var) -> Var {
+        let batches = logits.label.shape.0[0];
+        let am = argmax(builder, logits);
+        let am = reshape(builder, Shape(vec![batches, 1]), am);
+        cast(builder, Dtype::I32, am)
+    }
+
+    fn unroll(&self, builder: &Builder, config: &Config, x: Var, seq_len: usize) -> Var {
+        let mut input = x;
+        for _ in 0..seq_len {
+            let result = self.model.build(builder, config, input.clone());
+            let new_token = self.next_token(builder, result);
+            input = concat(builder, 1, input, new_token);
+        }
+
+        input
+    }
+
+    fn build_unrolled(
+        &mut self,
+        batches: usize,
+        tokens: usize,
+        config: &Config,
+        max_new_tokens: usize,
+    ) {
         let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let result = self.model.build(builder, config, x.clone());
+            let result = self.unroll(builder, config, x.clone(), max_new_tokens);
 
             (vec![x], vec![result])
         });
@@ -92,7 +117,25 @@ impl ModelRunner {
         self.state
             .as_mut()
             .unwrap()
-            .set_parameters(Rc::clone(&self.tensors)); // TODO ^
+            .set_parameters(Rc::clone(&self.tensors));
+    }
+
+    fn build(&mut self, batches: usize, tokens: usize, config: &Config) {
+        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
+
+        let state = EvalState::build(|builder| {
+            let x = Var::new(builder.clone(), in_type.clone());
+            let result = self.model.build(builder, config, x.clone());
+            let new_token = self.next_token(builder, result);
+
+            (vec![x], vec![new_token])
+        });
+
+        self.state = Some(state);
+        self.state
+            .as_mut()
+            .unwrap()
+            .set_parameters(Rc::clone(&self.tensors));
     }
 
     // Create model and load weights from file
@@ -143,12 +186,28 @@ impl ModelRunner {
         log::debug!("Model graph built...");
         let result = self.run(&input);
 
-        let v = config.vocab_size;
+        let r = result.data();
+
+        r[0] as i32
+    }
+
+    fn generate_all(
+        &mut self,
+        batches: usize,
+        tokens: Vec<i32>,
+        config: &Config,
+        max_new_tokens: usize,
+    ) -> Vec<u32> {
+        let l = tokens.len();
+        let input = NdArray::new(tokens, Shape(vec![batches, l / batches]));
+
+        self.build_unrolled(batches, l, config, max_new_tokens);
+        log::debug!("Model graph built...");
+        let result = self.run(&input);
 
         let r = result.data();
 
-        // Greedy (temp = 0) sampling
-        argmax(&r[r.len() - v..])
+        r.iter().map(|&x| x as u32).collect()
     }
 
     fn save_dot(&mut self, config: &Config, path: &PathBuf) {
@@ -169,14 +228,6 @@ impl ModelRunner {
     }
 }
 
-fn argmax(v: &[f32]) -> i32 {
-    v.iter()
-        .enumerate()
-        .max_by(|(_, a), (_, b)| a.total_cmp(b))
-        .map(|(idx, _)| idx)
-        .unwrap() as i32
-}
-
 #[derive(Parser, Debug)]
 struct Args {
     /// Model name on Huggingface Hub
@@ -195,8 +246,13 @@ struct Args {
     #[arg(short = 's', long, default_value_t = 1)]
     seq_len: usize,
 
+    /// Path to save Graphviz dot file
     #[arg(long, default_value=None)]
     save_dot: Option<PathBuf>,
+
+    /// Build unrolled graph
+    #[arg(short = 'u', long)]
+    unrolled: bool,
 }
 
 fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
@@ -272,27 +328,31 @@ pub fn main() -> Result<()> {
     log::info!("Input tokens {:?}", &input);
     let mut input_tokens = input.data.borrow_mut();
 
-    print!("{}", args.prompt);
-
     let start_gen = std::time::Instant::now();
 
-    let mut total_tokens = 0;
-    for _ in 0..args.seq_len {
-        let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
-        print!(
-            "{}",
-            tokenizer.decode(&[next_token_id as u32], false).unwrap()
-        );
-        std::io::stdout().flush().unwrap();
-        input_tokens.push(next_token_id);
-        total_tokens += 1;
+    if args.unrolled {
+        let next_tokens =
+            model_runner.generate_all(batches, input_tokens.clone(), &config, args.seq_len);
+        print!("{}", tokenizer.decode(&next_tokens, false).unwrap());
+    } else {
+        print!("{}", args.prompt);
+        for _ in 0..args.seq_len {
+            let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
+            print!(
+                "{}",
+                tokenizer.decode(&[next_token_id as u32], false).unwrap()
+            );
+            std::io::stdout().flush().unwrap();
+            input_tokens.push(next_token_id);
+        }
     }
 
     let elapsed = start_gen.elapsed();
     println!(
-        "\n{total_tokens} tokens generated in {} seconds. ({:.2} tokens/sec)",
+        "\n{} tokens generated in {} seconds. ({:.2} tokens/sec)",
+        args.seq_len,
         elapsed.as_secs(),
-        total_tokens as f64 / elapsed.as_secs_f64(),
+        args.seq_len as f64 / elapsed.as_secs_f64(),
     );
 
     Ok(())
