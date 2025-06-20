@@ -96,8 +96,8 @@ impl ModelRunner {
     }
 
     // Create model and load weights from file
-    pub fn new(model_paths: Vec<PathBuf>, arch: &str) -> Self {
-        let mut model: Box<dyn ModelBuilder> = match arch {
+    pub fn new(arch: &str) -> Self {
+        let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
             "Qwen3ForCausalLM" => Box::new(QwenModel {}),
@@ -106,16 +106,19 @@ impl ModelRunner {
             "GPT2LMHeadModel" => Box::new(GPT2Model {}),
             _ => panic!("Unknown architecture {arch}"),
         };
-
-        let mut tensors = read_safetensors_multiple(model_paths);
-        model.post_load(&mut tensors);
-        println!("Model weights loaded...");
-
         Self {
-            tensors: Rc::new(tensors),
+            tensors: Rc::new(HashMap::new()),
             state: None,
             model,
         }
+    }
+
+    pub fn load(&mut self, model_paths: Vec<PathBuf>) {
+        let mut tensors = read_safetensors_multiple(model_paths);
+        self.model.post_load(&mut tensors);
+        println!("Model weights loaded...");
+
+        self.tensors = Rc::new(tensors);
     }
 
     // Make a forward pass given a list of tokens
@@ -147,6 +150,23 @@ impl ModelRunner {
         // Greedy (temp = 0) sampling
         argmax(&r[r.len() - v..])
     }
+
+    fn save_dot(&mut self, config: &Config, path: &PathBuf) {
+        use graphviz_rust::{print, printer::PrinterContext};
+
+        let in_type = NdArrayType::new(Shape(vec![1, 1]), Dtype::I32);
+
+        let term = EvalState::build_lax(|builder| {
+            let x = Var::new(builder.clone(), in_type.clone());
+            let result = self.model.build(builder, config, x.clone());
+
+            (vec![x], vec![result])
+        });
+
+        let dot_graph = open_hypergraphs_dot::generate_dot(&term);
+        let dot_string = print(dot_graph, &mut PrinterContext::default());
+        let _ = std::fs::write(path, dot_string);
+    }
 }
 
 fn argmax(v: &[f32]) -> i32 {
@@ -174,6 +194,9 @@ struct Args {
     /// Number of tokens to generate
     #[arg(short = 's', long, default_value_t = 1)]
     seq_len: usize,
+
+    #[arg(long, default_value=None)]
+    save_dot: Option<PathBuf>,
 }
 
 fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
@@ -230,10 +253,23 @@ pub fn main() -> Result<()> {
     let token_ids: Vec<i32> = encoding.get_ids().iter().map(|&x| x as i32).collect();
     let tokens = token_ids.len();
     let batches = 1;
-    let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
 
+    let mut model_runner = ModelRunner::new(&config.architectures[0]);
+
+    if let Some(ref path) = args.save_dot {
+        model_runner.save_dot(&config, path);
+        println!(
+            "Model graph for {} written to {}",
+            model_name,
+            path.display()
+        );
+        return Ok(());
+    }
+
+    model_runner.load(model_paths);
+
+    let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
     log::info!("Input tokens {:?}", &input);
-    let mut model_runner = ModelRunner::new(model_paths, &config.architectures[0]);
     let mut input_tokens = input.data.borrow_mut();
 
     print!("{}", args.prompt);
