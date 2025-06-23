@@ -3,7 +3,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::nn::layers::{argmax, cast, concat, reshape},
+    core::nn::layers::{argmax, cast, concat, reshape, rope_tables},
     core::{Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
@@ -49,6 +49,36 @@ pub struct Config {
     pub vocab_size: usize,
     pub architectures: Vec<String>,
 }
+impl Config {
+    // Sometimes the head_dim fields is missing
+    fn get_head_dim(&self) -> usize {
+        if self.head_dim == 0 {
+            self.hidden_size / self.num_attention_heads
+        } else {
+            self.head_dim
+        }
+    }
+}
+
+pub struct Cache {
+    pub cos: Var,
+    pub sin: Var,
+    pub use_kv_cache: bool,
+    pub kv_cache: Vec<Option<(Var, Var)>>,
+}
+
+impl Cache {
+    pub fn init(builder: &Builder, config: &Config, x: Var) -> Self {
+        let seq_len = x.label.shape.0[1];
+        let (cos, sin) = rope_tables(builder, config.rope_theta, seq_len, config.get_head_dim());
+        Self {
+            cos,
+            sin,
+            use_kv_cache: false,
+            kv_cache: vec![None; config.num_hidden_layers],
+        }
+    }
+}
 
 mod gemma;
 mod gpt2;
@@ -73,7 +103,7 @@ struct ModelRunner {
 // Trait for model builders for various architectures (llama, qwen, gpt2, etc.)
 pub trait ModelBuilder {
     // Build the model architecture graph for a given input shape
-    fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var;
+    fn build(&self, builder: &Builder, config: &Config, cache: &mut Cache, x: Var) -> Var;
     // Optional post-processing of loaded weights (renaming, reshaping, etc.)
     fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
 }
@@ -88,10 +118,25 @@ impl ModelRunner {
 
     fn unroll(&self, builder: &Builder, config: &Config, x: Var, seq_len: usize) -> Var {
         let mut input = x;
+
+        let mut cache = Cache::init(builder, config, input.clone());
         for _ in 0..seq_len {
-            let result = self.model.build(builder, config, input.clone());
+            // Update rope tables corresponding to the current input length
+            // TODO: there is redundancy here, O(n^2) instead of O(n)
+            // It is the same for when the graph is rebuilt for each step.
+            // A possible alternative is to build once and have rope use slices of it.
+            let il = input.label.shape.0[1];
+            let (cos, sin) = rope_tables(builder, config.rope_theta, il, config.get_head_dim());
+            cache.cos = cos;
+            cache.sin = sin;
+
+            let result = self.model.build(builder, config, &mut cache, input.clone());
             let new_token = self.next_token(builder, result);
-            input = concat(builder, 1, input, new_token);
+            if cache.use_kv_cache {
+                input = new_token.clone();
+            } else {
+                input = concat(builder, 1, input, new_token);
+            }
         }
 
         input
@@ -125,7 +170,8 @@ impl ModelRunner {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let result = self.model.build(builder, config, x.clone());
+            let mut cache = Cache::init(builder, config, x.clone());
+            let result = self.model.build(builder, config, &mut cache, x.clone());
             let new_token = self.next_token(builder, result);
 
             (vec![x], vec![new_token])
@@ -138,7 +184,6 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    // Create model and load weights from file
     pub fn new(arch: &str) -> Self {
         let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
@@ -159,7 +204,6 @@ impl ModelRunner {
     pub fn load(&mut self, model_paths: Vec<PathBuf>) {
         let mut tensors = read_safetensors_multiple(model_paths);
         self.model.post_load(&mut tensors);
-        println!("Model weights loaded...");
 
         self.tensors = Rc::new(tensors);
     }
@@ -217,7 +261,8 @@ impl ModelRunner {
 
         let term = EvalState::build_lax(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let result = self.model.build(builder, config, x.clone());
+            let mut cache = Cache::init(builder, config, x.clone());
+            let result = self.model.build(builder, config, &mut cache, x.clone());
 
             (vec![x], vec![result])
         });
@@ -323,6 +368,7 @@ pub fn main() -> Result<()> {
     }
 
     model_runner.load(model_paths);
+    println!("Model weights loaded for {model_name}");
 
     let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
     log::info!("Input tokens {:?}", &input);
