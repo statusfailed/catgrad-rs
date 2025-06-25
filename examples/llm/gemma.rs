@@ -1,6 +1,6 @@
 // Gemma-3 model description
 
-use super::{Config, ModelBuilder};
+use super::{Cache, Config, ModelBuilder};
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
@@ -8,7 +8,7 @@ use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 pub struct Model;
 
 impl ModelBuilder for Model {
-    fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
+    fn build(&self, builder: &Builder, config: &Config, _cache: &mut Cache, x: Var) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
 
@@ -131,7 +131,7 @@ impl Model {
         let attn = attn / denom;
 
         let mask = causal_mask(builder, s);
-        let mask = expand(builder, Shape(vec![b, num_heads, s, s]), mask);
+        let mask = expand(builder, attn.label.shape.clone(), mask);
         let attn = attn + mask;
 
         let attn = softmax(builder, attn);

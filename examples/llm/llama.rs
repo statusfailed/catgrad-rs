@@ -1,14 +1,9 @@
 // Llama-3 model description
 
-use super::{Config, ModelBuilder};
+use super::{Cache, Config, ModelBuilder};
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
-
-pub struct Cache {
-    pub cos: Var,
-    pub sin: Var,
-}
 
 pub struct Model;
 
@@ -61,7 +56,7 @@ impl Model {
         let attn = attn / denom;
 
         let mask = causal_mask(builder, s);
-        let mask = expand(builder, Shape(vec![b, num_heads, s, s]), mask);
+        let mask = expand(builder, attn.label.shape.clone(), mask);
         let attn = attn + mask;
 
         let attn = softmax(builder, attn);
@@ -121,16 +116,7 @@ impl Model {
 }
 
 impl ModelBuilder for Model {
-    fn build(&self, builder: &Builder, config: &Config, x: Var) -> Var {
-        let seq_len = x.label.shape.0[1];
-        let (cos, sin) = rope_tables(
-            builder,
-            config.rope_theta,
-            seq_len,
-            config.hidden_size / config.num_attention_heads,
-        );
-        let cache = &Cache { cos, sin };
-
+    fn build(&self, builder: &Builder, config: &Config, cache: &mut Cache, x: Var) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
 
