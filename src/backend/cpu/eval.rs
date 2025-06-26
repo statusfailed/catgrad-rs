@@ -278,14 +278,11 @@ impl EvalState {
                 _ => panic!("invalid type"),
             },
 
-            Print(name, verbose) => {
+            SideEffect(callback) => {
                 let s = self.data.get(sources[0]).unwrap();
-                println!("{}: shape: {:?} stride: {:?}", name, s.shape(), s.strides());
-
-                if *verbose {
-                    println!("{}", s.pretty_print());
-                }
+                callback.0(s);
             }
+
             Parameter(name) => {
                 // TODO:
                 // - The matching here is very ugly and incomplete
