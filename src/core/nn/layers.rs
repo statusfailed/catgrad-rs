@@ -1,5 +1,6 @@
 use crate::backend::cpu::eval::Builder;
-use crate::core::{Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
+use crate::backend::cpu::ndarray::TaggedNdArray;
+use crate::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::fn_operation as operation;
 use std::f32;
 use std::f32::consts::{E, PI};
@@ -44,9 +45,24 @@ pub fn parameter(builder: &Builder, param_type: NdArrayType, name: String) -> Va
     operation(builder, &[], param_type, op)
 }
 
-pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
-    let op = Operation::Print(name.to_string(), verbose);
+pub fn side_effect(builder: &Builder, callback: Callback, x: &Var) {
+    let op = Operation::SideEffect(callback);
+
     open_hypergraphs::lax::var::operation(builder, &[x.clone()], vec![], op);
+}
+
+pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
+    let name = name.to_string();
+    side_effect(
+        builder,
+        Callback::new(move |a: &TaggedNdArray| {
+            println!("{}: shape: {:?} stride: {:?}", name, a.shape(), a.strides());
+            if verbose {
+                println!("{}", a.pretty_print());
+            }
+        }),
+        x,
+    )
 }
 
 pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {

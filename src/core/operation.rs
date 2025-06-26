@@ -1,6 +1,37 @@
 use open_hypergraphs::strict::*;
 
+use crate::backend::cpu::ndarray::TaggedNdArray;
+
 use super::object::*;
+
+/// Wrapper for a callback function that takes a `TaggedNdArray` as input.
+/// Declared as a separate type to avoid having to manually implement the below traits
+/// for the whole Operation enum.
+pub struct Callback(pub std::rc::Rc<dyn Fn(&TaggedNdArray)>);
+
+impl Callback {
+    pub fn new(f: impl Fn(&TaggedNdArray) + 'static) -> Self {
+        Callback(std::rc::Rc::new(f))
+    }
+}
+
+impl std::fmt::Debug for Callback {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Callback")
+    }
+}
+
+impl Clone for Callback {
+    fn clone(&self) -> Self {
+        Callback(self.0.clone())
+    }
+}
+
+impl PartialEq for Callback {
+    fn eq(&self, _other: &Self) -> bool {
+        false
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
@@ -88,7 +119,8 @@ pub enum Operation {
     Sin,
     Cos,
 
-    Print(String, bool),
+    /// Generic side effect - call a function on the input
+    SideEffect(Callback),
 }
 
 pub type Term = open_hypergraphs::lax::OpenHypergraph<PrimitiveType, Operation>;
