@@ -37,7 +37,7 @@ fn read_safetensors_file(path: PathBuf, map: &mut HashMap<String, TaggedNdArray>
                 );
             }
             safetensors::Dtype::I64 => {
-                log::warn!("Ignoring I64 tensor: {}", name);
+                log::warn!("Ignoring I64 tensor: {name}");
             }
             // Add other dtype conversions as needed
             _ => {

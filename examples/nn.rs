@@ -180,6 +180,6 @@ pub fn main() {
     let model = Model::build(batches, tokens, vocab_size, layers, dim, dim * exp);
     println!("Model built...");
     let result = model.run(&input, &args.model_path);
-    println!("input {:?}", input);
-    println!("Result: {:?}", result);
+    println!("input {input:?}");
+    println!("Result: {result:?}");
 }
