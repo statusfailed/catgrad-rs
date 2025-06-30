@@ -8,7 +8,14 @@ use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 pub struct Model;
 
 impl ModelBuilder for Model {
-    fn build(&self, builder: &Builder, config: &Config, _cache: &mut Cache, x: Var) -> Var {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
 
@@ -23,7 +30,15 @@ impl ModelBuilder for Model {
         result = result * normalizer;
 
         for i in 0..config.num_hidden_layers {
-            result = Model::layer(builder, config, i, &format!("model.layers.{i}"), result);
+            result = Model::layer(
+                builder,
+                i,
+                config,
+                cache,
+                pos,
+                &format!("model.layers.{i}"),
+                result,
+            );
         }
 
         result = Model::rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
@@ -65,7 +80,15 @@ impl Model {
         embedding(builder, x, weights)
     }
 
-    pub fn attention(builder: &Builder, config: &Config, idx: usize, name: &str, x: Var) -> Var {
+    pub fn attention(
+        builder: &Builder,
+        layer_id: usize,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        name: &str,
+        x: Var,
+    ) -> Var {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
@@ -102,7 +125,7 @@ impl Model {
 
         let q = transpose(builder, 1, 2, q);
         let k = transpose(builder, 1, 2, k);
-        let v = transpose(builder, 1, 2, v);
+        let mut v = transpose(builder, 1, 2, v);
 
         // Norm
         let q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
@@ -114,13 +137,21 @@ impl Model {
 
         // Rope
         // Every 6th layer uses global attention, otherwise local attention
-        let theta = if (idx + 1) % config.sliding_window_pattern > 0 {
+        let theta = if (layer_id + 1) % config.sliding_window_pattern > 0 {
             config.rope_local_base_freq
         } else {
             config.rope_theta
         };
-        let q = rope(builder, theta, s, q);
-        let k = rope(builder, theta, s, k);
+        let q = rope(builder, theta, pos, s, q);
+        let mut k = rope(builder, theta, pos, s, k);
+
+        if cache.use_kv_cache {
+            if let Some((cached_k, cached_v)) = &cache.kv_cache[layer_id] {
+                k = concat(builder, 2, cached_k.clone(), k.clone());
+                v = concat(builder, 2, cached_v.clone(), v.clone());
+            }
+            cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
+        };
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -174,7 +205,15 @@ impl Model {
         x
     }
 
-    pub fn layer(builder: &Builder, config: &Config, idx: usize, name: &str, x: Var) -> Var {
+    pub fn layer(
+        builder: &Builder,
+        layer_id: usize,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        name: &str,
+        x: Var,
+    ) -> Var {
         let res = x.clone();
         let x = Model::rmsnorm(
             builder,
@@ -182,7 +221,15 @@ impl Model {
             &format!("{name}.input_layernorm"),
             x,
         );
-        let x = Model::attention(builder, config, idx, &format!("{name}.self_attn"), x);
+        let x = Model::attention(
+            builder,
+            layer_id,
+            config,
+            cache,
+            pos,
+            &format!("{name}.self_attn"),
+            x,
+        );
         let x = Model::rmsnorm(
             builder,
             config.rms_norm_eps,

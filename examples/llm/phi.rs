@@ -21,6 +21,7 @@ impl Model {
         builder: &Builder,
         config: &Config,
         cache: &mut Cache,
+        pos: usize,
         name: &str,
         x: Var,
     ) -> Var {
@@ -58,8 +59,8 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let q = apply_rope_embedding(builder, cache.cos.clone(), cache.sin.clone(), q);
-        let k = apply_rope_embedding(builder, cache.cos.clone(), cache.sin.clone(), k);
+        let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
+        let k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -106,7 +107,14 @@ impl Model {
         x
     }
 
-    pub fn layer(builder: &Builder, config: &Config, cache: &mut Cache, name: &str, x: Var) -> Var {
+    pub fn layer(
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        name: &str,
+        x: Var,
+    ) -> Var {
         let res = x.clone();
         let x = rmsnorm(
             builder,
@@ -114,7 +122,7 @@ impl Model {
             &format!("{name}.input_layernorm"),
             x,
         );
-        let x = Model::attention(builder, config, cache, &format!("{name}.self_attn"), x);
+        let x = Model::attention(builder, config, cache, pos, &format!("{name}.self_attn"), x);
         let x = res + x;
         let res = x.clone();
         let x = rmsnorm(
@@ -129,7 +137,14 @@ impl Model {
 }
 
 impl ModelBuilder for Model {
-    fn build(&self, builder: &Builder, config: &Config, cache: &mut Cache, x: Var) -> Var {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
         let tokens = x.label.shape.0[1];
 
         let emb = Model::embeddings(builder, config, x);
@@ -137,7 +152,14 @@ impl ModelBuilder for Model {
         let mut result = emb;
 
         for i in 0..config.num_hidden_layers {
-            result = Model::layer(builder, config, cache, &format!("model.layers.{i}"), result);
+            result = Model::layer(
+                builder,
+                config,
+                cache,
+                pos,
+                &format!("model.layers.{i}"),
+                result,
+            );
         }
 
         // Get the logits for the last token only

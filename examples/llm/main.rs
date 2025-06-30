@@ -3,8 +3,8 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::nn::layers::{argmax, cast, concat, reshape, rope_tables},
-    core::{Dtype, NdArrayType, Shape, Var},
+    core::nn::layers::{argmax, cast, concat, reshape, rope_tables, side_effect},
+    core::{Callback, Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
 use hf_hub::api::sync::Api;
@@ -68,13 +68,12 @@ pub struct Cache {
 }
 
 impl Cache {
-    pub fn init(builder: &Builder, config: &Config, x: Var) -> Self {
-        let seq_len = x.label.shape.0[1];
-        let (cos, sin) = rope_tables(builder, config.rope_theta, seq_len, config.get_head_dim());
+    pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
+        let (cos, sin) = rope_tables(builder, config.rope_theta, positions, config.get_head_dim());
         Self {
             cos,
             sin,
-            use_kv_cache: false,
+            use_kv_cache,
             kv_cache: vec![None; config.num_hidden_layers],
         }
     }
@@ -98,12 +97,21 @@ struct ModelRunner {
     pub tensors: Rc<HashMap<String, TaggedNdArray>>,
     pub state: Option<EvalState>,
     pub model: Box<dyn ModelBuilder>,
+    pub tokenizer: Tokenizer,
+    pub use_kv_cache: bool,
 }
 
 // Trait for model builders for various architectures (llama, qwen, gpt2, etc.)
 pub trait ModelBuilder {
     // Build the model architecture graph for a given input shape
-    fn build(&self, builder: &Builder, config: &Config, cache: &mut Cache, x: Var) -> Var;
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var;
     // Optional post-processing of loaded weights (renaming, reshaping, etc.)
     fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
 }
@@ -119,21 +127,30 @@ impl ModelRunner {
     fn unroll(&self, builder: &Builder, config: &Config, x: Var, seq_len: usize) -> Var {
         let mut input = x;
 
-        let mut cache = Cache::init(builder, config, input.clone());
-        for _ in 0..seq_len {
-            // Update rope tables corresponding to the current input length
-            // TODO: there is redundancy here, O(n^2) instead of O(n)
-            // It is the same for when the graph is rebuilt for each step.
-            // A possible alternative is to build once and have rope use slices of it.
-            let il = input.label.shape.0[1];
-            let (cos, sin) = rope_tables(builder, config.rope_theta, il, config.get_head_dim());
-            cache.cos = cos;
-            cache.sin = sin;
-
-            let result = self.model.build(builder, config, &mut cache, input.clone());
+        let il = input.label.shape.0[1];
+        let mut cache = Cache::init(builder, config, il + seq_len, self.use_kv_cache);
+        for i in 0..seq_len {
+            let pos = if i == 0 || !self.use_kv_cache {
+                0
+            } else {
+                il + i
+            };
+            let result = self
+                .model
+                .build(builder, config, &mut cache, pos, input.clone());
             let new_token = self.next_token(builder, result);
             if cache.use_kv_cache {
                 input = new_token.clone();
+                let tokenizer = self.tokenizer.clone();
+                side_effect(
+                    builder,
+                    Callback::new(move |a: &TaggedNdArray| {
+                        let token = tokenizer.decode(&[a.get(&[0, 0]) as u32], false).unwrap();
+                        print!("{token}");
+                        std::io::stdout().flush().unwrap();
+                    }),
+                    &new_token,
+                );
             } else {
                 input = concat(builder, 1, input, new_token);
             }
@@ -170,10 +187,10 @@ impl ModelRunner {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let mut cache = Cache::init(builder, config, x.clone());
-            let result = self.model.build(builder, config, &mut cache, x.clone());
+            let positions = x.label.shape.0[1];
+            let mut cache = Cache::init(builder, config, positions, self.use_kv_cache);
+            let result = self.model.build(builder, config, &mut cache, 0, x.clone());
             let new_token = self.next_token(builder, result);
-
             (vec![x], vec![new_token])
         });
 
@@ -184,7 +201,7 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    pub fn new(arch: &str) -> Self {
+    pub fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
         let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -198,6 +215,8 @@ impl ModelRunner {
             tensors: Rc::new(HashMap::new()),
             state: None,
             model,
+            tokenizer,
+            use_kv_cache,
         }
     }
 
@@ -261,8 +280,9 @@ impl ModelRunner {
 
         let term = EvalState::build_lax(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let mut cache = Cache::init(builder, config, x.clone());
-            let result = self.model.build(builder, config, &mut cache, x.clone());
+            let positions = x.label.shape.0[1];
+            let mut cache = Cache::init(builder, config, positions, self.use_kv_cache);
+            let result = self.model.build(builder, config, &mut cache, 0, x.clone());
 
             (vec![x], vec![result])
         });
@@ -298,6 +318,10 @@ struct Args {
     /// Build unrolled graph
     #[arg(short = 'u', long)]
     unrolled: bool,
+
+    /// Use KV-cache
+    #[arg(short = 'k', long)]
+    kv_cache: bool,
 }
 
 fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
@@ -355,7 +379,7 @@ pub fn main() -> Result<()> {
     let tokens = token_ids.len();
     let batches = 1;
 
-    let mut model_runner = ModelRunner::new(&config.architectures[0]);
+    let mut model_runner = ModelRunner::new(&config.architectures[0], tokenizer, args.kv_cache);
 
     if let Some(ref path) = args.save_dot {
         model_runner.save_dot(&config, path);
@@ -377,16 +401,27 @@ pub fn main() -> Result<()> {
     let start_gen = std::time::Instant::now();
 
     if args.unrolled {
+        if model_runner.use_kv_cache {
+            print!("{}", args.prompt);
+        }
         let next_tokens =
             model_runner.generate_all(batches, input_tokens.clone(), &config, args.seq_len);
-        print!("{}", tokenizer.decode(&next_tokens, false).unwrap());
+        if !model_runner.use_kv_cache {
+            print!(
+                "{}",
+                model_runner.tokenizer.decode(&next_tokens, false).unwrap()
+            );
+        }
     } else {
         print!("{}", args.prompt);
         for _ in 0..args.seq_len {
             let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
             print!(
                 "{}",
-                tokenizer.decode(&[next_token_id as u32], false).unwrap()
+                model_runner
+                    .tokenizer
+                    .decode(&[next_token_id as u32], false)
+                    .unwrap()
             );
             std::io::stdout().flush().unwrap();
             input_tokens.push(next_token_id);
