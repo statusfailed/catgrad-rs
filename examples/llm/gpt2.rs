@@ -30,7 +30,7 @@ impl Model {
         m + bb
     }
 
-    pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
+    pub fn embeddings(builder: &Builder, config: &Config, x: Var, pos: usize) -> Var {
         let t = NdArrayType::new(
             Shape(vec![config.vocab_size, config.hidden_size]),
             Dtype::F32,
@@ -42,7 +42,7 @@ impl Model {
             Shape(vec![config.max_position_embeddings, config.hidden_size]),
             Dtype::F32,
         );
-        let pos = arange(builder, x.label.size(), Dtype::I32);
+        let pos = range_indices(builder, pos, pos + x.label.size());
         let pos = expand(builder, x.label.shape, pos);
         let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
@@ -50,7 +50,14 @@ impl Model {
         we + pe
     }
 
-    pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn attention(
+        builder: &Builder,
+        layer_id: usize,
+        config: &Config,
+        cache: &mut Cache,
+        name: &str,
+        x: Var,
+    ) -> Var {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let head_dim = dim / num_heads;
@@ -70,17 +77,27 @@ impl Model {
         let v = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), v);
 
         let q = transpose(builder, 1, 2, q);
-        let k = transpose(builder, 1, 2, k);
-        let v = transpose(builder, 1, 2, v);
+        let mut k = transpose(builder, 1, 2, k);
+        let mut v = transpose(builder, 1, 2, v);
+
+        if cache.use_kv_cache {
+            if let Some((cached_k, cached_v)) = &cache.kv_cache[layer_id] {
+                k = concat(builder, 2, cached_k.clone(), k.clone());
+                v = concat(builder, 2, cached_v.clone(), v.clone());
+            }
+            cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
+        };
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
-        let attn = attn / denom;
+        let mut attn = attn / denom;
 
-        let mask = causal_mask(builder, s);
-        let mask = expand(builder, attn.label.shape.clone(), mask);
-        let attn = attn + mask;
+        if s > 1 {
+            let mask = causal_mask(builder, s);
+            let mask = expand(builder, attn.label.shape.clone(), mask);
+            attn = attn + mask;
+        }
 
         let attn = softmax(builder, attn);
         let attn = mat_mul(builder, attn, v);
@@ -99,7 +116,14 @@ impl Model {
         x
     }
 
-    pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+    pub fn layer(
+        builder: &Builder,
+        layer_id: usize,
+        config: &Config,
+        cache: &mut Cache,
+        name: &str,
+        x: Var,
+    ) -> Var {
         let res = x.clone();
         let x = layernorm(
             builder,
@@ -107,7 +131,7 @@ impl Model {
             &format!("{name}.ln_1"),
             x,
         );
-        let x = Model::attention(builder, config, &format!("{name}.attn"), x);
+        let x = Model::attention(builder, layer_id, config, cache, &format!("{name}.attn"), x);
         let x = res + x;
         let res = x.clone();
         let x = layernorm(
@@ -122,15 +146,29 @@ impl Model {
 }
 
 impl ModelBuilder for Model {
-    fn build(&self, builder: &Builder, config: &Config, _cache: &mut Cache, x: Var) -> Var {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
         let tokens = x.label.shape.0[1];
 
-        let emb = Model::embeddings(builder, config, x);
+        let emb = Model::embeddings(builder, config, x, pos);
 
         let mut result = emb;
 
-        for i in 0..config.num_hidden_layers {
-            result = Model::layer(builder, config, &format!("h.{i}"), result);
+        for layer_id in 0..config.num_hidden_layers {
+            result = Model::layer(
+                builder,
+                layer_id,
+                config,
+                cache,
+                &format!("h.{layer_id}"),
+                result,
+            );
         }
 
         result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);

@@ -109,7 +109,13 @@ pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
 }
 
 pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
-    assert!(x.label.shape.0[dim] >= start + length);
+    assert!(
+        x.label.shape.0[dim] >= start + length,
+        "dim: {dim} {:?} >= {:?} + {:?}",
+        x.label.shape.0[dim],
+        start,
+        length
+    );
 
     let indices = range_indices(builder, start, start + length);
     index(builder, dim, x, indices)
@@ -429,7 +435,10 @@ fn rotate_half(builder: &Builder, x: Var) -> Var {
 }
 
 /// Apply RoPE (Rotary Positional Embedding) to the input tensor by reusing calculated tables
-pub fn apply_rope_embedding(builder: &Builder, cos: Var, sin: Var, x: Var) -> Var {
+pub fn apply_rope_embedding(builder: &Builder, pos: usize, cos: Var, sin: Var, x: Var) -> Var {
+    let seq_len = x.label.shape.0[2];
+    let cos = narrow(builder, 0, pos, seq_len, cos);
+    let sin = narrow(builder, 0, pos, seq_len, sin);
     let cos = expand(builder, x.label.shape.clone(), cos);
     let sin = expand(builder, x.label.shape.clone(), sin);
 
@@ -439,11 +448,11 @@ pub fn apply_rope_embedding(builder: &Builder, cos: Var, sin: Var, x: Var) -> Va
 }
 
 /// Apply RoPE (Rotary Positional Embedding) to the input tensor by calculating the tables
-pub fn rope(builder: &Builder, theta: f32, seq_len: usize, x: Var) -> Var {
+pub fn rope(builder: &Builder, theta: f32, pos: usize, seq_len: usize, x: Var) -> Var {
     let head_dim = x.label.shape.0[3];
-    let (cos, sin) = rope_tables(builder, theta, seq_len, head_dim);
+    let (cos, sin) = rope_tables(builder, theta, pos + seq_len, head_dim);
 
-    apply_rope_embedding(builder, cos, sin, x)
+    apply_rope_embedding(builder, pos, cos, sin, x)
 }
 
 #[cfg(test)]
