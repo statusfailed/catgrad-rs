@@ -437,13 +437,7 @@ impl EvalState {
                 for s in &sources[*i] {
                     uses[*s] -= 1;
                     if uses[*s] == 0 {
-                        // TODO: fix this by using a proper deallocation strategy
-                        // for now free the large arrays to allow running larger models
-                        // but leave small ones to avoid significant perf overhead of deallocations.
-                        // The large arrays are usually embeddings and weights.
-                        if self.data[*s].len() > 1024 * 1024 {
-                            self.data[*s].deallocate();
-                        }
+                        self.data[*s].deallocate();
                     }
                 }
             }
