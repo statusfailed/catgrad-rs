@@ -160,6 +160,6 @@ pub fn main() {
     let model = Model::build(8, 16);
     // println!("Model {:#?}", &model);
     let result = model.run(&input);
-    println!("input {:?}", input);
-    println!("Result: {:?}", result);
+    println!("input {input:?}");
+    println!("Result: {result:?}");
 }

@@ -58,15 +58,18 @@ pub struct EvalState {
     term: StrictTerm,
     data: Vec<TaggedNdArray>,
     parameters: Option<Rc<HashMap<String, TaggedNdArray>>>,
+    layered_ops: Vec<Vec<usize>>,
 }
 
 impl EvalState {
     /// Preallocate arrays for each node in a term
     pub fn new(f: StrictTerm) -> Self {
+        let layered_ops = layered_operations(&f);
         Self {
             data: allocate(&f),
             term: f,
             parameters: None,
+            layered_ops,
         }
     }
 
@@ -357,8 +360,7 @@ impl EvalState {
 
                             if input_idx >= input_dim_size {
                                 panic!(
-                                    "Index {} out of bounds for dimension size {}",
-                                    input_idx, input_dim_size
+                                    "Index {input_idx} out of bounds for dimension size {input_dim_size}",
                                 );
                             }
 
@@ -411,7 +413,7 @@ impl EvalState {
         // An extra use for the outputs of the Term
         self.term.t.table.0.iter().for_each(|x| uses[*x] = 1);
 
-        for ops in layered_operations(&self.term).iter() {
+        for ops in self.layered_ops.clone().iter() {
             for i in ops {
                 for s in &sources[*i] {
                     uses[*s] += 1;
@@ -419,7 +421,7 @@ impl EvalState {
             }
         }
 
-        for (l, ops) in layered_operations(&self.term).iter().enumerate() {
+        for (l, ops) in self.layered_ops.clone().iter().enumerate() {
             // each layer has any number of ops. TODO: evaluate these in parallel!
             for i in ops {
                 let op = self.term.h.x.0[*i].clone();

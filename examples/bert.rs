@@ -247,6 +247,6 @@ pub fn main() -> Result<()> {
     let mut model = Model::build(batches, tokens, &config);
     println!("Model graph built...");
     let result = model.run(&input, &args.model_path);
-    println!("Result: {:?}", result);
+    println!("Result: {result:?}");
     Ok(())
 }

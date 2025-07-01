@@ -437,8 +437,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
         for i in 0..a_shape.len() {
             if a_shape[i] != b_shape[i] && a_shape[i] != 1 {
                 panic!(
-                    "BroadcastOp: incompatible dimensions ({:?} to {:?}) at dimension {i}",
-                    a_shape, b_shape
+                    "BroadcastOp: incompatible dimensions ({a_shape:?} to {b_shape:?}) at dimension {i}",
                 );
             }
 
