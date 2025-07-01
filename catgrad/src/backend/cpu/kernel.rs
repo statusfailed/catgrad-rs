@@ -31,6 +31,7 @@ fn matmul<T: Numeric + 'static>(a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<
         );
     }
 
+    let num_threads = num_cpus::get();
     // Call gemm with the correct parameters
     // gemm(m, n, k, alpha, a, rsa, csa, b, rsb, csb, beta, c, rsc, csc)
     // where:
@@ -61,7 +62,7 @@ fn matmul<T: Numeric + 'static>(a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<
             false,                                          // conj C
             false,                                          // conj A
             false,                                          // conj B
-            Parallelism::None,
+            Parallelism::Rayon(num_threads),
         )
     }
 }
