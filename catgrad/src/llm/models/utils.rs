@@ -6,11 +6,17 @@ use crate::{
 
 use std::collections::HashMap;
 
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(untagged)]
+pub enum EosTokenId {
+    Single(i32),
+    Multiple(Vec<i32>),
+}
+
 // This configuration contains the union of relevant fields from all supported models.
 // Models ignore fields they don't need. The aliases are for GPT-2 alternative names.
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 #[serde(default)]
-#[derive(Default)]
 pub struct Config {
     #[serde(alias = "n_embd")]
     pub hidden_size: usize,
@@ -29,6 +35,7 @@ pub struct Config {
     pub layer_norm_epsilon: f32,
     pub rms_norm_eps: f32,
     pub tie_word_embeddings: bool,
+    pub eos_token_id: Option<EosTokenId>,
     pub vocab_size: usize,
     pub architectures: Vec<String>,
 }
@@ -40,6 +47,14 @@ impl Config {
             self.hidden_size / self.num_attention_heads
         } else {
             self.head_dim
+        }
+    }
+
+    pub fn get_eos_token_ids(&self) -> Vec<i32> {
+        match self.eos_token_id {
+            Some(EosTokenId::Single(id)) => vec![id],
+            Some(EosTokenId::Multiple(ref ids)) => ids.clone(),
+            None => vec![],
         }
     }
 }
