@@ -1,9 +1,9 @@
-// Qwen-3 model description
+// OLMo-2 model description
 
-use super::{Cache, Config, ModelBuilder};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use super::utils::{Cache, Config, ModelBuilder};
+use crate::backend::cpu::eval::Builder;
+use crate::core::nn::layers::*;
+use crate::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -18,7 +18,6 @@ impl ModelBuilder for Model {
     ) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
-
         let mut result = emb;
 
         for i in 0..config.num_hidden_layers {
@@ -72,32 +71,28 @@ impl Model {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
-        let rep = num_heads / num_kv_heads;
-        let head_dim = config.head_dim;
+        let head_dim = config.hidden_size / num_heads;
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let q = linear_no_bias(
-            builder,
-            dim,
-            num_heads * head_dim,
-            &format!("{name}.q_proj"),
-            x.clone(),
-        );
+        let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
         let k = linear_no_bias(
             builder,
             dim,
-            num_kv_heads * head_dim,
+            dim * num_kv_heads / num_heads,
             &format!("{name}.k_proj"),
             x.clone(),
         );
         let v = linear_no_bias(
             builder,
             dim,
-            num_kv_heads * head_dim,
+            dim * num_kv_heads / num_heads,
             &format!("{name}.v_proj"),
             x,
         );
+
+        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
+        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
@@ -107,15 +102,6 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let mut v = transpose(builder, 1, 2, v);
 
-        // Norm
-        let q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
-        let k = reshape(builder, Shape(vec![b * s * num_kv_heads, head_dim]), k);
-        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
-        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
-        let q = reshape(builder, Shape(vec![b, num_heads, s, head_dim]), q);
-        let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
-
-        // Rope embeddings
         let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
         let mut k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
 
@@ -126,10 +112,6 @@ impl Model {
             }
             cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
         };
-
-        // GQA repeat
-        let k = repeat_kv(builder, rep, k);
-        let v = repeat_kv(builder, rep, v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);
@@ -143,14 +125,8 @@ impl Model {
         let attn = softmax(builder, attn);
         let attn = mat_mul(builder, attn, v);
         let x = transpose(builder, 1, 2, attn);
-        let x = reshape(builder, Shape(vec![b, s, num_heads * head_dim]), x);
-        let o_proj = linear_no_bias(
-            builder,
-            num_heads * head_dim,
-            dim,
-            &format!("{name}.o_proj"),
-            x,
-        );
+        let x = reshape(builder, Shape(vec![b, s, dim]), x);
+        let o_proj = linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x);
         o_proj
     }
 
@@ -190,12 +166,6 @@ impl Model {
         x: Var,
     ) -> Var {
         let res = x.clone();
-        let x = rmsnorm(
-            builder,
-            config.rms_norm_eps,
-            &format!("{name}.input_layernorm"),
-            x,
-        );
         let x = Model::attention(
             builder,
             layer_id,
@@ -205,15 +175,22 @@ impl Model {
             &format!("{name}.self_attn"),
             x,
         );
-        let x = res + x;
-        let res = x.clone();
         let x = rmsnorm(
             builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,
         );
+        let x = res + x;
+
+        let res = x.clone();
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+        let x = rmsnorm(
+            builder,
+            config.rms_norm_eps,
+            &format!("{name}.post_feedforward_layernorm"),
+            x,
+        );
         x + res
     }
 }

@@ -1,11 +1,57 @@
 // Phi-3 model description
 
-use super::{Cache, Config, ModelBuilder};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use super::utils::{Cache, Config, ModelBuilder};
+use crate::backend::cpu::eval::Builder;
+use crate::core::nn::layers::*;
+use crate::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
+
+impl ModelBuilder for Model {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
+        let tokens = x.label.shape.0[1];
+        let emb = Model::embeddings(builder, config, x);
+        let mut result = emb;
+
+        for i in 0..config.num_hidden_layers {
+            result = Model::layer(
+                builder,
+                config,
+                cache,
+                pos,
+                &format!("model.layers.{i}"),
+                result,
+            );
+        }
+
+        // Get the logits for the last token only
+        if tokens > 1 {
+            result = narrow(builder, 1, tokens - 1, 1, result);
+        }
+
+        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+
+        let lm_head_weights = if config.tie_word_embeddings {
+            "model.embed_tokens"
+        } else {
+            "lm_head"
+        };
+        linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            lm_head_weights,
+            result,
+        )
+    }
+}
 
 impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
@@ -133,53 +179,5 @@ impl Model {
         );
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
         x + res
-    }
-}
-
-impl ModelBuilder for Model {
-    fn build(
-        &self,
-        builder: &Builder,
-        config: &Config,
-        cache: &mut Cache,
-        pos: usize,
-        x: Var,
-    ) -> Var {
-        let tokens = x.label.shape.0[1];
-
-        let emb = Model::embeddings(builder, config, x);
-
-        let mut result = emb;
-
-        for i in 0..config.num_hidden_layers {
-            result = Model::layer(
-                builder,
-                config,
-                cache,
-                pos,
-                &format!("model.layers.{i}"),
-                result,
-            );
-        }
-
-        // Get the logits for the last token only
-        if tokens > 1 {
-            result = narrow(builder, 1, tokens - 1, 1, result);
-        }
-
-        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
-
-        let lm_head_weights = if config.tie_word_embeddings {
-            "model.embed_tokens"
-        } else {
-            "lm_head"
-        };
-        linear_no_bias(
-            builder,
-            config.hidden_size,
-            config.vocab_size,
-            lm_head_weights,
-            result,
-        )
     }
 }

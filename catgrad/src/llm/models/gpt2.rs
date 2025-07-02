@@ -1,11 +1,53 @@
 // GPT-2 model description
 
-use super::{Cache, Config, ModelBuilder};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use super::utils::{Cache, Config, ModelBuilder};
+use crate::backend::cpu::eval::Builder;
+use crate::core::nn::layers::*;
+use crate::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
+
+impl ModelBuilder for Model {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
+        let tokens = x.label.shape.0[1];
+        let emb = Model::embeddings(builder, config, x, pos);
+        let mut result = emb;
+
+        for layer_id in 0..config.num_hidden_layers {
+            result = Model::layer(
+                builder,
+                layer_id,
+                config,
+                cache,
+                &format!("h.{layer_id}"),
+                result,
+            );
+        }
+
+        result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);
+
+        // Get the logits for the last token only
+        if tokens > 1 {
+            result = narrow(builder, 1, tokens - 1, 1, result);
+        }
+
+        // GPT-2 uses weight tying so lm_head is the same as wte
+        linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            "wte",
+            result,
+        )
+    }
+}
 
 impl Model {
     // The original GPT2 checkpoints use a Conv1D layer instead of linear,
@@ -142,49 +184,5 @@ impl Model {
         );
         let x = Model::mlp(builder, config.hidden_size, &format!("{name}.mlp"), x);
         x + res
-    }
-}
-
-impl ModelBuilder for Model {
-    fn build(
-        &self,
-        builder: &Builder,
-        config: &Config,
-        cache: &mut Cache,
-        pos: usize,
-        x: Var,
-    ) -> Var {
-        let tokens = x.label.shape.0[1];
-
-        let emb = Model::embeddings(builder, config, x, pos);
-
-        let mut result = emb;
-
-        for layer_id in 0..config.num_hidden_layers {
-            result = Model::layer(
-                builder,
-                layer_id,
-                config,
-                cache,
-                &format!("h.{layer_id}"),
-                result,
-            );
-        }
-
-        result = layernorm(builder, config.layer_norm_epsilon, "ln_f", result);
-
-        // Get the logits for the last token only
-        if tokens > 1 {
-            result = narrow(builder, 1, tokens - 1, 1, result);
-        }
-
-        // GPT-2 uses weight tying so lm_head is the same as wte
-        linear_no_bias(
-            builder,
-            config.hidden_size,
-            config.vocab_size,
-            "wte",
-            result,
-        )
     }
 }
