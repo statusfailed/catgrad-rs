@@ -8,6 +8,8 @@ use catgrad::{
 };
 use clap::Parser;
 use hf_hub::api::sync::Api;
+use minijinja::{context, Environment};
+use minijinja_contrib::pycompat::unknown_method_callback;
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
@@ -238,7 +240,7 @@ struct Args {
     kv_cache: bool,
 }
 
-fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
+fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
     let api = Api::new().unwrap();
 
     let repo = api.model(model.to_string());
@@ -260,8 +262,9 @@ fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf) {
 
     let c = repo.get("config.json").unwrap();
     let t = repo.get("tokenizer.json").unwrap();
+    let tc = repo.get("tokenizer_config.json").unwrap();
 
-    (m, c, t)
+    (m, c, t, tc)
 }
 
 pub fn main() -> Result<()> {
@@ -283,11 +286,31 @@ pub fn main() -> Result<()> {
         .copied()
         .unwrap_or(&args.model_name);
 
-    let (model_paths, config_path, tokenizer_path) = get_model_files(model_name);
+    let (model_paths, config_path, tokenizer_path, tokenizer_config_path) =
+        get_model_files(model_name);
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
-    let config: Config = serde_json::from_slice(&std::fs::read(config_path).unwrap()).unwrap();
+    let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
+    let tokenizer_config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(tokenizer_config_path)?)?;
 
-    let encoding = tokenizer.encode(args.prompt.clone(), true)?;
+    let chat_template = tokenizer_config
+        .get("chat_template")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    let prompt = if chat_template.is_empty() {
+        args.prompt.clone()
+    } else {
+        let mut env = Environment::new();
+        env.set_unknown_method_callback(unknown_method_callback);
+        env.add_template("chat", chat_template).unwrap();
+        let tmpl = env.get_template("chat").unwrap();
+        tmpl.render(
+                context!(messages => vec![ context!(role => "user",content => args.prompt)], add_generation_prompt => true, enable_thinking=>false)
+            )?
+    };
+
+    let encoding = tokenizer.encode(prompt.clone(), true)?;
 
     let token_ids: Vec<i32> = encoding.get_ids().iter().map(|&x| x as i32).collect();
     let tokens = token_ids.len();
@@ -314,30 +337,33 @@ pub fn main() -> Result<()> {
 
     let start_gen = std::time::Instant::now();
 
+    let mut generated_tokens = 0;
+
     if args.unrolled {
         if model_runner.use_kv_cache {
-            print!("{}", args.prompt);
+            print!("{prompt}");
         }
         let next_tokens =
             model_runner.generate_all(batches, input_tokens.clone(), &config, args.seq_len);
+        generated_tokens = args.seq_len;
         if !model_runner.use_kv_cache {
-            print!(
-                "{}",
-                model_runner.tokenizer.decode(&next_tokens, false).unwrap()
-            );
+            print!("{}", model_runner.tokenizer.decode(&next_tokens, false)?);
         }
     } else {
-        print!("{}", args.prompt);
+        print!("{prompt}");
         for _ in 0..args.seq_len {
             let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
+            generated_tokens += 1;
+            if config.get_eos_token_ids().contains(&next_token_id) {
+                break;
+            }
             print!(
                 "{}",
                 model_runner
                     .tokenizer
-                    .decode(&[next_token_id as u32], false)
-                    .unwrap()
+                    .decode(&[next_token_id as u32], false)?
             );
-            std::io::stdout().flush().unwrap();
+            std::io::stdout().flush()?;
             input_tokens.push(next_token_id);
         }
     }
@@ -345,9 +371,9 @@ pub fn main() -> Result<()> {
     let elapsed = start_gen.elapsed();
     println!(
         "\n{} tokens generated in {} seconds. ({:.2} tokens/sec)",
-        args.seq_len,
+        generated_tokens,
         elapsed.as_secs(),
-        args.seq_len as f64 / elapsed.as_secs_f64(),
+        generated_tokens as f64 / elapsed.as_secs_f64(),
     );
 
     Ok(())
