@@ -1,11 +1,53 @@
-// Llama-3 model description
+// Qwen-3 model description
 
-use super::{Cache, Config, ModelBuilder};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use super::utils::{Cache, Config, ModelBuilder};
+use crate::backend::cpu::eval::Builder;
+use crate::core::nn::layers::*;
+use crate::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
+
+impl ModelBuilder for Model {
+    fn build(
+        &self,
+        builder: &Builder,
+        config: &Config,
+        cache: &mut Cache,
+        pos: usize,
+        x: Var,
+    ) -> Var {
+        let tokens = x.label.shape.0[1];
+        let emb = Model::embeddings(builder, config, x);
+        let mut result = emb;
+
+        for i in 0..config.num_hidden_layers {
+            result = Model::layer(
+                builder,
+                i,
+                config,
+                cache,
+                pos,
+                &format!("model.layers.{i}"),
+                result,
+            );
+        }
+
+        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+
+        // Get the logits for the last token only
+        if tokens > 1 {
+            result = narrow(builder, 1, tokens - 1, 1, result);
+        }
+
+        linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            "lm_head",
+            result,
+        )
+    }
+}
 
 impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
@@ -30,19 +72,31 @@ impl Model {
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
         let rep = num_heads / num_kv_heads;
-        let head_dim = config.hidden_size / num_heads;
+        let head_dim = config.head_dim;
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
+        let q = linear_no_bias(
+            builder,
+            dim,
+            num_heads * head_dim,
+            &format!("{name}.q_proj"),
+            x.clone(),
+        );
         let k = linear_no_bias(
             builder,
             dim,
-            dim / rep,
+            num_kv_heads * head_dim,
             &format!("{name}.k_proj"),
             x.clone(),
         );
-        let v = linear_no_bias(builder, dim, dim / rep, &format!("{name}.v_proj"), x);
+        let v = linear_no_bias(
+            builder,
+            dim,
+            num_kv_heads * head_dim,
+            &format!("{name}.v_proj"),
+            x,
+        );
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
@@ -52,6 +106,15 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let mut v = transpose(builder, 1, 2, v);
 
+        // Norm
+        let q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
+        let k = reshape(builder, Shape(vec![b * s * num_kv_heads, head_dim]), k);
+        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
+        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
+        let q = reshape(builder, Shape(vec![b, num_heads, s, head_dim]), q);
+        let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
+
+        // Rope embeddings
         let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
         let mut k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
 
@@ -63,6 +126,7 @@ impl Model {
             cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
         };
 
+        // GQA repeat
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
 
@@ -78,8 +142,14 @@ impl Model {
         let attn = softmax(builder, attn);
         let attn = mat_mul(builder, attn, v);
         let x = transpose(builder, 1, 2, attn);
-        let x = reshape(builder, Shape(vec![b, s, dim]), x);
-        let o_proj = linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x);
+        let x = reshape(builder, Shape(vec![b, s, num_heads * head_dim]), x);
+        let o_proj = linear_no_bias(
+            builder,
+            num_heads * head_dim,
+            dim,
+            &format!("{name}.o_proj"),
+            x,
+        );
         o_proj
     }
 
@@ -144,52 +214,5 @@ impl Model {
         );
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
         x + res
-    }
-}
-
-impl ModelBuilder for Model {
-    fn build(
-        &self,
-        builder: &Builder,
-        config: &Config,
-        cache: &mut Cache,
-        pos: usize,
-        x: Var,
-    ) -> Var {
-        let tokens = x.label.shape.0[1];
-        let emb = Model::embeddings(builder, config, x);
-
-        let mut result = emb;
-
-        for i in 0..config.num_hidden_layers {
-            result = Model::layer(
-                builder,
-                i,
-                config,
-                cache,
-                pos,
-                &format!("model.layers.{i}"),
-                result,
-            );
-        }
-
-        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
-
-        // Get the logits for the last token only
-        if tokens > 1 {
-            result = narrow(builder, 1, tokens - 1, 1, result);
-        }
-
-        // Add lm_head if weight tying is used
-        if config.tie_word_embeddings {
-            result = linear_no_bias(
-                builder,
-                config.hidden_size,
-                config.vocab_size,
-                "model.embed_tokens",
-                result,
-            );
-        }
-        result
     }
 }

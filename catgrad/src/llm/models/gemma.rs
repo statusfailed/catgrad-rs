@@ -1,9 +1,9 @@
 // Gemma-3 model description
 
-use super::{Cache, Config, ModelBuilder};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use super::utils::{Cache, Config, ModelBuilder};
+use crate::backend::cpu::eval::Builder;
+use crate::core::nn::layers::*;
+use crate::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -18,7 +18,6 @@ impl ModelBuilder for Model {
     ) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
-
         let mut result = emb;
 
         let normalizer = constant(

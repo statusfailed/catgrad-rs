@@ -3,7 +3,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::nn::layers::{argmax, cast, concat, reshape, rope_tables, side_effect},
+    core::nn::layers::{argmax, cast, concat, reshape, side_effect},
     core::{Callback, Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
@@ -18,80 +18,13 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 mod utils;
 use utils::read_safetensors_multiple;
 
-#[allow(unused)]
-fn show(name: &str, var: &Var) {
-    println!("{name} label: {:?}", var.label,);
-}
-
-// This configuration contains the union of relevant fields from all supported models.
-// Models ignore fields they don't need. The aliases are for GPT-2 alternative names.
-#[derive(Debug, Clone, serde::Deserialize)]
-#[serde(default)]
-#[derive(Default)]
-pub struct Config {
-    #[serde(alias = "n_embd")]
-    pub hidden_size: usize,
-    pub intermediate_size: usize,
-    #[serde(alias = "n_layer")]
-    pub num_hidden_layers: usize,
-    #[serde(alias = "n_head")]
-    pub num_attention_heads: usize,
-    pub num_key_value_heads: usize,
-    pub head_dim: usize,
-    pub rope_theta: f32,
-    pub sliding_window_pattern: usize,
-    pub rope_local_base_freq: f32,
-    #[serde(alias = "n_positions")]
-    pub max_position_embeddings: usize,
-    pub layer_norm_epsilon: f32,
-    pub rms_norm_eps: f32,
-    pub tie_word_embeddings: bool,
-    pub vocab_size: usize,
-    pub architectures: Vec<String>,
-}
-impl Config {
-    // Sometimes the head_dim fields is missing
-    fn get_head_dim(&self) -> usize {
-        if self.head_dim == 0 {
-            self.hidden_size / self.num_attention_heads
-        } else {
-            self.head_dim
-        }
-    }
-}
-
-pub struct Cache {
-    pub cos: Var,
-    pub sin: Var,
-    pub use_kv_cache: bool,
-    pub kv_cache: Vec<Option<(Var, Var)>>,
-}
-
-impl Cache {
-    pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
-        let (cos, sin) = rope_tables(builder, config.rope_theta, positions, config.get_head_dim());
-        Self {
-            cos,
-            sin,
-            use_kv_cache,
-            kv_cache: vec![None; config.num_hidden_layers],
-        }
-    }
-}
-
-mod gemma;
-mod gpt2;
-mod llama;
-mod olmo;
-mod phi;
-mod qwen;
-
-use gemma::Model as GemmaModel;
-use gpt2::Model as GPT2Model;
-use llama::Model as LlamaModel;
-use olmo::Model as OlmoModel;
-use phi::Model as PhiModel;
-use qwen::Model as QwenModel;
+use catgrad::llm::models::gemma::Model as GemmaModel;
+use catgrad::llm::models::gpt2::Model as GPT2Model;
+use catgrad::llm::models::llama::Model as LlamaModel;
+use catgrad::llm::models::olmo::Model as OlmoModel;
+use catgrad::llm::models::phi::Model as PhiModel;
+use catgrad::llm::models::qwen::Model as QwenModel;
+use catgrad::llm::models::utils::{Cache, Config, ModelBuilder};
 
 struct ModelRunner {
     pub tensors: Rc<HashMap<String, TaggedNdArray>>,
@@ -99,21 +32,6 @@ struct ModelRunner {
     pub model: Box<dyn ModelBuilder>,
     pub tokenizer: Tokenizer,
     pub use_kv_cache: bool,
-}
-
-// Trait for model builders for various architectures (llama, qwen, gpt2, etc.)
-pub trait ModelBuilder {
-    // Build the model architecture graph for a given input shape
-    fn build(
-        &self,
-        builder: &Builder,
-        config: &Config,
-        cache: &mut Cache,
-        pos: usize,
-        x: Var,
-    ) -> Var;
-    // Optional post-processing of loaded weights (renaming, reshaping, etc.)
-    fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
 }
 
 impl ModelRunner {
@@ -296,11 +214,7 @@ impl ModelRunner {
 #[derive(Parser, Debug)]
 struct Args {
     /// Model name on Huggingface Hub
-    #[arg(
-        short = 'm',
-        long,
-        default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
-    )]
+    #[arg(short = 'm', long, default_value = "smol")]
     model_name: String,
 
     /// Initial prompt
@@ -357,10 +271,10 @@ pub fn main() -> Result<()> {
     let models = HashMap::from([
         ("gpt", "openai-community/gpt2"),
         ("smol", "HuggingFaceTB/SmolLM2-135M-Instruct"),
-        ("llama", "meta-llama/Llama-3.2-1B"),
-        ("gemma", "google/gemma-3-1b-pt"),
+        ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
+        ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
-        ("olmo", "allenai/OLMo-2-0425-1B"),
+        ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),
         ("phi", "microsoft/Phi-4-mini-instruct"),
     ]);
 
