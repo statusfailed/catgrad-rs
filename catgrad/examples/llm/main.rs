@@ -214,11 +214,7 @@ impl ModelRunner {
 #[derive(Parser, Debug)]
 struct Args {
     /// Model name on Huggingface Hub
-    #[arg(
-        short = 'm',
-        long,
-        default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
-    )]
+    #[arg(short = 'm', long, default_value = "smol")]
     model_name: String,
 
     /// Initial prompt
@@ -275,10 +271,10 @@ pub fn main() -> Result<()> {
     let models = HashMap::from([
         ("gpt", "openai-community/gpt2"),
         ("smol", "HuggingFaceTB/SmolLM2-135M-Instruct"),
-        ("llama", "meta-llama/Llama-3.2-1B"),
-        ("gemma", "google/gemma-3-1b-pt"),
+        ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
+        ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
-        ("olmo", "allenai/OLMo-2-0425-1B"),
+        ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),
         ("phi", "microsoft/Phi-4-mini-instruct"),
     ]);
 
