@@ -223,6 +223,10 @@ struct Args {
     #[arg(short = 'p', long, default_value = "Hello world")]
     prompt: String,
 
+    /// Pass raw prompt without chat template
+    #[arg(short = 'r', long)]
+    raw_prompt: bool,
+
     /// Number of tokens to generate
     #[arg(short = 's', long, default_value_t = 1)]
     seq_len: usize,
@@ -298,7 +302,7 @@ pub fn main() -> Result<()> {
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    let prompt = if chat_template.is_empty() {
+    let prompt = if chat_template.is_empty() || args.raw_prompt {
         args.prompt.clone()
     } else {
         let mut env = Environment::new();
