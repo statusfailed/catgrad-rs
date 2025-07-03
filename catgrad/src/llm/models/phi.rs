@@ -20,13 +20,14 @@ impl ModelBuilder for Model {
         let emb = Model::embeddings(builder, config, x);
         let mut result = emb;
 
-        for i in 0..config.num_hidden_layers {
+        for layer_id in 0..config.num_hidden_layers {
             result = Model::layer(
                 builder,
+                layer_id,
                 config,
                 cache,
                 pos,
-                &format!("model.layers.{i}"),
+                &format!("model.layers.{layer_id}"),
                 result,
             );
         }
@@ -65,6 +66,7 @@ impl Model {
 
     pub fn attention(
         builder: &Builder,
+        layer_id: usize,
         config: &Config,
         cache: &mut Cache,
         pos: usize,
@@ -103,10 +105,18 @@ impl Model {
 
         let q = transpose(builder, 1, 2, q);
         let k = transpose(builder, 1, 2, k);
-        let v = transpose(builder, 1, 2, v);
+        let mut v = transpose(builder, 1, 2, v);
 
         let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
-        let k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
+        let mut k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
+
+        if cache.use_kv_cache {
+            if let Some((cached_k, cached_v)) = &cache.kv_cache[layer_id] {
+                k = concat(builder, 2, cached_k.clone(), k.clone());
+                v = concat(builder, 2, cached_v.clone(), v.clone());
+            }
+            cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
+        };
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -155,6 +165,7 @@ impl Model {
 
     pub fn layer(
         builder: &Builder,
+        layer_id: usize,
         config: &Config,
         cache: &mut Cache,
         pos: usize,
@@ -168,7 +179,15 @@ impl Model {
             &format!("{name}.input_layernorm"),
             x,
         );
-        let x = Model::attention(builder, config, cache, pos, &format!("{name}.self_attn"), x);
+        let x = Model::attention(
+            builder,
+            layer_id,
+            config,
+            cache,
+            pos,
+            &format!("{name}.self_attn"),
+            x,
+        );
         let x = res + x;
         let res = x.clone();
         let x = rmsnorm(
