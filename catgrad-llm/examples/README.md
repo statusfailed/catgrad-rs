@@ -1,14 +1,14 @@
-## Testing model inference with Catgrad
+## Testing llm inference with Catgrad
 
 These examples work with safetensor weights as found on [Huggingface Hub](https://huggingface.co/models)
 
 ### Supported architectures: ###
 
-**BERT**, **GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**
+**GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**
 
 ### LLM example ###
 
-The `llm` example uses `model.safetensors`, `tokenizer.json` and  `config.json` files from models under  `~/.cache/huggingface/hub/`.
+The `llm` example uses `model.safetensors`, `tokenizer.json`, `tokenizer_config.json` and `config.json` files from models under  `~/.cache/huggingface/hub/`.
 It either downloads the files or reuses the ones already in the cache (maybe previously downloaded by other frameworks like Candle, Transformers or vLLM).
 
 ```
@@ -22,13 +22,16 @@ python examples/llm/llm.py -m openai-community/gpt2 -p 'Category theory' -s 9
 Category theory is a theory of how the universe works.
 ```
 
-Some models to test the `llm` example with:
+For chat/instruct tuned models a chat template will be read from `tokenizer_config.json` and the prompt will be formatted accordingly.
+Pass -r for raw prompts without chat template application.
+
+Here are links to some supported models to test the `llm` example with. All are chat models except GPT2.
 
 <https://huggingface.co/openai-community/gpt2>
 
-<https://huggingface.co/meta-llama/Llama-3.2-1B>
+<https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct>
 
-<https://huggingface.co/meta-llama/Llama-3.2-3B>
+<https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct>
 
 <https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct>
 
@@ -37,6 +40,7 @@ Some models to test the `llm` example with:
 <https://huggingface.co/google/gemma-3-1b-it>
 
 <https://huggingface.co/microsoft/Phi-3-mini-4k-instruct>
+
 <https://huggingface.co/microsoft/Phi-4-mini-instruct>
 
 <https://huggingface.co/allenai/OLMo-2-0425-1B-Instruct>
