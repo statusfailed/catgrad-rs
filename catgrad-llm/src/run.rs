@@ -25,35 +25,100 @@ use crate::models::utils::{Cache, Config, ModelBuilder};
 
 use crate::utils::read_safetensors_multiple;
 
-pub struct ModelRunner {
-    pub tensors: Rc<HashMap<String, TaggedNdArray>>,
-    pub state: Option<EvalState>,
-    pub model: Box<dyn ModelBuilder>,
-    pub tokenizer: Tokenizer,
-    pub use_kv_cache: bool,
-    pub chat_template: String,
-    pub config: Config,
-    pub context: Vec<i32>,
+use crate::serve;
+
+/// Load model
+pub struct ModelLoader {
+    config: Config,
+    model_paths: Vec<PathBuf>,
+    tokenizer_path: PathBuf,
+    tokenizer_config_path: PathBuf,
+    use_kv_cache: bool,
 }
 
-impl ModelRunner {
-    pub fn new(model_name: &str, use_kv_cache: bool) -> Result<ModelRunner> {
-        env_logger::init();
+fn read_to_value<V: for<'a> serde::Deserialize<'a>>(path: PathBuf) -> Result<V> {
+    let config_str = &std::fs::read_to_string(path).map_err(|e| serve::Error::IO(e.to_string()))?;
+    let result: V =
+        serde_json::from_str(config_str).map_err(|e| serve::Error::IO(e.to_string()))?;
+    Ok(result)
+}
 
+impl ModelLoader {
+    pub fn new(model_name: &str, use_kv_cache: bool) -> serve::Result<Self> {
         let (model_paths, config_path, tokenizer_path, tokenizer_config_path) =
             get_model_files(model_name);
-        let tokenizer = Tokenizer::from_file(tokenizer_path)?;
-        let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
-        let tokenizer_config: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(tokenizer_config_path)?)?;
 
+        let config: Config = read_to_value(config_path)?;
+
+        Ok(Self {
+            config,
+            model_paths,
+            tokenizer_path,
+            tokenizer_config_path,
+            use_kv_cache,
+        })
+    }
+}
+
+pub struct ModelTokenizer {
+    pub tokenizer: Tokenizer,
+    pub chat_template: String,
+}
+
+impl ModelTokenizer {
+    fn new(tokenizer_path: PathBuf, tokenizer_config_path: PathBuf) -> serve::Result<Self> {
+        let tokenizer = Tokenizer::from_file(tokenizer_path)?;
+
+        let tokenizer_config: serde_json::Value = read_to_value(tokenizer_config_path)?;
         let chat_template = tokenizer_config
             .get("chat_template")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
 
+        Ok(Self {
+            tokenizer,
+            chat_template,
+        })
+    }
+
+    fn render_context(&self, messages: &[serve::Message]) -> String {
+        let mut env = Environment::new();
+        env.set_unknown_method_callback(unknown_method_callback);
+        env.add_template("chat", &self.chat_template).unwrap();
+        let tmpl = env.get_template("chat").unwrap();
+        let message_context: Vec<_> = messages
+            .iter()
+            .map(|msg| context!(role => msg.role, content => msg.content))
+            .collect();
+        tmpl.render(context!(
+            messages => message_context,
+            add_generation_prompt => true,
+            enable_thinking => false
+        ))
+        .expect("template failed to render")
+    }
+}
+
+pub struct ModelRunner {
+    pub tensors: Rc<HashMap<String, TaggedNdArray>>,
+    pub state: Option<EvalState>,
+    pub model: Box<dyn ModelBuilder>,
+    pub use_kv_cache: bool,
+    pub config: Config,
+    pub context: Vec<i32>,
+}
+
+impl ModelRunner {
+    pub fn new(
+        model_paths: Vec<PathBuf>,
+        config: Config,
+        use_kv_cache: bool,
+    ) -> Result<ModelRunner> {
+        env_logger::init();
+
         let arch = &config.architectures[0];
+
         let mut model: Box<dyn ModelBuilder> = match arch.as_str() {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -71,9 +136,7 @@ impl ModelRunner {
             tensors: Rc::new(tensors),
             state: None, // TODO?
             model,
-            tokenizer,
             use_kv_cache,
-            chat_template,
             config,
             context: vec![],
         })
@@ -135,26 +198,6 @@ impl ModelRunner {
         }
         Some(token)
     }
-
-    ////////////////////////////////////////
-    // Chat interface
-
-    fn render_context(&self, messages: &[Message]) -> String {
-        let mut env = Environment::new();
-        env.set_unknown_method_callback(unknown_method_callback);
-        env.add_template("chat", &self.chat_template).unwrap();
-        let tmpl = env.get_template("chat").unwrap();
-        let message_context: Vec<_> = messages
-            .iter()
-            .map(|msg| context!(role => msg.role, content => msg.content))
-            .collect();
-        tmpl.render(context!(
-            messages => message_context,
-            add_generation_prompt => true,
-            enable_thinking => false
-        ))
-        .expect("template failed to render")
-    }
 }
 
 fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
@@ -185,57 +228,62 @@ fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// "managed context" version
+// Trait impls
 
-// Implement the "serve" traits for ModelRunner
-use crate::serve;
-use crate::serve::{ChatLM, LM, Message};
+impl Iterator for ModelRunner {
+    type Item = i32;
 
-impl LM<i32> for ModelRunner {
-    fn iter(&mut self, context: Vec<i32>) -> impl Iterator<Item = i32> {
-        self.context = context;
-
-        std::iter::from_fn(move || {
-            // TODO: unnecessary clone
-            let next_token = self.generate(self.context.clone());
-            if let Some(token) = next_token {
-                self.context.push(token);
-            }
-            next_token
-        })
+    fn next(&mut self) -> Option<Self::Item> {
+        let next_token = self.generate(self.context.clone());
+        if let Some(token) = next_token {
+            self.context.push(token);
+        }
+        next_token
     }
+}
 
-    fn tokenize(&self, content: String) -> serve::Result<Vec<i32>> {
+impl serve::LM<i32> for ModelRunner {
+    fn set_context(&mut self, context: Vec<i32>) {
+        self.context = context;
+    }
+}
+
+impl serve::Tokenizer<i32> for ModelTokenizer {
+    fn encode(&self, content: String) -> serve::Result<Vec<i32>> {
         let tokens = self.tokenizer.encode(content, true)?;
         Ok(tokens.get_ids().iter().map(|&x| x as i32).collect())
     }
 
-    fn untokenize(&self, token: i32) -> serve::Result<String> {
-        let token_u32 = token
-            .try_into()
-            .map_err(|_| serve::Error::Tokenizer("unable to cast token to u32".to_string()))?;
-        Ok(self.tokenizer.decode(&[token_u32], false)?)
+    fn decode(&self, tokens: Vec<i32>) -> serve::Result<String> {
+        // TODO: efficiency?
+        // TODO: support u32 in interpreter to remove try_into().unwrap().
+        let tokens_u32: Vec<u32> = tokens.into_iter().map(|i| i.try_into().unwrap()).collect();
+        Ok(self.tokenizer.decode(&tokens_u32, false)?)
     }
 }
 
-impl ChatLM for ModelRunner {
-    // TODO: remove duplicated logic between chat iterator and iter.
-    fn chat(
-        &mut self,
-        messages: Vec<Message>,
-    ) -> serve::Result<impl Iterator<Item = serve::Result<String>>> {
+impl serve::ChatTokenizer<i32> for ModelTokenizer {
+    fn encode_messages(&self, messages: Vec<serve::Message>) -> serve::Result<Vec<i32>> {
         // initialize context
         let content = self.render_context(&messages);
-        let tokens = self.tokenize(content)?;
-        self.context = tokens;
+        use serve::Tokenizer;
+        self.encode(content)
+    }
+}
 
-        Ok(std::iter::from_fn(move || {
-            // TODO: unnecessary clone
-            let next_token = self.generate(self.context.clone());
-            if let Some(token) = next_token {
-                self.context.push(token);
-            }
-            next_token.map(|token| self.untokenize(token))
-        }))
+impl serve::Loader<i32, ModelRunner, ModelTokenizer> for ModelLoader {
+    fn get_runner(&self) -> serve::Result<ModelRunner> {
+        Ok(ModelRunner::new(
+            self.model_paths.clone(),
+            self.config.clone(),
+            self.use_kv_cache,
+        )?)
+    }
+
+    fn get_translator(&self) -> serve::Result<ModelTokenizer> {
+        ModelTokenizer::new(
+            self.tokenizer_path.clone(),
+            self.tokenizer_config_path.clone(),
+        )
     }
 }

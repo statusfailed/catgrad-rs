@@ -3,8 +3,13 @@ use catgrad_llm::serve::*;
 use std::io::Write;
 
 fn main() -> Result<()> {
-    let mut lm = ModelRunner::new("qwen/qwen3-0.6B", true).unwrap();
+    // The Loader trait splits models into the core "tensor" loop (Runner) and decoding/chatML
+    // formatting (Tokenizer).
+    let loader = ModelLoader::new("qwen/qwen3-0.6B", true).unwrap();
+    let mut runner = loader.get_runner()?;
+    let tokenizer = loader.get_translator()?;
 
+    // Make some message context
     let system_message = Message {
         role: "system".to_string(),
         content: "You are a helpful chat assistant".to_string(),
@@ -14,11 +19,13 @@ fn main() -> Result<()> {
         role: "user".to_string(),
         content: "What is 2+2?".to_string(),
     };
-
     let messages = vec![system_message, prompt_message];
 
-    for chunk in lm.chat(messages)? {
-        print!("{}", chunk?);
+    // Use runner to generate new tokens after given context.
+    // This handles ChatML transparently via tokenizer.encode_messages
+    let context = tokenizer.encode_messages(messages)?;
+    for token in runner.complete(context) {
+        print!("{}", tokenizer.decode(vec![token])?);
         let _ = std::io::stdout().flush();
     }
 
