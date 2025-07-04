@@ -1,9 +1,9 @@
 // GPT-2 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::backend::cpu::eval::Builder;
-use crate::core::nn::layers::*;
-use crate::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad::backend::cpu::eval::Builder;
+use catgrad::core::nn::layers::*;
+use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -147,15 +147,14 @@ impl Model {
         let attn = transpose(builder, 1, 2, attn);
         let attn = reshape(builder, Shape(vec![b, s, dim]), attn);
 
-        let c_proj = Model::gpt_linear(builder, dim, dim, &format!("{name}.c_proj"), attn);
-        c_proj
+        Model::gpt_linear(builder, dim, dim, &format!("{name}.c_proj"), attn)
     }
 
     pub fn mlp(builder: &Builder, dim: usize, name: &str, x: Var) -> Var {
         let x = Model::gpt_linear(builder, dim, dim * 4, &format!("{name}.c_fc"), x);
         let x = gelu(builder, x);
-        let x = Model::gpt_linear(builder, dim * 4, dim, &format!("{name}.c_proj"), x);
-        x
+
+        Model::gpt_linear(builder, dim * 4, dim, &format!("{name}.c_proj"), x)
     }
 
     pub fn layer(

@@ -8,7 +8,7 @@ use catgrad::{
 };
 use clap::Parser;
 use hf_hub::api::sync::Api;
-use minijinja::{context, Environment};
+use minijinja::{Environment, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
 use std::collections::HashMap;
 use std::io::Write;
@@ -16,17 +16,15 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-#[path = "../utils/mod.rs"]
-mod utils;
-use utils::read_safetensors_multiple;
+use catgrad_llm::utils::read_safetensors_multiple;
 
-use catgrad::llm::models::gemma::Model as GemmaModel;
-use catgrad::llm::models::gpt2::Model as GPT2Model;
-use catgrad::llm::models::llama::Model as LlamaModel;
-use catgrad::llm::models::olmo::Model as OlmoModel;
-use catgrad::llm::models::phi::Model as PhiModel;
-use catgrad::llm::models::qwen::Model as QwenModel;
-use catgrad::llm::models::utils::{Cache, Config, ModelBuilder};
+use catgrad_llm::models::gemma::Model as GemmaModel;
+use catgrad_llm::models::gpt2::Model as GPT2Model;
+use catgrad_llm::models::llama::Model as LlamaModel;
+use catgrad_llm::models::olmo::Model as OlmoModel;
+use catgrad_llm::models::phi::Model as PhiModel;
+use catgrad_llm::models::qwen::Model as QwenModel;
+use catgrad_llm::models::utils::{Cache, Config, ModelBuilder};
 
 struct ModelRunner {
     pub tensors: Rc<HashMap<String, TaggedNdArray>>,

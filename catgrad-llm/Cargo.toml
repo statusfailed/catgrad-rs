@@ -7,12 +7,13 @@ edition = "2024"
 [dependencies]
 catgrad = { version = "0.1.0", path = "../catgrad" }
 open-hypergraphs = "0.2.3"
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
-tokenizers = "0.21.2"
+tokenizers = { version = "0.21.2", features = ["http"] }
 
 # TODO: remove these?
 env_logger = "0.11.8"
-hf-hub = "0.4.3"
+hf-hub = { version = "0.4.3", default-features = false, features = ["ureq"] }
 minijinja = "2.11.0"
 minijinja-contrib = { version = "2.11.0", features = ["pycompat"] }
 memmap2 = "0.9.5"
@@ -20,3 +21,9 @@ safetensors = "0.6.0"
 log = "0.4.27"
 half = "2.6.0"
 thiserror = "2.0"
+
+
+[dev-dependencies]
+clap = { version = "4.5.37", features = ["derive"] }
+graphviz-rust = "0.9.5"
+open-hypergraphs-dot = "0.2.1"

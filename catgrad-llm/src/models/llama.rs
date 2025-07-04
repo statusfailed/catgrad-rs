@@ -1,9 +1,9 @@
-// Phi-3 model description
+// Llama-3 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::backend::cpu::eval::Builder;
-use crate::core::nn::layers::*;
-use crate::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad::backend::cpu::eval::Builder;
+use catgrad::core::nn::layers::*;
+use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -18,39 +18,39 @@ impl ModelBuilder for Model {
     ) -> Var {
         let tokens = x.label.shape.0[1];
         let emb = Model::embeddings(builder, config, x);
+
         let mut result = emb;
 
-        for layer_id in 0..config.num_hidden_layers {
+        for i in 0..config.num_hidden_layers {
             result = Model::layer(
                 builder,
-                layer_id,
+                i,
                 config,
                 cache,
                 pos,
-                &format!("model.layers.{layer_id}"),
+                &format!("model.layers.{i}"),
                 result,
             );
         }
+
+        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
         // Get the logits for the last token only
         if tokens > 1 {
             result = narrow(builder, 1, tokens - 1, 1, result);
         }
 
-        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
-
-        let lm_head_weights = if config.tie_word_embeddings {
-            "model.embed_tokens"
-        } else {
-            "lm_head"
-        };
-        linear_no_bias(
-            builder,
-            config.hidden_size,
-            config.vocab_size,
-            lm_head_weights,
-            result,
-        )
+        // Add lm_head if weight tying is used
+        if config.tie_word_embeddings {
+            result = linear_no_bias(
+                builder,
+                config.hidden_size,
+                config.vocab_size,
+                "model.embed_tokens",
+                result,
+            );
+        }
+        result
     }
 }
 
@@ -81,23 +81,15 @@ impl Model {
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let qkv = linear_no_bias(builder, dim, 3 * dim, &format!("{name}.qkv_proj"), x);
-
-        let q = narrow(builder, 2, 0, num_heads * head_dim, qkv.clone());
-        let k = narrow(
+        let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
+        let k = linear_no_bias(
             builder,
-            2,
-            num_heads * head_dim,
-            num_kv_heads * head_dim,
-            qkv.clone(),
+            dim,
+            dim / rep,
+            &format!("{name}.k_proj"),
+            x.clone(),
         );
-        let v = narrow(
-            builder,
-            2,
-            (num_heads + num_kv_heads) * head_dim,
-            num_kv_heads * head_dim,
-            qkv,
-        );
+        let v = linear_no_bias(builder, dim, dim / rep, &format!("{name}.v_proj"), x);
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
@@ -134,33 +126,34 @@ impl Model {
         let attn = mat_mul(builder, attn, v);
         let x = transpose(builder, 1, 2, attn);
         let x = reshape(builder, Shape(vec![b, s, dim]), x);
-        let o_proj = linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x);
-        o_proj
+
+        linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x)
     }
 
     pub fn mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
-        let gate_up = linear_no_bias(
+        let gated = linear_no_bias(
             builder,
             config.hidden_size,
-            config.intermediate_size * 2,
-            &format!("{name}.gate_up_proj"),
+            config.intermediate_size,
+            &format!("{name}.gate_proj"),
+            x.clone(),
+        );
+        let up = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.intermediate_size,
+            &format!("{name}.up_proj"),
             x,
         );
+        let x = silu(builder, gated) * up; // SwiGLU
 
-        let gate_up = split(builder, 2, 2, gate_up);
-
-        let gate = gate_up[0].clone();
-        let up = gate_up[1].clone();
-
-        let x = silu(builder, gate) * up; // SwiGLU
-        let x = linear_no_bias(
+        linear_no_bias(
             builder,
             config.intermediate_size,
             config.hidden_size,
             &format!("{name}.down_proj"),
             x,
-        );
-        x
+        )
     }
 
     pub fn layer(

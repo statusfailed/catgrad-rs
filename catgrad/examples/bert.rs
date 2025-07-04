@@ -11,7 +11,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{nn::layers::*, Dtype, NdArrayType, Shape, Var},
+    core::{Dtype, NdArrayType, Shape, Var, nn::layers::*},
 };
 
 mod utils;
@@ -47,7 +47,8 @@ pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         &format!("{name}.intermediate"),
         att.clone(),
     );
-    let x = output(
+
+    output(
         builder,
         config.intermediate_size,
         config.hidden_size,
@@ -55,8 +56,7 @@ pub fn layer(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         &format!("{name}.output"),
         x,
         att,
-    );
-    x
+    )
 }
 
 pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -81,14 +81,12 @@ pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var
     let typ = constant(builder, x.label, 0.);
     let te = embedding(builder, typ, weights);
 
-    let norm = layernorm(
+    layernorm(
         builder,
         config.layer_norm_eps,
         &format!("{name}.LayerNorm"),
         we + pe + te,
-    );
-
-    norm
+    )
 }
 
 pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -118,7 +116,8 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
     let attn = mat_mul(builder, attn, v);
     let attn = transpose(builder, 1, 2, attn);
     let attn = reshape(builder, Shape(vec![b, s, dim]), attn);
-    let o = output(
+
+    output(
         builder,
         dim,
         dim,
@@ -126,8 +125,7 @@ pub fn attention(builder: &Builder, config: &Config, name: &str, x: Var) -> Var 
         &format!("{name}.output"),
         attn,
         x,
-    );
-    o
+    )
 }
 
 pub fn intermediate(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {

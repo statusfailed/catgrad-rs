@@ -8,7 +8,7 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{nn::layers::*, Dtype, NdArrayType, Shape, Var},
+    core::{Dtype, NdArrayType, Shape, Var, nn::layers::*},
 };
 
 mod utils;
@@ -65,8 +65,8 @@ pub fn attention(builder: &Builder, dim: usize, name: &str, x: Var) -> Var {
     let attn = mat_mul(builder, attn, v);
     let x = transpose(builder, 1, 2, attn);
     let x = reshape(builder, Shape(vec![b, s, dim]), x);
-    let o = linear(builder, dim, dim, &format!("{name}.proj"), x);
-    o
+
+    linear(builder, dim, dim, &format!("{name}.proj"), x)
 }
 
 pub fn mlp(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
