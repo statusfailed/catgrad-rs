@@ -185,7 +185,11 @@ impl ModelRunner {
         result.clone()
     }
 
-    pub fn generate(&mut self, tokens: Vec<i32>) -> Option<i32> {
+    pub fn generate(&mut self) -> Option<i32> {
+        // TODO: store tokens as growable NdArray instead so we don't have to clone the context for
+        // NdArray to take ownership.
+        // Blocked by https://github.com/hellas-ai/catgrad/issues/117.
+        let tokens = self.context.clone();
         let num_tokens = tokens.len();
         let batches = 1;
         let input = NdArray::new(tokens, Shape(vec![batches, num_tokens / batches]));
@@ -234,7 +238,7 @@ impl Iterator for ModelRunner {
     type Item = i32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next_token = self.generate(self.context.clone());
+        let next_token = self.generate();
         if let Some(token) = next_token {
             self.context.push(token);
         }
@@ -272,7 +276,7 @@ impl serve::ChatTokenizer<i32> for ModelTokenizer {
 }
 
 impl serve::Loader<i32, ModelRunner, ModelTokenizer> for ModelLoader {
-    fn get_runner(&self) -> serve::Result<ModelRunner> {
+    fn load_runner(&self) -> serve::Result<ModelRunner> {
         Ok(ModelRunner::new(
             self.model_paths.clone(),
             self.config.clone(),
@@ -280,7 +284,7 @@ impl serve::Loader<i32, ModelRunner, ModelTokenizer> for ModelLoader {
         )?)
     }
 
-    fn get_translator(&self) -> serve::Result<ModelTokenizer> {
+    fn load_tokenizer(&self) -> serve::Result<ModelTokenizer> {
         ModelTokenizer::new(
             self.tokenizer_path.clone(),
             self.tokenizer_config_path.clone(),

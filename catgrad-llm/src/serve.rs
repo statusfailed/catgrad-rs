@@ -38,8 +38,8 @@ pub trait LM<T>: Iterator<Item = T> {
 /// A *loader* is conceptually a pair of language model and supporting code (tokenizers, ChatML
 /// templates, etc.)
 pub trait Loader<Token, L: LM<Token>, T: Tokenizer<Token>> {
-    fn get_runner(&self) -> Result<L>;
-    fn get_translator(&self) -> Result<T>;
+    fn load_runner(&self) -> Result<L>;
+    fn load_tokenizer(&self) -> Result<T>;
 }
 
 /// A [`Tokenizer`] translates between tokens and strings
