@@ -188,6 +188,7 @@ fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
 // "managed context" version
 
 // Implement the "serve" traits for ModelRunner
+use crate::serve;
 use crate::serve::{ChatLM, LM, Message};
 
 impl LM<i32> for ModelRunner {
@@ -204,39 +205,37 @@ impl LM<i32> for ModelRunner {
         })
     }
 
-    fn tokenize(&self, content: String) -> Vec<i32> {
-        // TODO: handle tokenizer errors
-        self.tokenizer
-            .encode(content, true)
-            .expect("tokenizer error")
-            .get_ids()
-            .iter()
-            .map(|&x| x as i32)
-            .collect()
+    fn tokenize(&self, content: String) -> serve::Result<Vec<i32>> {
+        let tokens = self.tokenizer.encode(content, true)?;
+        Ok(tokens.get_ids().iter().map(|&x| x as i32).collect())
     }
 
-    fn untokenize(&self, token: i32) -> String {
-        self.tokenizer
-            .decode(&[token.try_into().unwrap()], false)
-            .expect("tokenizer error")
+    fn untokenize(&self, token: i32) -> serve::Result<String> {
+        let token_u32 = token
+            .try_into()
+            .map_err(|_| serve::Error::Tokenizer("unable to cast token to u32".to_string()))?;
+        Ok(self.tokenizer.decode(&[token_u32], false)?)
     }
 }
 
 impl ChatLM for ModelRunner {
     // TODO: remove duplicated logic between chat iterator and iter.
-    fn chat(&mut self, messages: Vec<Message>) -> impl Iterator<Item = String> {
+    fn chat(
+        &mut self,
+        messages: Vec<Message>,
+    ) -> serve::Result<impl Iterator<Item = serve::Result<String>>> {
         // initialize context
         let content = self.render_context(&messages);
-        let tokens = self.tokenize(content);
+        let tokens = self.tokenize(content)?;
         self.context = tokens;
 
-        std::iter::from_fn(move || {
+        Ok(std::iter::from_fn(move || {
             // TODO: unnecessary clone
             let next_token = self.generate(self.context.clone());
             if let Some(token) = next_token {
                 self.context.push(token);
             }
             next_token.map(|token| self.untokenize(token))
-        })
+        }))
     }
 }

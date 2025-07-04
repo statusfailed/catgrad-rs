@@ -2,7 +2,7 @@ use catgrad_llm::run::*;
 use catgrad_llm::serve::*;
 use std::io::Write;
 
-fn main() {
+fn main() -> Result<()> {
     let mut lm = ModelRunner::new("qwen/qwen3-0.6B", true).unwrap();
 
     let system_message = Message {
@@ -16,8 +16,11 @@ fn main() {
     };
 
     let messages = vec![system_message, prompt_message];
-    for chunk in lm.chat(messages) {
-        print!("{chunk}");
+
+    for chunk in lm.chat(messages)? {
+        print!("{}", chunk?);
         let _ = std::io::stdout().flush();
     }
+
+    Ok(())
 }

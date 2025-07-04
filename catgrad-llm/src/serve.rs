@@ -1,4 +1,19 @@
 //! Abstract interfaces for serving LLMs
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("Tokenizer Error: {0}")]
+    Tokenizer(String),
+}
+
+impl From<tokenizers::tokenizer::Error> for Error {
+    fn from(err: tokenizers::tokenizer::Error) -> Self {
+        Error::Tokenizer(err.to_string())
+    }
+}
+
+pub type Result<T> = core::result::Result<T, Error>;
 
 /// [`LanguageModel`] as a stateful iterator over tokens.
 pub trait LM<Token> {
@@ -8,10 +23,10 @@ pub trait LM<Token> {
     fn iter(&mut self, context: Vec<Token>) -> impl Iterator<Item = Token>;
 
     /// Tokenize a string
-    fn tokenize(&self, content: String) -> Vec<Token>;
+    fn tokenize(&self, content: String) -> Result<Vec<Token>>;
 
     /// Stringify a token
-    fn untokenize(&self, token: Token) -> String;
+    fn untokenize(&self, token: Token) -> Result<String>;
 }
 
 /// Message type for use with instruct models
@@ -23,5 +38,5 @@ pub struct Message {
 
 /// Iterate through stringified tokens given a context provided as [`Message`]
 pub trait ChatLM {
-    fn chat(&mut self, context: Vec<Message>) -> impl Iterator<Item = String>;
+    fn chat(&mut self, context: Vec<Message>) -> Result<impl Iterator<Item = Result<String>>>;
 }
