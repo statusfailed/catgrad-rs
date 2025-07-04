@@ -15,13 +15,13 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use catgrad::llm::models::gemma::Model as GemmaModel;
-use catgrad::llm::models::gpt2::Model as GPT2Model;
-use catgrad::llm::models::llama::Model as LlamaModel;
-use catgrad::llm::models::olmo::Model as OlmoModel;
-use catgrad::llm::models::phi::Model as PhiModel;
-use catgrad::llm::models::qwen::Model as QwenModel;
-use catgrad::llm::models::utils::{Cache, Config, ModelBuilder};
+use crate::models::gemma::Model as GemmaModel;
+use crate::models::gpt2::Model as GPT2Model;
+use crate::models::llama::Model as LlamaModel;
+use crate::models::olmo::Model as OlmoModel;
+use crate::models::phi::Model as PhiModel;
+use crate::models::qwen::Model as QwenModel;
+use crate::models::utils::{Cache, Config, ModelBuilder};
 
 use crate::utils::read_safetensors_multiple;
 

@@ -2,7 +2,7 @@
 use super::ndarray::*;
 use crate::core::object::Shape;
 use core::fmt::Debug;
-use gemm::{gemm, Parallelism};
+use gemm::{Parallelism, gemm};
 use log;
 use std::rc::Rc;
 

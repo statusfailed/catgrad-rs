@@ -1,7 +1,7 @@
-use crate::{
+use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
-    core::nn::layers::rope_tables,
     core::Var,
+    core::nn::layers::rope_tables,
 };
 
 use std::collections::HashMap;

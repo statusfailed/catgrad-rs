@@ -1,9 +1,9 @@
-// OLMo-2 model description
+// Phi-3 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::backend::cpu::eval::Builder;
-use crate::core::nn::layers::*;
-use crate::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad::backend::cpu::eval::Builder;
+use catgrad::core::nn::layers::*;
+use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -20,30 +20,35 @@ impl ModelBuilder for Model {
         let emb = Model::embeddings(builder, config, x);
         let mut result = emb;
 
-        for i in 0..config.num_hidden_layers {
+        for layer_id in 0..config.num_hidden_layers {
             result = Model::layer(
                 builder,
-                i,
+                layer_id,
                 config,
                 cache,
                 pos,
-                &format!("model.layers.{i}"),
+                &format!("model.layers.{layer_id}"),
                 result,
             );
         }
-
-        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
 
         // Get the logits for the last token only
         if tokens > 1 {
             result = narrow(builder, 1, tokens - 1, 1, result);
         }
 
+        result = rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+
+        let lm_head_weights = if config.tie_word_embeddings {
+            "model.embed_tokens"
+        } else {
+            "lm_head"
+        };
         linear_no_bias(
             builder,
             config.hidden_size,
             config.vocab_size,
-            "lm_head",
+            lm_head_weights,
             result,
         )
     }
@@ -71,28 +76,28 @@ impl Model {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
+        let rep = num_heads / num_kv_heads;
         let head_dim = config.hidden_size / num_heads;
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let q = linear_no_bias(builder, dim, dim, &format!("{name}.q_proj"), x.clone());
-        let k = linear_no_bias(
-            builder,
-            dim,
-            dim * num_kv_heads / num_heads,
-            &format!("{name}.k_proj"),
-            x.clone(),
-        );
-        let v = linear_no_bias(
-            builder,
-            dim,
-            dim * num_kv_heads / num_heads,
-            &format!("{name}.v_proj"),
-            x,
-        );
+        let qkv = linear_no_bias(builder, dim, 3 * dim, &format!("{name}.qkv_proj"), x);
 
-        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
-        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
+        let q = narrow(builder, 2, 0, num_heads * head_dim, qkv.clone());
+        let k = narrow(
+            builder,
+            2,
+            num_heads * head_dim,
+            num_kv_heads * head_dim,
+            qkv.clone(),
+        );
+        let v = narrow(
+            builder,
+            2,
+            (num_heads + num_kv_heads) * head_dim,
+            num_kv_heads * head_dim,
+            qkv,
+        );
 
         let q = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), q);
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
@@ -113,6 +118,9 @@ impl Model {
             cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
         };
 
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
+
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
@@ -131,21 +139,20 @@ impl Model {
     }
 
     pub fn mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
-        let gated = linear_no_bias(
+        let gate_up = linear_no_bias(
             builder,
             config.hidden_size,
-            config.intermediate_size,
-            &format!("{name}.gate_proj"),
-            x.clone(),
-        );
-        let up = linear_no_bias(
-            builder,
-            config.hidden_size,
-            config.intermediate_size,
-            &format!("{name}.up_proj"),
+            config.intermediate_size * 2,
+            &format!("{name}.gate_up_proj"),
             x,
         );
-        let x = silu(builder, gated) * up; // SwiGLU
+
+        let gate_up = split(builder, 2, 2, gate_up);
+
+        let gate = gate_up[0].clone();
+        let up = gate_up[1].clone();
+
+        let x = silu(builder, gate) * up; // SwiGLU
         let x = linear_no_bias(
             builder,
             config.intermediate_size,
@@ -166,6 +173,12 @@ impl Model {
         x: Var,
     ) -> Var {
         let res = x.clone();
+        let x = rmsnorm(
+            builder,
+            config.rms_norm_eps,
+            &format!("{name}.input_layernorm"),
+            x,
+        );
         let x = Model::attention(
             builder,
             layer_id,
@@ -175,22 +188,15 @@ impl Model {
             &format!("{name}.self_attn"),
             x,
         );
+        let x = res + x;
+        let res = x.clone();
         let x = rmsnorm(
             builder,
             config.rms_norm_eps,
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-        let x = res + x;
-
-        let res = x.clone();
         let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
-        let x = rmsnorm(
-            builder,
-            config.rms_norm_eps,
-            &format!("{name}.post_feedforward_layernorm"),
-            x,
-        );
         x + res
     }
 }

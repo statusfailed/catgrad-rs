@@ -1,9 +1,9 @@
 // Qwen-3 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::backend::cpu::eval::Builder;
-use crate::core::nn::layers::*;
-use crate::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad::backend::cpu::eval::Builder;
+use catgrad::core::nn::layers::*;
+use catgrad::core::{Dtype, NdArrayType, Shape, Var};
 
 pub struct Model;
 

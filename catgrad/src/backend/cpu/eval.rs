@@ -1,13 +1,13 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
 use crate::core::{Operation, StrictTerm, Term, Var};
+use Operation::*;
+use TaggedNdArray::*;
 use half::f16;
 use open_hypergraphs::lax::functor::Functor;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use Operation::*;
-use TaggedNdArray::*;
 
 use log;
 
