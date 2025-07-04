@@ -23,7 +23,6 @@ use catgrad::llm::models::phi::Model as PhiModel;
 use catgrad::llm::models::qwen::Model as QwenModel;
 use catgrad::llm::models::utils::{Cache, Config, ModelBuilder};
 
-use crate::traits::{ChatLM, LM, Message};
 use crate::utils::read_safetensors_multiple;
 
 pub struct ModelRunner {
@@ -188,6 +187,9 @@ fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
 ////////////////////////////////////////////////////////////////////////////////
 // "managed context" version
 
+// Implement the "serve" traits for ModelRunner
+use crate::serve::{ChatLM, LM, Message};
+
 impl LM<i32> for ModelRunner {
     fn iter(&mut self, context: Vec<i32>) -> impl Iterator<Item = i32> {
         self.context = context;
@@ -220,7 +222,7 @@ impl LM<i32> for ModelRunner {
     }
 }
 
-impl ChatLM<i32> for ModelRunner {
+impl ChatLM for ModelRunner {
     // TODO: remove duplicated logic between chat iterator and iter.
     fn chat(&mut self, messages: Vec<Message>) -> impl Iterator<Item = String> {
         // initialize context

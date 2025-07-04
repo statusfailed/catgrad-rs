@@ -1,5 +1,5 @@
-use catgrad_llm::model_runner::*;
-use catgrad_llm::traits::*;
+use catgrad_llm::run::*;
+use catgrad_llm::serve::*;
 use std::io::Write;
 
 fn main() {
@@ -12,7 +12,7 @@ fn main() {
 
     let prompt_message = Message {
         role: "user".to_string(),
-        content: "Category theory is ".to_string(),
+        content: "What is 2+2?".to_string(),
     };
 
     let messages = vec![system_message, prompt_message];

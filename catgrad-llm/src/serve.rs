@@ -1,28 +1,27 @@
-// Two interfaces:
-//
-// 1. Raw LLM - takes String context produces Vec<Token>. Iterator.
-// 2. Runner: message templates,
+//! Abstract interfaces for serving LLMs
 
-// A [`LanguageModel`] is a stateful iterator over tokens
-// whose internal context can be managed.
+/// [`LanguageModel`] as a stateful iterator over tokens.
 pub trait LM<Token> {
     // TODO: &mut self in iter() is a problem; it means we can't do mutable things to self inside
     // the loop!
+    /// Iterate through tokens generated given a context.
     fn iter(&mut self, context: Vec<Token>) -> impl Iterator<Item = Token>;
 
-    // tokenize some string content
+    /// Tokenize a string
     fn tokenize(&self, content: String) -> Vec<Token>;
 
-    // Stringify a token
+    /// Stringify a token
     fn untokenize(&self, token: Token) -> String;
 }
 
+/// Message type for use with instruct models
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {
     pub role: String,
     pub content: String,
 }
 
-pub trait ChatLM<Token>: LM<Token> {
+/// Iterate through stringified tokens given a context provided as [`Message`]
+pub trait ChatLM {
     fn chat(&mut self, context: Vec<Message>) -> impl Iterator<Item = String>;
 }
