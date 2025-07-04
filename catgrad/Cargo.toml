@@ -1,7 +1,7 @@
 [package]
 name = "catgrad"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 rust-version = "1.86"
 description = "A Categorical Deep Learning Compiler"
 license = "MIT"
@@ -27,7 +27,5 @@ env_logger = "0.11.8"
 hf-hub = { version = "0.4.2", default-features = false, features = ["ureq"] }
 safetensors = "0.5.3"
 tokenizers = { version = "0.21.1", features = ["http"] }
-open-hypergraphs-dot = "0.2.1"
-graphviz-rust = "0.9.5"
 minijinja = "2.11.0"
 minijinja-contrib = { version = "2.11.0", features = ["pycompat"] }
