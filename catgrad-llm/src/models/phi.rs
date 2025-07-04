@@ -134,8 +134,8 @@ impl Model {
         let attn = mat_mul(builder, attn, v);
         let x = transpose(builder, 1, 2, attn);
         let x = reshape(builder, Shape(vec![b, s, dim]), x);
-        let o_proj = linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x);
-        o_proj
+
+        linear_no_bias(builder, dim, dim, &format!("{name}.o_proj"), x)
     }
 
     pub fn mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
@@ -153,14 +153,14 @@ impl Model {
         let up = gate_up[1].clone();
 
         let x = silu(builder, gate) * up; // SwiGLU
-        let x = linear_no_bias(
+
+        linear_no_bias(
             builder,
             config.intermediate_size,
             config.hidden_size,
             &format!("{name}.down_proj"),
             x,
-        );
-        x
+        )
     }
 
     pub fn layer(
