@@ -1,7 +1,7 @@
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
     core::Var,
-    core::nn::layers::rope_tables,
+    core::nn::layers::{concat, rope_tables},
 };
 
 use std::collections::HashMap;
@@ -75,6 +75,24 @@ impl Cache {
             use_kv_cache,
             kv_cache: vec![None; config.num_hidden_layers],
         }
+    }
+
+    pub fn update_kv_cache(
+        &mut self,
+        builder: &Builder,
+        layer_id: usize,
+        k: Var,
+        v: Var,
+    ) -> (Var, Var) {
+        let (mut k, mut v) = (k, v);
+        if self.use_kv_cache {
+            if let Some((cached_k, cached_v)) = &self.kv_cache[layer_id] {
+                k = concat(builder, 2, cached_k.clone(), k.clone());
+                v = concat(builder, 2, cached_v.clone(), v.clone());
+            }
+            self.kv_cache[layer_id] = Some((k.clone(), v.clone()));
+        }
+        (k, v)
     }
 }
 

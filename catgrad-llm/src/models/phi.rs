@@ -105,18 +105,12 @@ impl Model {
 
         let q = transpose(builder, 1, 2, q);
         let k = transpose(builder, 1, 2, k);
-        let mut v = transpose(builder, 1, 2, v);
+        let v = transpose(builder, 1, 2, v);
 
         let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
-        let mut k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
+        let k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
 
-        if cache.use_kv_cache {
-            if let Some((cached_k, cached_v)) = &cache.kv_cache[layer_id] {
-                k = concat(builder, 2, cached_k.clone(), k.clone());
-                v = concat(builder, 2, cached_v.clone(), v.clone());
-            }
-            cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
-        };
+        let (k, v) = cache.update_kv_cache(builder, layer_id, k, v);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);

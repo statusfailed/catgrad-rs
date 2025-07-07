@@ -119,16 +119,10 @@ impl Model {
         let v = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), v);
 
         let q = transpose(builder, 1, 2, q);
-        let mut k = transpose(builder, 1, 2, k);
-        let mut v = transpose(builder, 1, 2, v);
+        let k = transpose(builder, 1, 2, k);
+        let v = transpose(builder, 1, 2, v);
 
-        if cache.use_kv_cache {
-            if let Some((cached_k, cached_v)) = &cache.kv_cache[layer_id] {
-                k = concat(builder, 2, cached_k.clone(), k.clone());
-                v = concat(builder, 2, cached_v.clone(), v.clone());
-            }
-            cache.kv_cache[layer_id] = Some((k.clone(), v.clone()));
-        };
+        let (k, v) = cache.update_kv_cache(builder, layer_id, k, v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);
