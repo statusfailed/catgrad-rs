@@ -48,14 +48,12 @@ fn read_safetensors_file(path: PathBuf, map: &mut HashMap<String, TaggedNdArray>
     }
 }
 
-#[allow(dead_code)]
 pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
     let mut map = HashMap::new();
     read_safetensors_file(PathBuf::from(path), &mut map);
     map
 }
 
-#[allow(dead_code)]
 pub fn read_safetensors_multiple(path: Vec<PathBuf>) -> HashMap<String, TaggedNdArray> {
     let mut map = HashMap::new();
     for path in path {
