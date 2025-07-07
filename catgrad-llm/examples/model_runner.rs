@@ -5,7 +5,7 @@ use std::io::Write;
 fn main() -> Result<()> {
     // The Loader trait splits models into the core "tensor" loop (Runner) and decoding/chatML
     // formatting (Tokenizer).
-    let loader = ModelLoader::new("qwen/qwen3-0.6B", true).unwrap();
+    let loader = ModelLoader::new("Qwen/Qwen3-0.6B", true).unwrap();
     let mut runner = loader.load_runner()?;
     let tokenizer = loader.load_tokenizer()?;
 

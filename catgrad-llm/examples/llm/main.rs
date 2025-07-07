@@ -7,7 +7,6 @@ use catgrad::{
     core::{Callback, Dtype, NdArrayType, Shape, Var},
 };
 use clap::Parser;
-use hf_hub::api::sync::Api;
 use minijinja::{Environment, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
 use std::collections::HashMap;
@@ -16,7 +15,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use catgrad_llm::utils::read_safetensors_multiple;
+use catgrad_llm::utils::{get_model_files, read_safetensors_multiple};
 
 use catgrad_llm::models::gemma::Model as GemmaModel;
 use catgrad_llm::models::gpt2::Model as GPT2Model;
@@ -240,33 +239,6 @@ struct Args {
     /// Use KV-cache
     #[arg(short = 'k', long)]
     kv_cache: bool,
-}
-
-fn get_model_files(model: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
-    let api = Api::new().unwrap();
-
-    let repo = api.model(model.to_string());
-
-    // Get the model.safetensor file(s)
-    let m = if let Ok(index) = repo.get("model.safetensors.index.json") {
-        let index = std::fs::File::open(index).unwrap();
-        let json: serde_json::Value = serde_json::from_reader(&index).unwrap();
-        let mut set = std::collections::HashSet::new();
-        if let Some(weight_map) = json.get("weight_map").unwrap().as_object() {
-            for v in weight_map.values() {
-                set.insert(v.as_str().unwrap().to_string());
-            }
-        }
-        set.iter().map(|p| repo.get(p).unwrap()).collect()
-    } else {
-        vec![repo.get("model.safetensors").unwrap()]
-    };
-
-    let c = repo.get("config.json").unwrap();
-    let t = repo.get("tokenizer.json").unwrap();
-    let tc = repo.get("tokenizer_config.json").unwrap();
-
-    (m, c, t, tc)
 }
 
 pub fn main() -> Result<()> {
