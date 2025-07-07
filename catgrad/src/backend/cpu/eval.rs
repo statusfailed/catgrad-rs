@@ -378,8 +378,8 @@ impl EvalState {
         let sources = &self.term.s.table;
 
         assert_eq!(
-            args.len(),
             sources.len(),
+            args.len(),
             "Expected {} arguments but got {}.",
             sources.len(),
             args.len()

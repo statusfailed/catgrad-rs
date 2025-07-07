@@ -1,7 +1,9 @@
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
-    core::Var,
-    core::nn::layers::{concat, rope_tables},
+    core::{
+        Dtype, NdArrayType, Shape, Var,
+        nn::layers::{concat, rope_tables},
+    },
 };
 
 use std::collections::HashMap;
@@ -42,11 +44,19 @@ pub struct Config {
 
 impl Config {
     // Sometimes the head_dim fields is missing
-    fn get_head_dim(&self) -> usize {
+    pub fn get_head_dim(&self) -> usize {
         if self.head_dim == 0 {
             self.hidden_size / self.num_attention_heads
         } else {
             self.head_dim
+        }
+    }
+
+    pub fn get_num_kv_heads(&self) -> usize {
+        if self.num_key_value_heads == 0 {
+            self.num_attention_heads
+        } else {
+            self.num_key_value_heads
         }
     }
 
@@ -63,17 +73,24 @@ pub struct Cache {
     pub cos: Var,
     pub sin: Var,
     pub use_kv_cache: bool,
-    pub kv_cache: Vec<Option<(Var, Var)>>,
+    pub kv_cache: Vec<(Var, Var)>,
 }
 
 impl Cache {
     pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
         let (cos, sin) = rope_tables(builder, config.rope_theta, positions, config.get_head_dim());
+
+        // Empty KV Cache of the correct shape
+        let kv_cache_type = NdArrayType::new(
+            Shape(vec![1, config.get_num_kv_heads(), 0, config.get_head_dim()]),
+            Dtype::F32,
+        );
+        let empty = Var::new(builder.clone(), kv_cache_type);
         Self {
             cos,
             sin,
             use_kv_cache,
-            kv_cache: vec![None; config.num_hidden_layers],
+            kv_cache: vec![(empty.clone(), empty); config.num_hidden_layers],
         }
     }
 
@@ -86,11 +103,13 @@ impl Cache {
     ) -> (Var, Var) {
         let (mut k, mut v) = (k, v);
         if self.use_kv_cache {
-            if let Some((cached_k, cached_v)) = &self.kv_cache[layer_id] {
-                k = concat(builder, 2, cached_k.clone(), k.clone());
-                v = concat(builder, 2, cached_v.clone(), v.clone());
-            }
-            self.kv_cache[layer_id] = Some((k.clone(), v.clone()));
+            let cached_k = self.kv_cache[layer_id].0.clone();
+            let cached_v = self.kv_cache[layer_id].1.clone();
+
+            k = concat(builder, 2, cached_k, k);
+            v = concat(builder, 2, cached_v, v);
+
+            self.kv_cache[layer_id] = (k.clone(), v.clone());
         }
         (k, v)
     }

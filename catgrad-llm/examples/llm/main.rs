@@ -118,7 +118,7 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    pub fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
+    fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
         let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -137,7 +137,7 @@ impl ModelRunner {
         }
     }
 
-    pub fn load(&mut self, model_paths: Vec<PathBuf>) {
+    fn load(&mut self, model_paths: Vec<PathBuf>) {
         let mut tensors = read_safetensors_multiple(model_paths);
         self.model.post_load(&mut tensors);
 
@@ -145,7 +145,7 @@ impl ModelRunner {
     }
 
     // Make a forward pass given a list of tokens
-    pub fn run(&mut self, x: &NdArray<i32>) -> TaggedNdArray {
+    fn run(&mut self, x: &NdArray<i32>) -> TaggedNdArray {
         let [result] = self
             .state
             .as_mut()
@@ -307,7 +307,7 @@ pub fn main() -> Result<()> {
 
     let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
     log::info!("Input tokens {:?}", &input);
-    let mut input_tokens = input.data.borrow_mut();
+    let mut input_tokens = input.data.borrow().clone();
 
     let start_gen = std::time::Instant::now();
 
