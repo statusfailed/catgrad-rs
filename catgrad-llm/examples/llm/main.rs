@@ -99,13 +99,12 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    fn build(&mut self, batches: usize, tokens: usize, config: &Config) {
-        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
+    fn build(&mut self, batches: usize, num_tokens: usize, config: &Config) {
+        let in_type = NdArrayType::new(Shape(vec![batches, num_tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let positions = x.label.shape.0[1];
-            let mut cache = Cache::init(builder, config, positions, self.use_kv_cache);
+            let mut cache = Cache::init(builder, config, num_tokens, self.use_kv_cache);
             let result = self.model.build(builder, config, &mut cache, 0, x.clone());
             let new_token = self.next_token(builder, result);
             (vec![x], vec![new_token])
@@ -118,7 +117,7 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    pub fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
+    fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
         let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -137,7 +136,7 @@ impl ModelRunner {
         }
     }
 
-    pub fn load(&mut self, model_paths: Vec<PathBuf>) {
+    fn load(&mut self, model_paths: Vec<PathBuf>) {
         let mut tensors = read_safetensors_multiple(model_paths);
         self.model.post_load(&mut tensors);
 
@@ -145,7 +144,7 @@ impl ModelRunner {
     }
 
     // Make a forward pass given a list of tokens
-    pub fn run(&mut self, x: &NdArray<i32>) -> TaggedNdArray {
+    fn run(&mut self, x: &NdArray<i32>) -> TaggedNdArray {
         let [result] = self
             .state
             .as_mut()
@@ -159,10 +158,10 @@ impl ModelRunner {
     }
 
     fn generate(&mut self, batches: usize, tokens: Vec<i32>, config: &Config) -> i32 {
-        let l = tokens.len();
-        let input = NdArray::new(tokens, Shape(vec![batches, l / batches]));
+        let num_tokens = tokens.len();
+        let input = NdArray::new(tokens, Shape(vec![batches, num_tokens / batches]));
 
-        self.build(batches, l, config);
+        self.build(batches, num_tokens, config);
         log::debug!("Model graph built...");
         let result = self.run(&input);
 
@@ -307,7 +306,7 @@ pub fn main() -> Result<()> {
 
     let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
     log::info!("Input tokens {:?}", &input);
-    let mut input_tokens = input.data.borrow_mut();
+    let mut input_tokens = input.data.borrow().clone();
 
     let start_gen = std::time::Instant::now();
 
