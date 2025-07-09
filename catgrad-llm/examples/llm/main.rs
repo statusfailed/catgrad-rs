@@ -99,13 +99,12 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    fn build(&mut self, batches: usize, tokens: usize, config: &Config) {
-        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
+    fn build(&mut self, batches: usize, num_tokens: usize, config: &Config) {
+        let in_type = NdArrayType::new(Shape(vec![batches, num_tokens]), Dtype::I32);
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let positions = x.label.shape.0[1];
-            let mut cache = Cache::init(builder, config, positions, self.use_kv_cache);
+            let mut cache = Cache::init(builder, config, num_tokens, self.use_kv_cache);
             let result = self.model.build(builder, config, &mut cache, 0, x.clone());
             let new_token = self.next_token(builder, result);
             (vec![x], vec![new_token])
@@ -159,10 +158,10 @@ impl ModelRunner {
     }
 
     fn generate(&mut self, batches: usize, tokens: Vec<i32>, config: &Config) -> i32 {
-        let l = tokens.len();
-        let input = NdArray::new(tokens, Shape(vec![batches, l / batches]));
+        let num_tokens = tokens.len();
+        let input = NdArray::new(tokens, Shape(vec![batches, num_tokens / batches]));
 
-        self.build(batches, l, config);
+        self.build(batches, num_tokens, config);
         log::debug!("Model graph built...");
         let result = self.run(&input);
 
