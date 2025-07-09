@@ -34,6 +34,7 @@ pub struct Config {
     pub rope_local_base_freq: f32,
     #[serde(alias = "n_positions")]
     pub max_position_embeddings: usize,
+    pub no_rope_layer_interval: usize,
     pub layer_norm_epsilon: f32,
     pub rms_norm_eps: f32,
     pub tie_word_embeddings: bool,

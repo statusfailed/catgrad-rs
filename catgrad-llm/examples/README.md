@@ -4,7 +4,7 @@ These examples work with safetensor weights as found on [Huggingface Hub](https:
 
 ### Supported architectures: ###
 
-**GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**
+**GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**, **SmolLM3-3B**
 
 ### LLM example ###
 
