@@ -31,6 +31,8 @@ struct ModelRunner {
     pub model: Box<dyn ModelBuilder>,
     pub tokenizer: Tokenizer,
     pub use_kv_cache: bool,
+    pub kv_cache: Vec<TaggedNdArray>,
+    pub total_tokens: usize,
 }
 
 impl ModelRunner {
@@ -104,10 +106,62 @@ impl ModelRunner {
 
         let state = EvalState::build(|builder| {
             let x = Var::new(builder.clone(), in_type.clone());
-            let mut cache = Cache::init(builder, config, num_tokens, self.use_kv_cache);
-            let result = self.model.build(builder, config, &mut cache, 0, x.clone());
+            let mut cache = Cache::init(
+                builder,
+                config,
+                self.total_tokens + num_tokens,
+                self.use_kv_cache,
+            );
+
+            if self.use_kv_cache {
+                // Shape of KV cache entries up to current sequence length
+                let kv_cache_type = NdArrayType::new(
+                    Shape(vec![
+                        batches,
+                        config.get_num_kv_heads(),
+                        self.total_tokens,
+                        config.get_head_dim(),
+                    ]),
+                    Dtype::F32,
+                );
+
+                for layer_id in 0..config.num_hidden_layers {
+                    cache.in_kv_cache[layer_id] = (
+                        Var::new(builder.clone(), kv_cache_type.clone()),
+                        Var::new(builder.clone(), kv_cache_type.clone()),
+                    );
+                }
+            }
+
+            let result =
+                self.model
+                    .build(builder, config, &mut cache, self.total_tokens, x.clone());
+
+            // Input most recently generated token and current kv_cache
+            let mut sources_vec = vec![x];
+
+            if self.use_kv_cache {
+                for layer_id in 0..config.num_hidden_layers {
+                    sources_vec.push(cache.in_kv_cache[layer_id].0.clone());
+                    sources_vec.push(cache.in_kv_cache[layer_id].1.clone());
+                }
+            }
+
+            // Output new token and updated kv_cache
             let new_token = self.next_token(builder, result);
-            (vec![x], vec![new_token])
+            let mut targets_vec = vec![new_token];
+
+            if self.use_kv_cache {
+                let out_kv_cache: Vec<_> = cache
+                    .out_kv_cache
+                    .into_iter()
+                    .flat_map(|(a, b)| vec![a, b])
+                    .collect();
+
+                targets_vec.extend(out_kv_cache);
+            }
+
+            (sources_vec, targets_vec)
         });
 
         self.state = Some(state);
@@ -117,7 +171,8 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    fn new(arch: &str, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
+    fn new(config: &Config, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
+        let arch = config.architectures[0].as_str();
         let model: Box<dyn ModelBuilder> = match arch {
             "LlamaForCausalLM" => Box::new(LlamaModel {}),
             "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
@@ -127,12 +182,25 @@ impl ModelRunner {
             "GPT2LMHeadModel" => Box::new(GPT2Model {}),
             _ => panic!("Unknown architecture {arch}"),
         };
+        let kv_cache = if use_kv_cache {
+            let v = TaggedNdArray::F32(NdArray::new_empty(Shape(vec![
+                1,
+                config.get_num_kv_heads(),
+                0,
+                config.get_head_dim(),
+            ])));
+            vec![v; 2 * config.num_hidden_layers]
+        } else {
+            vec![]
+        };
         Self {
             tensors: Rc::new(HashMap::new()),
             state: None,
             model,
             tokenizer,
             use_kv_cache,
+            kv_cache,
+            total_tokens: 0,
         }
     }
 
@@ -145,16 +213,21 @@ impl ModelRunner {
 
     // Make a forward pass given a list of tokens
     fn run(&mut self, x: &NdArray<i32>) -> TaggedNdArray {
-        let [result] = self
-            .state
-            .as_mut()
-            .unwrap()
-            .eval_with(vec![x.clone().into()])[..]
-        else {
-            panic!("unexpected result")
-        };
+        let mut sources = vec![x.clone().into()];
 
-        result.clone()
+        if self.use_kv_cache {
+            // Add kv_cache to the inputs
+            sources.extend(self.kv_cache.clone());
+        }
+
+        let result = self.state.as_mut().unwrap().eval_with(sources);
+
+        if self.use_kv_cache {
+            // Save kv_cache to feed into next iteration
+            self.kv_cache = result[1..].iter().map(|&tensor| tensor.clone()).collect();
+        }
+
+        result[0].clone()
     }
 
     fn generate(&mut self, batches: usize, tokens: Vec<i32>, config: &Config) -> i32 {
@@ -167,6 +240,7 @@ impl ModelRunner {
 
         let r = result.data();
 
+        self.total_tokens += num_tokens;
         r[0] as i32
     }
 
@@ -289,7 +363,7 @@ pub fn main() -> Result<()> {
     let tokens = token_ids.len();
     let batches = 1;
 
-    let mut model_runner = ModelRunner::new(&config.architectures[0], tokenizer, args.kv_cache);
+    let mut model_runner = ModelRunner::new(&config, tokenizer, args.kv_cache);
 
     if let Some(ref path) = args.save_dot {
         model_runner.save_dot(&config, path);
@@ -337,7 +411,11 @@ pub fn main() -> Result<()> {
                     .decode(&[next_token_id as u32], false)?
             );
             std::io::stdout().flush()?;
-            input_tokens.push(next_token_id);
+            if model_runner.use_kv_cache {
+                input_tokens = vec![next_token_id];
+            } else {
+                input_tokens.push(next_token_id);
+            }
         }
     }
 

@@ -73,7 +73,8 @@ pub struct Cache {
     pub cos: Var,
     pub sin: Var,
     pub use_kv_cache: bool,
-    pub kv_cache: Vec<(Var, Var)>,
+    pub in_kv_cache: Vec<(Var, Var)>,
+    pub out_kv_cache: Vec<(Var, Var)>,
 }
 
 impl Cache {
@@ -90,7 +91,8 @@ impl Cache {
             cos,
             sin,
             use_kv_cache,
-            kv_cache: vec![(empty.clone(), empty); config.num_hidden_layers],
+            in_kv_cache: vec![(empty.clone(), empty.clone()); config.num_hidden_layers],
+            out_kv_cache: vec![(empty.clone(), empty); config.num_hidden_layers],
         }
     }
 
@@ -103,13 +105,13 @@ impl Cache {
     ) -> (Var, Var) {
         let (mut k, mut v) = (k, v);
         if self.use_kv_cache {
-            let cached_k = self.kv_cache[layer_id].0.clone();
-            let cached_v = self.kv_cache[layer_id].1.clone();
+            let cached_k = self.in_kv_cache[layer_id].0.clone();
+            let cached_v = self.in_kv_cache[layer_id].1.clone();
 
             k = concat(builder, 2, cached_k, k);
             v = concat(builder, 2, cached_v, v);
 
-            self.kv_cache[layer_id] = (k.clone(), v.clone());
+            self.out_kv_cache[layer_id] = (k.clone(), v.clone());
         }
         (k, v)
     }
