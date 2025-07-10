@@ -114,8 +114,6 @@ impl ModelRunner {
         config: Config,
         use_kv_cache: bool,
     ) -> Result<ModelRunner> {
-        env_logger::init();
-
         let arch = &config.architectures[0];
 
         let mut model: Box<dyn ModelBuilder> = match arch.as_str() {
