@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use catgrad_llm::utils::{get_model_files, read_safetensors_multiple};
+use catgrad_llm::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 
 use catgrad_llm::models::gemma::Model as GemmaModel;
 use catgrad_llm::models::gpt2::Model as GPT2Model;
@@ -336,24 +336,18 @@ pub fn main() -> Result<()> {
         .copied()
         .unwrap_or(&args.model_name);
 
-    let (model_paths, config_path, tokenizer_path, tokenizer_config_path) =
-        get_model_files(model_name);
+    let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name);
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
     let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
-    let tokenizer_config: serde_json::Value =
-        serde_json::from_str(&std::fs::read_to_string(tokenizer_config_path)?)?;
 
-    let chat_template = tokenizer_config
-        .get("chat_template")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let chat_template = get_model_chat_template(model_name);
 
     let prompt = if chat_template.is_empty() || args.raw_prompt {
         args.prompt.clone()
     } else {
         let mut env = Environment::new();
         env.set_unknown_method_callback(unknown_method_callback);
-        env.add_template("chat", chat_template).unwrap();
+        env.add_template("chat", &chat_template).unwrap();
         let tmpl = env.get_template("chat").unwrap();
         tmpl.render(
                 context!(messages => vec![ context!(role => "user",content => args.prompt)], add_generation_prompt => true, enable_thinking=>false)
