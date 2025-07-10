@@ -23,6 +23,7 @@ use catgrad_llm::models::llama::Model as LlamaModel;
 use catgrad_llm::models::olmo::Model as OlmoModel;
 use catgrad_llm::models::phi::Model as PhiModel;
 use catgrad_llm::models::qwen::Model as QwenModel;
+use catgrad_llm::models::smollm3::Model as SmolLM3Model;
 use catgrad_llm::models::utils::{Cache, Config, ModelBuilder};
 
 struct ModelRunner {
@@ -179,6 +180,7 @@ impl ModelRunner {
             "Qwen3ForCausalLM" => Box::new(QwenModel {}),
             "Gemma3ForCausalLM" => Box::new(GemmaModel {}),
             "Phi3ForCausalLM" => Box::new(PhiModel {}),
+            "SmolLM3ForCausalLM" => Box::new(SmolLM3Model {}),
             "GPT2LMHeadModel" => Box::new(GPT2Model {}),
             _ => panic!("Unknown architecture {arch}"),
         };
@@ -286,7 +288,7 @@ impl ModelRunner {
 #[derive(Parser, Debug)]
 struct Args {
     /// Model name on Huggingface Hub
-    #[arg(short = 'm', long, default_value = "smol")]
+    #[arg(short = 'm', long, default_value = "smollm2")]
     model_name: String,
 
     /// Initial prompt
@@ -320,7 +322,8 @@ pub fn main() -> Result<()> {
     let args = Args::parse();
     let models = HashMap::from([
         ("gpt", "openai-community/gpt2"),
-        ("smol", "HuggingFaceTB/SmolLM2-135M-Instruct"),
+        ("smollm2", "HuggingFaceTB/SmolLM2-135M-Instruct"),
+        ("smollm3", "HuggingFaceTB/SmolLM3-3B-Base"),
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
