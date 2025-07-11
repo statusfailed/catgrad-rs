@@ -3,8 +3,8 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::nn::layers::{argmax, cast, concat, reshape, side_effect},
-    core::{Callback, Dtype, NdArrayType, Shape, Var},
+    core::nn::layers::{argmax, cast, reshape},
+    core::{Dtype, NdArrayType, Shape, Var},
 };
 use chrono::Local;
 use clap::Parser;
@@ -43,64 +43,6 @@ impl ModelRunner {
         let am = argmax(builder, logits);
         let am = reshape(builder, Shape(vec![batches, 1]), am);
         cast(builder, Dtype::I32, am)
-    }
-
-    fn unroll(&self, builder: &Builder, config: &Config, x: Var, seq_len: usize) -> Var {
-        let mut input = x;
-
-        let il = input.label.shape.0[1];
-        let mut cache = Cache::init(builder, config, il + seq_len, self.use_kv_cache);
-        for i in 0..seq_len {
-            let pos = if i == 0 || !self.use_kv_cache {
-                0
-            } else {
-                il + i
-            };
-            let result = self
-                .model
-                .build(builder, config, &mut cache, pos, input.clone());
-            let new_token = self.next_token(builder, result);
-            if cache.use_kv_cache {
-                input = new_token.clone();
-                let tokenizer = self.tokenizer.clone();
-                side_effect(
-                    builder,
-                    Callback::new(move |a: &TaggedNdArray| {
-                        let token = tokenizer.decode(&[a.get(&[0, 0]) as u32], false).unwrap();
-                        print!("{token}");
-                        std::io::stdout().flush().unwrap();
-                    }),
-                    &new_token,
-                );
-            } else {
-                input = concat(builder, 1, input, new_token);
-            }
-        }
-
-        input
-    }
-
-    fn build_unrolled(
-        &mut self,
-        batches: usize,
-        tokens: usize,
-        config: &Config,
-        max_new_tokens: usize,
-    ) {
-        let in_type = NdArrayType::new(Shape(vec![batches, tokens]), Dtype::I32);
-
-        let state = EvalState::build(|builder| {
-            let x = Var::new(builder.clone(), in_type.clone());
-            let result = self.unroll(builder, config, x.clone(), max_new_tokens);
-
-            (vec![x], vec![result])
-        });
-
-        self.state = Some(state);
-        self.state
-            .as_mut()
-            .unwrap()
-            .set_parameters(Rc::clone(&self.tensors));
     }
 
     fn build(&mut self, batches: usize, num_tokens: usize, config: &Config) {
@@ -247,25 +189,6 @@ impl ModelRunner {
         r[0] as i32
     }
 
-    fn generate_all(
-        &mut self,
-        batches: usize,
-        tokens: Vec<i32>,
-        config: &Config,
-        max_new_tokens: usize,
-    ) -> Vec<u32> {
-        let l = tokens.len();
-        let input = NdArray::new(tokens, Shape(vec![batches, l / batches]));
-
-        self.build_unrolled(batches, l, config, max_new_tokens);
-        log::debug!("Model graph built...");
-        let result = self.run(&input);
-
-        let r = result.data();
-
-        r.iter().map(|&x| x as u32).collect()
-    }
-
     fn save_dot(&mut self, config: &Config, path: &PathBuf) {
         use graphviz_rust::{print, printer::PrinterContext};
 
@@ -307,10 +230,6 @@ struct Args {
     /// Path to save Graphviz dot file
     #[arg(long, default_value=None)]
     save_dot: Option<PathBuf>,
-
-    /// Build unrolled graph
-    #[arg(short = 'u', long)]
-    unrolled: bool,
 
     /// Use KV-cache
     #[arg(short = 'k', long)]
@@ -398,36 +317,24 @@ pub fn main() -> Result<()> {
 
     let mut generated_tokens = 0;
 
-    if args.unrolled {
+    print!("{prompt}");
+    for _ in 0..args.seq_len {
+        let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
+        generated_tokens += 1;
+        if config.get_eos_token_ids().contains(&next_token_id) {
+            break;
+        }
+        print!(
+            "{}",
+            model_runner
+                .tokenizer
+                .decode(&[next_token_id as u32], false)?
+        );
+        std::io::stdout().flush()?;
         if model_runner.use_kv_cache {
-            print!("{prompt}");
-        }
-        let next_tokens =
-            model_runner.generate_all(batches, input_tokens.clone(), &config, args.seq_len);
-        generated_tokens = args.seq_len;
-        if !model_runner.use_kv_cache {
-            print!("{}", model_runner.tokenizer.decode(&next_tokens, false)?);
-        }
-    } else {
-        print!("{prompt}");
-        for _ in 0..args.seq_len {
-            let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
-            generated_tokens += 1;
-            if config.get_eos_token_ids().contains(&next_token_id) {
-                break;
-            }
-            print!(
-                "{}",
-                model_runner
-                    .tokenizer
-                    .decode(&[next_token_id as u32], false)?
-            );
-            std::io::stdout().flush()?;
-            if model_runner.use_kv_cache {
-                input_tokens = vec![next_token_id];
-            } else {
-                input_tokens.push(next_token_id);
-            }
+            input_tokens = vec![next_token_id];
+        } else {
+            input_tokens.push(next_token_id);
         }
     }
 
