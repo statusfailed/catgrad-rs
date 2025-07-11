@@ -35,6 +35,8 @@ Here are links to some supported models to test the `llm` example with. All are 
 
 <https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct>
 
+<https://huggingface.co/HuggingFaceTB/SmolLM3-3B>
+
 <https://huggingface.co/Qwen/Qwen3-0.6B>
 
 <https://huggingface.co/google/gemma-3-1b-it>

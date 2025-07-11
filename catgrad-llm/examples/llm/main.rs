@@ -6,6 +6,7 @@ use catgrad::{
     core::nn::layers::{argmax, cast, concat, reshape, side_effect},
     core::{Callback, Dtype, NdArrayType, Shape, Var},
 };
+use chrono::Local;
 use clap::Parser;
 use minijinja::{Environment, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
@@ -314,6 +315,14 @@ struct Args {
     /// Use KV-cache
     #[arg(short = 'k', long)]
     kv_cache: bool,
+
+    /// Enable thinking
+    #[arg(short = 't', long)]
+    thinking: bool,
+}
+
+fn strftime_now(format_str: String) -> String {
+    Local::now().format(&format_str).to_string()
 }
 
 pub fn main() -> Result<()> {
@@ -342,15 +351,21 @@ pub fn main() -> Result<()> {
 
     let chat_template = get_model_chat_template(model_name);
 
+    // SmolLM3 template specific hack, move to lib.
+    let chat_template = chat_template
+        .replace("{% generation %}", "")
+        .replace("{% endgeneration %}", "");
+
     let prompt = if chat_template.is_empty() || args.raw_prompt {
         args.prompt.clone()
     } else {
         let mut env = Environment::new();
         env.set_unknown_method_callback(unknown_method_callback);
+        env.add_function("strftime_now", strftime_now);
         env.add_template("chat", &chat_template).unwrap();
         let tmpl = env.get_template("chat").unwrap();
         tmpl.render(
-                context!(messages => vec![ context!(role => "user",content => args.prompt)], add_generation_prompt => true, enable_thinking=>false)
+                context!(messages => vec![ context!(role => "user",content => args.prompt)], add_generation_prompt => true, enable_thinking=>args.thinking)
             )?
     };
 

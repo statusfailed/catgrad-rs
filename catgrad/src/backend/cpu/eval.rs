@@ -324,7 +324,7 @@ impl EvalState {
                         // For each index, look up the corresponding embedding vector
                         for &idx in &flat_indices {
                             if idx < 0 || idx as usize >= weights.shape.0[0] {
-                                panic!("Embedding index out of bounds");
+                                panic!("Embedding index {idx} out of bounds");
                             }
 
                             let mut data = output.data.borrow_mut();

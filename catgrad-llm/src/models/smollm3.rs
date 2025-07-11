@@ -40,17 +40,14 @@ impl ModelBuilder for Model {
             result = narrow(builder, 1, tokens - 1, 1, result);
         }
 
-        // Add lm_head if weight tying is used
-        if config.tie_word_embeddings {
-            result = linear_no_bias(
-                builder,
-                config.hidden_size,
-                config.vocab_size,
-                "model.embed_tokens",
-                result,
-            );
-        }
-        result
+        // Weight tying is used
+        linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            "model.embed_tokens",
+            result,
+        )
     }
 }
 
