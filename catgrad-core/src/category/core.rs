@@ -1,0 +1,51 @@
+// Core: a category of tensor programs with static shapes.
+use open_hypergraphs::lax::OpenHypergraph;
+
+/// Generating objects in Core
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NdArrayType {
+    pub dtype: Dtype,
+    pub shape: Shape,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Dtype {
+    F32,
+}
+
+pub type Shape = Vec<usize>;
+
+/// Generating tensor operations
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TensorOp {
+    /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
+    /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
+    Map(RingOp),
+
+    /// Reduce a tensor one one dimension using binary operation which is assumed to be associative
+    /// `Reduce (.., N, ..) → (.., 1, ..)`
+    Reduce(RingOp, usize),
+
+    /// Batch matrix multiplication
+    /// `MatMul : (N, A, B) ● (N, B, C) → (N, A, C)`
+    MatMul,
+
+    // Array lookup indices
+    // `Index: (N,) ● (M,) → (N,)`
+    Index,
+}
+
+/// For now, we assume that every Dtype defines a ring & has comparisons
+/// TODO: constants, comparisons
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RingOp {
+    Add,
+    Mul,
+    Neg,
+    Zero,
+    One,
+}
+
+pub type Object = NdArrayType;
+pub type Arrow = TensorOp;
+pub type Term = OpenHypergraph<NdArrayType, TensorOp>;
