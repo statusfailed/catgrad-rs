@@ -1,0 +1,9 @@
+[package]
+name = "catgrad-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+dyn-eq = "0.1.3"
+dyn-hash = "0.2.2"
+open-hypergraphs = "0.2.3"
