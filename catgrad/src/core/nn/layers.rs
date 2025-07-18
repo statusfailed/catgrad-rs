@@ -360,15 +360,28 @@ fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     nom / denom
 }
 
-pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
+pub fn layernorm_b(builder: &Builder, eps: f32, bias: bool, name: &str, x: Var) -> Var {
     let shape = vec![x.label.shape.0[x.label.shape.0.len() - 1]];
     let t = NdArrayType::new(Shape(shape), x.label.dtype);
     let gamma = parameter(builder, t.clone(), format!("{name}.weight"));
-    let beta = parameter(builder, t, format!("{name}.bias"));
     let lr = layernorm_raw(builder, eps, x);
     let gamma = expand(builder, lr.label.shape.clone(), gamma);
-    let beta = expand(builder, lr.label.shape.clone(), beta);
-    lr * gamma + beta
+    let mut lr = lr * gamma;
+
+    if bias {
+        let beta = parameter(builder, t, format!("{name}.bias"));
+        let beta = expand(builder, lr.label.shape.clone(), beta);
+        lr = lr + beta;
+    }
+    lr
+}
+
+pub fn layernorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
+    layernorm_b(builder, eps, true, name, x)
+}
+
+pub fn layernorm_no_bias(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
+    layernorm_b(builder, eps, false, name, x)
 }
 
 pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
