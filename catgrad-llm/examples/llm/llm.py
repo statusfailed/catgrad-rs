@@ -9,17 +9,19 @@ if __name__ == "__main__":
         type=str,
         default="openai-community/gpt2",
     )
+    parser.add_argument("--revision", type=str, default="main")
     parser.add_argument("-p", "--prompt", type=str, default="Hello world")
     parser.add_argument("-s", "--seq-len", type=int, default=10)
+    parser.add_argument("-r", "--raw-prompt", action="store_true")
     parser.add_argument("-t", "--thinking", action="store_true")
     args = parser.parse_args()
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
-    model = AutoModelForCausalLM.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.revision)
+    model = AutoModelForCausalLM.from_pretrained(args.model, revision=args.revision)
 
     prompt = args.prompt
 
-    if tokenizer.chat_template is not None:
+    if not args.raw_prompt and tokenizer.chat_template is not None:
         chat = [
             {"role": "user", "content": prompt},
         ]
