@@ -1,6 +1,7 @@
 pub mod gemma;
 pub mod gpt2;
 pub mod llama;
+pub mod modernbert;
 pub mod olmo;
 pub mod phi;
 pub mod qwen;

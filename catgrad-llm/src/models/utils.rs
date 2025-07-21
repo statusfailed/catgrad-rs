@@ -30,12 +30,16 @@ pub struct Config {
     pub num_key_value_heads: usize,
     pub head_dim: usize,
     pub rope_theta: f32,
+    pub local_rope_theta: f32,
+    pub global_rope_theta: f32,
     pub sliding_window_pattern: usize,
+    pub global_attn_every_n_layers: usize,
     pub rope_local_base_freq: f32,
     #[serde(alias = "n_positions")]
     pub max_position_embeddings: usize,
     pub no_rope_layer_interval: usize,
     pub layer_norm_epsilon: f32,
+    pub layer_norm_eps: f32,
     pub rms_norm_eps: f32,
     pub tie_word_embeddings: bool,
     pub eos_token_id: Option<EosTokenId>,
@@ -131,4 +135,27 @@ pub trait ModelBuilder {
     ) -> Var;
     // Optional post-processing of loaded weights (renaming, reshaping, etc.)
     fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
+}
+
+use super::gemma::Model as GemmaModel;
+use super::gpt2::Model as GPT2Model;
+use super::llama::Model as LlamaModel;
+use super::modernbert::Model as ModernBertDecoderModel;
+use super::olmo::Model as OlmoModel;
+use super::phi::Model as PhiModel;
+use super::qwen::Model as QwenModel;
+use super::smollm3::Model as SmolLM3Model;
+
+pub fn get_model(arch: &str) -> Result<Box<dyn ModelBuilder>, String> {
+    match arch {
+        "LlamaForCausalLM" => Ok(Box::new(LlamaModel {})),
+        "Olmo2ForCausalLM" => Ok(Box::new(OlmoModel {})),
+        "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
+        "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
+        "ModernBertDecoderForCausalLM" => Ok(Box::new(ModernBertDecoderModel {})),
+        "Phi3ForCausalLM" => Ok(Box::new(PhiModel {})),
+        "SmolLM3ForCausalLM" => Ok(Box::new(SmolLM3Model {})),
+        "GPT2LMHeadModel" => Ok(Box::new(GPT2Model {})),
+        _ => Err(format!("Unsupported architecture: {arch}")),
+    }
 }
