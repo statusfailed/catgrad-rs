@@ -18,14 +18,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 
 use catgrad_llm::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 
-use catgrad_llm::models::gemma::Model as GemmaModel;
-use catgrad_llm::models::gpt2::Model as GPT2Model;
-use catgrad_llm::models::llama::Model as LlamaModel;
-use catgrad_llm::models::olmo::Model as OlmoModel;
-use catgrad_llm::models::phi::Model as PhiModel;
-use catgrad_llm::models::qwen::Model as QwenModel;
-use catgrad_llm::models::smollm3::Model as SmolLM3Model;
-use catgrad_llm::models::utils::{Cache, Config, ModelBuilder};
+use catgrad_llm::models::utils::{Cache, Config, ModelBuilder, get_model};
 
 struct ModelRunner {
     pub tensors: Rc<HashMap<String, TaggedNdArray>>,
@@ -123,16 +116,7 @@ impl ModelRunner {
 
     fn new(config: &Config, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
         let arch = config.architectures[0].as_str();
-        let model: Box<dyn ModelBuilder> = match arch {
-            "LlamaForCausalLM" => Box::new(LlamaModel {}),
-            "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
-            "Qwen3ForCausalLM" => Box::new(QwenModel {}),
-            "Gemma3ForCausalLM" => Box::new(GemmaModel {}),
-            "Phi3ForCausalLM" => Box::new(PhiModel {}),
-            "SmolLM3ForCausalLM" => Box::new(SmolLM3Model {}),
-            "GPT2LMHeadModel" => Box::new(GPT2Model {}),
-            _ => panic!("Unknown architecture {arch}"),
-        };
+        let model = get_model(arch).expect("Unknown architecture {arch}");
         let kv_cache = if use_kv_cache {
             let v = TaggedNdArray::F32(NdArray::new_empty(Shape(vec![
                 1,
@@ -267,6 +251,7 @@ pub fn main() -> Result<()> {
         ("qwen", "Qwen/Qwen3-0.6B"),
         ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),
         ("phi", "microsoft/Phi-4-mini-instruct"),
+        ("modernbert", "jhu-clsp/ettin-decoder-17m"),
     ]);
 
     let model_name = models
