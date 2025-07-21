@@ -14,13 +14,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use tokenizers::tokenizer::{Result, Tokenizer};
 
-use crate::models::gemma::Model as GemmaModel;
-use crate::models::gpt2::Model as GPT2Model;
-use crate::models::llama::Model as LlamaModel;
-use crate::models::olmo::Model as OlmoModel;
-use crate::models::phi::Model as PhiModel;
-use crate::models::qwen::Model as QwenModel;
-use crate::models::utils::{Cache, Config, ModelBuilder};
+use crate::models::utils::{Cache, Config, ModelBuilder, get_model};
 
 use crate::utils::{get_model_files, read_safetensors_multiple};
 
@@ -116,16 +110,7 @@ impl ModelRunner {
     ) -> Result<ModelRunner> {
         let arch = &config.architectures[0];
 
-        let mut model: Box<dyn ModelBuilder> = match arch.as_str() {
-            "LlamaForCausalLM" => Box::new(LlamaModel {}),
-            "Olmo2ForCausalLM" => Box::new(OlmoModel {}),
-            "Qwen3ForCausalLM" => Box::new(QwenModel {}),
-            "Gemma3ForCausalLM" => Box::new(GemmaModel {}),
-            "Phi3ForCausalLM" => Box::new(PhiModel {}),
-            "GPT2LMHeadModel" => Box::new(GPT2Model {}),
-            _ => return Err("Unknown architecture {arch}".into()),
-        };
-
+        let mut model = get_model(arch)?;
         let mut tensors = read_safetensors_multiple(model_paths);
         model.post_load(&mut tensors);
 
