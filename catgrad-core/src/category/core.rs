@@ -24,7 +24,10 @@ pub enum TensorOp {
 
     /// Reduce a tensor one one dimension using binary operation which is assumed to be associative
     /// `Reduce (.., N, ..) → (.., 1, ..)`
-    Reduce(RingOp, usize),
+    Reduce(RingOp, i8),
+
+    /// Reshape one operation into another
+    Reshape,
 
     /// Batch matrix multiplication
     /// `MatMul : (N, A, B) ● (N, B, C) → (N, A, C)`
