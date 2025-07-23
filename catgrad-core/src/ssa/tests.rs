@@ -1,0 +1,149 @@
+use super::*;
+use crate::category::core::{Dtype, NdArrayType, RingOp, TensorOp};
+use open_hypergraphs::lax::OpenHypergraph;
+
+use std::fmt::Debug;
+
+fn print_ssa_form<O: Debug, A: Debug>(ssa_form: &[SSA<O, A>]) {
+    println!("SSA Decomposition:");
+    for ssa_instruction in ssa_form.iter() {
+        // Print targets
+        let target_strs: Vec<String> = ssa_instruction
+            .targets
+            .iter()
+            .map(|(node_id, _type)| format!("v{}", node_id.0))
+            .collect();
+
+        // Print sources
+        let source_strs: Vec<String> = ssa_instruction
+            .sources
+            .iter()
+            .map(|(node_id, _type)| format!("v{}", node_id.0))
+            .collect();
+
+        println!(
+            "{} = {:?}({})",
+            target_strs.join(", "),
+            ssa_instruction.op,
+            source_strs.join(", ")
+        );
+    }
+}
+
+#[test]
+fn test_simple_operation_ssa() {
+    // Start with a simpler test - just one Map operation
+    let input_type = NdArrayType {
+        shape: vec![2, 2],
+        dtype: Dtype::F32,
+    };
+    let output_type = NdArrayType {
+        shape: vec![2, 2],
+        dtype: Dtype::F32,
+    };
+
+    // Build the open hypergraph
+    let mut graph = OpenHypergraph::empty();
+
+    // Create input and output nodes
+    let input_node = graph.new_node(input_type);
+    let output_node = graph.new_node(output_type);
+
+    // Add a simple Map operation (negation)
+    let _ = graph.new_edge(
+        TensorOp::Map(RingOp::Neg),
+        lax::Hyperedge {
+            sources: vec![input_node],
+            targets: vec![output_node],
+        },
+    );
+
+    // Set global sources and targets
+    graph.sources = vec![input_node];
+    graph.targets = vec![output_node];
+
+    // Convert to strict form for SSA decomposition
+    let strict_graph = graph.to_open_hypergraph();
+
+    // Decompose to SSA
+    let ssa_form = ssa(strict_graph);
+
+    // Print the SSA
+    print_ssa_form(&ssa_form);
+
+    // Basic assertions
+    assert_eq!(ssa_form.len(), 1); // Should have 1 operation
+}
+
+#[test]
+fn test_matmul_and_pointwise_sum_ssa() {
+    // Create tensor types
+    let matrix_a_type = NdArrayType {
+        shape: vec![2, 3],
+        dtype: Dtype::F32,
+    };
+    let matrix_b_type = NdArrayType {
+        shape: vec![3, 4],
+        dtype: Dtype::F32,
+    };
+    let result_matmul_type = NdArrayType {
+        shape: vec![2, 4],
+        dtype: Dtype::F32,
+    };
+    let vector_type = NdArrayType {
+        shape: vec![2, 4],
+        dtype: Dtype::F32,
+    };
+    let final_result_type = NdArrayType {
+        shape: vec![2, 4],
+        dtype: Dtype::F32,
+    };
+
+    // Build the open hypergraph
+    let mut graph = OpenHypergraph::empty();
+
+    // Create input nodes
+    let a_node = graph.new_node(matrix_a_type);
+    let b_node = graph.new_node(matrix_b_type);
+    let c_node = graph.new_node(vector_type);
+
+    // Create intermediate result node for matmul
+    let matmul_result_node = graph.new_node(result_matmul_type);
+
+    // Create final result node
+    let final_result_node = graph.new_node(final_result_type);
+
+    // Add matrix multiplication edge (Contract operation)
+    let _matmul_edge = graph.new_edge(
+        TensorOp::MatMul,
+        lax::Hyperedge {
+            sources: vec![a_node, b_node],
+            targets: vec![matmul_result_node],
+        },
+    );
+
+    // Add pointwise sum edge (Map operation)
+    let _sum_edge = graph.new_edge(
+        TensorOp::Map(RingOp::Add),
+        lax::Hyperedge {
+            sources: vec![matmul_result_node, c_node],
+            targets: vec![final_result_node],
+        },
+    );
+
+    // Set global sources and targets
+    graph.sources = vec![a_node, b_node, c_node];
+    graph.targets = vec![final_result_node];
+
+    // Convert to strict form for SSA decomposition
+    let strict_graph = graph.to_open_hypergraph();
+
+    // Decompose to SSA
+    let ssa_form = ssa(strict_graph);
+
+    // Print the SSA
+    print_ssa_form(&ssa_form);
+
+    // Basic assertions
+    assert_eq!(ssa_form.len(), 2); // Should have 2 operations: matmul + pointwise sum
+}
