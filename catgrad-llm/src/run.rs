@@ -62,6 +62,12 @@ impl ModelTokenizer {
     fn new(tokenizer_path: PathBuf, chat_template: String) -> serve::Result<Self> {
         let tokenizer = Tokenizer::from_file(tokenizer_path)?;
 
+        // Modify the loaded chat template so it can be parsed by Minijinja
+        // These non-standard tags are only used while training some models.
+        let chat_template = chat_template
+            .replace("{% generation %}", "")
+            .replace("{% endgeneration %}", "");
+
         Ok(Self {
             tokenizer,
             chat_template,
