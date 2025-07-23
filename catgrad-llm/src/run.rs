@@ -16,7 +16,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 
 use crate::models::utils::{Cache, Config, ModelBuilder, get_model};
 
-use crate::utils::{get_model_files, read_safetensors_multiple};
+use crate::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 
 use crate::serve;
 
@@ -25,7 +25,7 @@ pub struct ModelLoader {
     config: Config,
     model_paths: Vec<PathBuf>,
     tokenizer_path: PathBuf,
-    tokenizer_config_path: PathBuf,
+    chat_template: String,
     use_kv_cache: bool,
 }
 
@@ -38,16 +38,16 @@ fn read_to_value<V: for<'a> serde::Deserialize<'a>>(path: PathBuf) -> Result<V> 
 
 impl ModelLoader {
     pub fn new(model_name: &str, use_kv_cache: bool) -> serve::Result<Self> {
-        let (model_paths, config_path, tokenizer_path, tokenizer_config_path) =
-            get_model_files(model_name, "main");
+        let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main");
 
+        let chat_template = get_model_chat_template(model_name, "main");
         let config: Config = read_to_value(config_path)?;
 
         Ok(Self {
             config,
             model_paths,
             tokenizer_path,
-            tokenizer_config_path,
+            chat_template,
             use_kv_cache,
         })
     }
@@ -59,15 +59,8 @@ pub struct ModelTokenizer {
 }
 
 impl ModelTokenizer {
-    fn new(tokenizer_path: PathBuf, tokenizer_config_path: PathBuf) -> serve::Result<Self> {
+    fn new(tokenizer_path: PathBuf, chat_template: String) -> serve::Result<Self> {
         let tokenizer = Tokenizer::from_file(tokenizer_path)?;
-
-        let tokenizer_config: serde_json::Value = read_to_value(tokenizer_config_path)?;
-        let chat_template = tokenizer_config
-            .get("chat_template")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
 
         Ok(Self {
             tokenizer,
@@ -240,9 +233,6 @@ impl serve::Loader<i32, ModelRunner, ModelTokenizer> for ModelLoader {
     }
 
     fn load_tokenizer(&self) -> serve::Result<ModelTokenizer> {
-        ModelTokenizer::new(
-            self.tokenizer_path.clone(),
-            self.tokenizer_config_path.clone(),
-        )
+        ModelTokenizer::new(self.tokenizer_path.clone(), self.chat_template.clone())
     }
 }
