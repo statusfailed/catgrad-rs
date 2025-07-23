@@ -29,6 +29,10 @@ pub struct Config {
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
     pub head_dim: usize,
+    pub attention_multiplier: f32,
+    pub embedding_multiplier: f32,
+    pub residual_multiplier: f32,
+    pub logits_scaling: f32,
     pub rope_theta: f32,
     pub local_rope_theta: f32,
     pub global_rope_theta: f32,
@@ -139,6 +143,7 @@ pub trait ModelBuilder {
 
 use super::gemma::Model as GemmaModel;
 use super::gpt2::Model as GPT2Model;
+use super::granite::Model as GraniteModel;
 use super::llama::Model as LlamaModel;
 use super::modernbert::Model as ModernBertDecoderModel;
 use super::olmo::Model as OlmoModel;
@@ -152,6 +157,7 @@ pub fn get_model(arch: &str) -> Result<Box<dyn ModelBuilder>, String> {
         "Olmo2ForCausalLM" => Ok(Box::new(OlmoModel {})),
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
+        "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
         "ModernBertDecoderForCausalLM" => Ok(Box::new(ModernBertDecoderModel {})),
         "Phi3ForCausalLM" => Ok(Box::new(PhiModel {})),
         "SmolLM3ForCausalLM" => Ok(Box::new(SmolLM3Model {})),
