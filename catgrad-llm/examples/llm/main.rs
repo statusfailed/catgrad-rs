@@ -249,6 +249,7 @@ pub fn main() -> Result<()> {
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
+        ("granite", "ibm-granite/granite-3.3-2b-instruct"),
         ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),
         ("phi", "microsoft/Phi-4-mini-instruct"),
         ("modernbert", "jhu-clsp/ettin-decoder-17m"),
