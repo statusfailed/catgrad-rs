@@ -8,7 +8,7 @@ pub struct NdArrayType {
     pub shape: Shape,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Dtype {
     F32,
 }
@@ -25,6 +25,12 @@ pub enum TensorOp {
     /// Reduce a tensor one one dimension using binary operation which is assumed to be associative
     /// `Reduce (.., N, ..) → (.., 1, ..)`
     Reduce(RingOp, i8),
+
+    /// S ● ... ● S → N×S
+    Stack,
+
+    /// N×S → S ● ... ● S
+    Split,
 
     /// Reshape one operation into another
     Reshape,

@@ -5,6 +5,7 @@ use open_hypergraphs::{lax, strict};
 /// A single static assignment of the form
 /// `s₀, s₁, s₂, ... = op(t₀, t₁, ..., tn)`
 /// where each `s_i`, `t_i` is a
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SSA<O, A> {
     pub op: A,
     pub sources: Vec<(lax::NodeId, O)>, // source nodes and type labels
