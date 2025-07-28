@@ -55,6 +55,17 @@ impl ModelBuilder for Model {
     }
 }
 
+// Build linear layer from weight params
+fn linear_w(builder: &Builder, in_dim: usize, out_dim: usize, weight: Var, x: Var) -> Var {
+    let mut w_t = transpose(builder, 1, 2, weight);
+    if x.label.shape.0.len() == 3 {
+        let batch_size = x.label.shape.0[0];
+        w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
+    }
+
+    mat_mul(builder, x, w_t)
+}
+
 impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(
@@ -152,6 +163,135 @@ impl Model {
         )
     }
 
+    pub fn moe(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+        let moe_input_type = NdArrayType::new(
+            Shape(vec![
+                config.num_local_experts,
+                2 * config.intermediate_size,
+                config.hidden_size,
+            ]),
+            x.label.dtype,
+        );
+        let moe_input = parameter(
+            builder,
+            moe_input_type,
+            format!("{name}.input_linear.weight"),
+        );
+
+        let moe_output_type = NdArrayType::new(
+            Shape(vec![
+                config.num_local_experts,
+                config.hidden_size,
+                config.intermediate_size,
+            ]),
+            x.label.dtype,
+        );
+        let moe_output = parameter(
+            builder,
+            moe_output_type,
+            format!("{name}.output_linear.weight"),
+        );
+
+        let seq_len = x.label.shape.0[1];
+
+        let routed = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.num_local_experts,
+            &format!("{name}.router.layer"),
+            x.clone(),
+        );
+
+        let vi = topk(builder, config.num_experts_per_tok, routed);
+        let values = vi[0].clone();
+        let indices = vi[1].clone();
+
+        let indices = reshape(
+            builder,
+            Shape(vec![seq_len, config.num_experts_per_tok]),
+            indices,
+        );
+
+        let values = reshape(
+            builder,
+            Shape(vec![seq_len, config.num_experts_per_tok]),
+            values,
+        );
+        let mut xs = x.label.shape.0.clone();
+        xs[1] = 0;
+
+        let sumk_type = NdArrayType::new(Shape(xs), x.label.dtype);
+        let mut sumk_all = Var::new(builder.clone(), sumk_type);
+        let fullx = x;
+        for s in 0..seq_len {
+            let x = get(builder, 1, s, fullx.clone());
+            let mut sumk = constant(builder, x.label.clone(), 0.0);
+
+            let idx = get(builder, 0, s, indices.clone());
+            let idx = squeeze(builder, 0, idx);
+            let val = get(builder, 0, s, values.clone());
+            let val = squeeze(builder, 0, val);
+
+            let moe_in = index(builder, 0, moe_input.clone(), idx.clone());
+            let moe_out = index(builder, 0, moe_output.clone(), idx);
+
+            let sm = softmax(builder, val);
+
+            let sm = reshape(builder, Shape(vec![config.num_experts_per_tok, 1, 1]), sm);
+            let sm = expand(
+                builder,
+                Shape(vec![
+                    config.num_experts_per_tok,
+                    config.hidden_size,
+                    config.intermediate_size,
+                ]),
+                sm,
+            );
+            let moe_out = moe_out * sm;
+
+            for i in 0..config.num_experts_per_tok {
+                let gate_up = narrow(builder, 0, i, 1, moe_in.clone());
+                let out = narrow(builder, 0, i, 1, moe_out.clone());
+                let gate_up = split(builder, 1, 2, gate_up);
+                let gate = gate_up[0].clone();
+                let up = gate_up[1].clone();
+
+                let gate = linear_w(
+                    builder,
+                    config.hidden_size,
+                    config.intermediate_size,
+                    gate,
+                    x.clone(),
+                );
+
+                let up = linear_w(
+                    builder,
+                    config.hidden_size,
+                    config.intermediate_size,
+                    up,
+                    x.clone(),
+                );
+                let x = silu(builder, gate) * up; // SwiGLU
+
+                let x = linear_w(
+                    builder,
+                    config.intermediate_size,
+                    config.hidden_size,
+                    out,
+                    x.clone(),
+                );
+
+                if i == 0 {
+                    sumk = x.clone();
+                } else {
+                    sumk = sumk + x.clone();
+                }
+            }
+            sumk_all = concat(builder, 1, sumk_all, sumk);
+        }
+        sumk_all
+    }
+
     pub fn layer(
         builder: &Builder,
         layer_id: usize,
@@ -188,8 +328,11 @@ impl Model {
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-
-        let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+        let x = if config.model_type == "granite" {
+            Model::mlp(builder, config, &format!("{name}.mlp"), x)
+        } else {
+            Model::moe(builder, config, &format!("{name}.block_sparse_moe"), x)
+        };
         res + x * mul
     }
 }
