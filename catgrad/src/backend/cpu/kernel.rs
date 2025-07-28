@@ -418,6 +418,29 @@ impl UnaryOp<f32> for ArgmaxOp {
     }
 }
 
+pub struct TopKOp {
+    pub k: usize,
+}
+
+impl TopKOp {
+    pub fn apply(&self, a: &NdArray<f32>, values: &mut NdArray<f32>, indices: &mut NdArray<i32>) {
+        let last_dim = a.shape.0[a.shape.0.len() - 1];
+        let mut values_data = values.data.borrow_mut();
+        let mut indices_data = indices.data.borrow_mut();
+
+        for (i, chunk) in a.data.borrow().chunks(last_dim).enumerate() {
+            let mut indexed_chunk: Vec<(usize, &f32)> = chunk.iter().enumerate().collect();
+            indexed_chunk.sort_unstable_by(|(_, v1), (_, v2)| v2.total_cmp(v1));
+
+            for j in 0..self.k {
+                let (original_index, value) = indexed_chunk[j];
+                values_data[i * self.k + j] = *value;
+                indices_data[i * self.k + j] = original_index as i32;
+            }
+        }
+    }
+}
+
 /// Broadcast input into a new shape.
 /// Ex: Input of shape [4, 5] broadcasted to shape [2, 3, 4, 5]
 /// will result in output of shape [2, 3, 4, 5] where the input is repeated 2x3 times.

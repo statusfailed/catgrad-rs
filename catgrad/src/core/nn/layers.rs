@@ -229,6 +229,21 @@ pub fn argmax(builder: &Builder, x: Var) -> Var {
     reduceop(builder, Operation::Argmax, x)
 }
 
+pub fn topk(builder: &Builder, k: usize, x: Var) -> Vec<Var> {
+    let source = x.label.clone();
+
+    // keep the last dimension, set it to k
+    let mut target_shape = source.shape.0.clone();
+    target_shape[source.shape.0.len() - 1] = k;
+    let shape = Shape(target_shape);
+
+    let target_v = NdArrayType::new(shape.clone(), source.dtype);
+    let target_i = NdArrayType::new(shape, Dtype::I32);
+
+    let op = Operation::TopK(k);
+    open_hypergraphs::lax::var::operation(builder, &[x], vec![target_v, target_i], op)
+}
+
 pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
     let in_t = x.label.clone();
 

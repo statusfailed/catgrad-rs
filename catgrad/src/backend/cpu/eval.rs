@@ -225,6 +225,16 @@ impl EvalState {
             | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
+            TopK(k) => {
+                let (i, j, l) = (sources[0], targets[0], targets[1]);
+                match self.data[..].get_disjoint_mut([i, j, l]) {
+                    Ok([F32(a), F32(b), I32(c)]) => {
+                        let op = kernel::TopKOp { k: *k };
+                        op.apply(a, b, c);
+                    }
+                    t => panic!("invalid type: {t:?}"),
+                }
+            }
             Cast => match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
                 Ok([F32(a), I32(b)]) => {
                     let a_data = a.data.borrow();
@@ -1066,6 +1076,28 @@ mod tests {
         };
 
         assert_eq!(actual, &expected.into());
+    }
+
+    #[test]
+    fn test_topk() {
+        let f = Operation::topk(NdArrayType::new(Shape(vec![2, 4]), Dtype::F32), 2);
+
+        let x = NdArray::new(
+            vec![1.0, 3.0, 2.0, 4.0, 8.0, 7.0, 5.0, 6.0],
+            Shape(vec![2, 4]),
+        );
+
+        let values = NdArray::new(vec![4.0, 3.0, 8.0, 7.0], Shape(vec![2, 2]));
+        let indices = NdArray::new(vec![3, 1, 0, 1], Shape(vec![2, 2]));
+
+        let mut state = EvalState::from_lax(f);
+
+        let [v, i] = state.eval_with(vec![x.into()])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        assert_eq!(v, &values.into());
+        assert_eq!(i, &indices.into());
     }
 
     // Var interface test
