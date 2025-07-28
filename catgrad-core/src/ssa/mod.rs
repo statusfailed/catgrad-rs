@@ -9,6 +9,7 @@ use std::fmt::{self, Debug, Display};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SSA<O, A> {
     pub op: A,
+    pub edge_id: lax::EdgeId,
     pub sources: Vec<(lax::NodeId, O)>, // source nodes and type labels
     pub targets: Vec<(lax::NodeId, O)>, // target nodes and type labels
 }
@@ -34,6 +35,7 @@ pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<
             let op = f.hypergraph.edges[*edge_id].clone();
             SSA {
                 op,
+                edge_id: lax::EdgeId(*edge_id),
                 sources: sources
                     .iter()
                     .map(|id| (*id, f.hypergraph.nodes[id.0].clone()))
@@ -65,7 +67,8 @@ impl<O: Debug, A: Debug> Display for SSA<O, A> {
 
         write!(
             f,
-            "{} = {:?}({})",
+            "{}:\t{} = {:?}({})",
+            self.edge_id.0,
             target_strs.join(", "),
             self.op,
             source_strs.join(", ")

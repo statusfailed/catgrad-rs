@@ -10,7 +10,8 @@ pub use super::core::{Dtype, TensorOp};
 /// Note that Nat and Rank-1 shapes are only isomorphic so we can safely index by naturals.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Object {
-    Nat,         // natural numbers
+    Nat, // natural numbers
+    Dtype,
     NdArrayType, // tuples of natural numbers (TODO: dtype)
     Tensor,
 }
@@ -20,6 +21,7 @@ pub enum Object {
 pub enum Operation {
     Type(TypeOp),
     Nat(NatOp),
+    DtypeConstant(Dtype),
     Tensor(core::TensorOp),
     Copy,
 }
@@ -28,28 +30,45 @@ pub enum Operation {
 pub enum NatOp {
     Constant(usize),
 
-    // Multiply
+    // Multiply n naturals
     Mul,
-
-    /// Lift a natural number to a rank-1 shape and dtype
-    /// `Lift : Nat → Type`
-    Lift(Dtype),
 }
 
 /// Operations involving shapes
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TypeOp {
-    /// Concatenate n shapes
-    Concat,
+    /// Pack a Dtype and k Nats into a shape
+    /// Pack : Dtype × Nat^k → Type
+    Pack,
 
-    /// Split a shape into a fixed number of nats
-    Split,
+    /// Split a shape into dtype and nat dimensions
+    /// Unpack : Type → Dtype × Nat^k
+    Unpack,
+
+    /// Declare the type of a tensor
+    /// Tensor × Type → Tensor
+    Annotate,
+
+    /// Opposite of annotate.
+    /// Tensor → Type × Tensor
+    Coannotate,
 }
 
 // Copy lets us use HasVar
 impl var::HasVar for Operation {
     fn var() -> Self {
         Operation::Copy
+    }
+}
+
+impl var::HasMul<Object, Operation> for Operation {
+    fn mul(lhs_type: Object, rhs_type: Object) -> (Object, Operation) {
+        assert_eq!(lhs_type, rhs_type);
+        match lhs_type {
+            Object::Nat => (Object::Nat, Operation::Nat(NatOp::Mul)),
+            Object::Tensor => (Object::Tensor, Operation::Nat(NatOp::Mul)),
+            obj => panic!("no Mul operator for Object {:?}", obj),
+        }
     }
 }
 
@@ -61,7 +80,78 @@ use std::rc::Rc;
 pub type Builder = Rc<RefCell<Term>>;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Helpers
+// Type Helpers
+
+/// Unpack a shape into a dtype and its constituent Nat dimensions
+pub fn shape_unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
+    assert_eq!(x.label, Object::NdArrayType);
+
+    let mut ty = vec![Object::Nat; N + 1];
+    ty[0] = Object::Dtype;
+
+    let elements = var::operation(builder, &[x], ty, Operation::Type(TypeOp::Unpack));
+
+    let mut iter = elements.into_iter();
+    let head = iter.next().unwrap();
+    let tail: [Var; N] = iter_to_array(iter).expect("N elements");
+    (head, tail)
+}
+
+fn iter_to_array<T, const N: usize>(mut iter: impl Iterator<Item = T>) -> Option<[T; N]> {
+    let mut vec = Vec::with_capacity(N);
+    for _ in 0..N {
+        vec.push(iter.next()?);
+    }
+    vec.try_into().ok()
+}
+
+/// Pack a fixed number of Nat values into a specific shape
+pub fn shape_pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var {
+    // should all be *shapes*.
+    // TODO: if a nat, auto-lift to shape using Lift?
+    assert_eq!(dtype.label, Object::Dtype);
+
+    for x in &xs {
+        assert_eq!(x.label, Object::Nat);
+    }
+
+    let args: Vec<Var> = std::iter::once(dtype).chain(xs).collect();
+    var::fn_operation(
+        builder,
+        &args,
+        Object::NdArrayType,
+        Operation::Type(TypeOp::Pack),
+    )
+}
+
+// x : t
+pub fn annotate(builder: &Builder, x: Var, t: Var) -> Var {
+    var::fn_operation(
+        builder,
+        &[x, t],
+        Object::Tensor,
+        Operation::Type(TypeOp::Coannotate),
+    )
+}
+
+// tensor → tensor × type
+pub fn coannotate(builder: &Builder, x: Var) -> (Var, Var) {
+    let result = var::operation(
+        builder,
+        &[x],
+        vec![Object::Tensor, Object::NdArrayType],
+        Operation::Type(TypeOp::Coannotate),
+    );
+    assert_eq!(result.len(), 2);
+    (result[0].clone(), result[1].clone())
+}
+
+pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
+    var::fn_operation(builder, &[], Object::Dtype, Operation::DtypeConstant(dtype))
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Tensor Helpers
 
 /// Batch matmul
 pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
