@@ -3,6 +3,7 @@ use crate::category::shape::*;
 use crate::ssa::*;
 use open_hypergraphs::lax::NodeId;
 
+#[derive(Debug)]
 pub enum ShapeCheckError {
     /// SSA ordering was invalid: an op depended on some arguments which did not have a value at
     /// time of [`apply`]
@@ -11,7 +12,8 @@ pub enum ShapeCheckError {
     /// Some nodes in the term were not evaluated during shapechecking
     Unevaluated(Vec<NodeId>),
 
-    ApplyError(ApplyError),
+    /// Error trying to apply an operation
+    ApplyError(ApplyError, SSA<Object, Operation>, Vec<Value>),
 }
 
 pub type ShapeCheckResult = Result<Vec<Value>, ShapeCheckError>;
@@ -89,12 +91,15 @@ pub fn check(term: Term) -> ShapeCheckResult {
             if let Some(value) = state[*i].clone() {
                 args.push(value)
             } else {
+                let v = state[*i].clone();
+                println!("{i}: {v:?}");
                 return Err(ShapeCheckError::EvaluationOrder);
             }
         }
 
         // Compute output values and write into the graph
-        let coargs = apply(&op, &args).map_err(ShapeCheckError::ApplyError)?;
+        let coargs =
+            apply(&op, &args).map_err(|e| ShapeCheckError::ApplyError(e, op.clone(), args))?;
         for ((NodeId(i), _), value) in op.targets.iter().zip(coargs.into_iter()) {
             state[*i] = Some(value)
         }
@@ -108,6 +113,7 @@ fn var(id: NodeId, ty: Object) -> Value {
         Object::Nat => Value::Nat(NatExpr::Var(id)),
         Object::NdArrayType => Value::Type(TypeExpr::Var(id)),
         Object::Tensor => Value::Tensor(TypeExpr::Var(id)),
+        Object::Dtype => Value::Dtype(DtypeExpr::Var(id)),
     }
 }
 
@@ -132,6 +138,7 @@ fn node_values<T>(v: Vec<Option<T>>) -> Result<Vec<T>, Vec<NodeId>> {
 ////////////////////////////////////////////////////////////////////////////////
 // Apply and helper functions
 
+#[derive(Debug)]
 pub enum ApplyError {
     ArityError,
     TypeError,
@@ -142,9 +149,10 @@ pub type ApplyResult = Result<Vec<Value>, ApplyError>;
 pub fn apply(ssa: &SSA<Object, Operation>, args: &[Value]) -> ApplyResult {
     // Unwrap each optional value-
     match &ssa.op {
-        Operation::Type(op) => shape_op(&op, args),
-        Operation::Nat(op) => nat_op(&op, args),
-        Operation::Tensor(op) => tensor_op(&op, args),
+        Operation::Type(op) => type_op(op, args),
+        Operation::DtypeConstant(d) => Ok(vec![Value::Dtype(DtypeExpr::Constant(d.clone()))]),
+        Operation::Nat(op) => nat_op(op, args),
+        Operation::Tensor(op) => tensor_op(op, args),
         Operation::Copy => Ok(args.iter().cloned().chain(args.iter().cloned()).collect()),
     }
 }
@@ -152,16 +160,42 @@ pub fn apply(ssa: &SSA<Object, Operation>, args: &[Value]) -> ApplyResult {
 ////////////////////////////////////////
 // TypeOp application + helpers
 
-fn shape_op(op: &TypeOp, args: &[Value]) -> ApplyResult {
-    use TypeOp::*;
+fn type_op(op: &TypeOp, args: &[Value]) -> ApplyResult {
     match op {
-        Concat => type_concat(args),
-        Split => type_split(args),
-        _ => todo!(),
+        TypeOp::Pack => type_pack(args),
+        TypeOp::Unpack => type_unpack(args),
+        TypeOp::Coannotate => type_coannotate(args),
+        TypeOp::Annotate => type_annotate(args),
     }
 }
 
-fn type_concat(args: &[Value]) -> ApplyResult {
+fn type_coannotate(args: &[Value]) -> ApplyResult {
+    if args.len() != 1 {
+        return Err(ApplyError::ArityError);
+    }
+
+    match &args[0] {
+        Value::Tensor(t) => {
+            let v = Value::Type(t.clone());
+            Ok(vec![v.clone(), v])
+        }
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn type_annotate(args: &[Value]) -> ApplyResult {
+    if args.len() != 2 {
+        return Err(ApplyError::ArityError);
+    }
+
+    // TODO: FIXME: what if we annotate the same variable with different annotations?
+    match (&args[0], &args[1]) {
+        (Value::Tensor(TypeExpr::Var(v)), Value::Type(t)) => Ok(vec![Value::Type(t.clone())]),
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn type_pack(args: &[Value]) -> ApplyResult {
     // concat should have n Value::Type(t) args.
     // Match on all, then compute their concatenation as the final result.
     let mut types: Vec<NdArrayType> = Vec::new();
@@ -185,9 +219,26 @@ fn type_concat(args: &[Value]) -> ApplyResult {
     }))])
 }
 
-fn type_split(args: &[Value]) -> ApplyResult {
-    // len = 1 or error
-    todo!()
+fn type_unpack(args: &[Value]) -> ApplyResult {
+    // type_split should have exactly 1 Value::Type arg
+    if args.len() != 1 {
+        return Err(ApplyError::ArityError);
+    }
+
+    match &args[0] {
+        Value::Type(TypeExpr::NdArrayType(ty)) => {
+            // Split the shape into individual dimensions, each as a separate NdArrayType
+            let mut result = Vec::new();
+            for dim in &ty.shape {
+                result.push(Value::Type(TypeExpr::NdArrayType(NdArrayType {
+                    dtype: ty.dtype.clone(),
+                    shape: vec![dim.clone()],
+                })));
+            }
+            Ok(result)
+        }
+        _ => Err(ApplyError::TypeError),
+    }
 }
 
 // Get a unique item from a list, or None if no or multiple elements.
@@ -203,7 +254,6 @@ fn unique<T: PartialEq + Clone>(mut iter: impl Iterator<Item = T>) -> Option<T> 
 
 ////////////////////////////////////////
 // Nat op application + helpers
-
 fn nat_op(op: &NatOp, args: &[Value]) -> ApplyResult {
     todo!()
 }
