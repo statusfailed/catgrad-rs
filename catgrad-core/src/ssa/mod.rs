@@ -1,6 +1,7 @@
 //! Convert an OpenHypergraph to SSA form
 use open_hypergraphs::array::vec::VecKind;
 use open_hypergraphs::{lax, strict};
+use std::fmt::{self, Debug, Display};
 
 /// A single static assignment of the form
 /// `s₀, s₁, s₂, ... = op(t₀, t₁, ..., tn)`
@@ -44,6 +45,32 @@ pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<
             }
         })
         .collect()
+}
+
+impl<O: Debug, A: Debug> Display for SSA<O, A> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Print targets
+        let target_strs: Vec<String> = self
+            .targets
+            .iter()
+            .map(|(node_id, _type)| format!("v{}", node_id.0))
+            .collect();
+
+        // Print sources
+        let source_strs: Vec<String> = self
+            .sources
+            .iter()
+            .map(|(node_id, _type)| format!("v{}", node_id.0))
+            .collect();
+
+        write!(
+            f,
+            "{} = {:?}({})",
+            target_strs.join(", "),
+            self.op,
+            source_strs.join(", ")
+        )
+    }
 }
 
 #[cfg(test)]

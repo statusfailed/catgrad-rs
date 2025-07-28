@@ -2,32 +2,14 @@ use super::*;
 use crate::category::core::{Dtype, NdArrayType, RingOp, TensorOp};
 use open_hypergraphs::lax::OpenHypergraph;
 
-use std::fmt::Debug;
-
-fn print_ssa_form<O: Debug, A: Debug>(ssa_form: &[SSA<O, A>]) {
-    println!("SSA Decomposition:");
-    for ssa_instruction in ssa_form.iter() {
-        // Print targets
-        let target_strs: Vec<String> = ssa_instruction
-            .targets
-            .iter()
-            .map(|(node_id, _type)| format!("v{}", node_id.0))
-            .collect();
-
-        // Print sources
-        let source_strs: Vec<String> = ssa_instruction
-            .sources
-            .iter()
-            .map(|(node_id, _type)| format!("v{}", node_id.0))
-            .collect();
-
-        println!(
-            "{} = {:?}({})",
-            target_strs.join(", "),
-            ssa_instruction.op,
-            source_strs.join(", ")
-        );
-    }
+fn print_ssa(ssa: &[SSA<NdArrayType, TensorOp>]) {
+    println!(
+        "{}",
+        ssa.iter()
+            .map(|ssa| format!("{ssa}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
 }
 
 #[test]
@@ -69,7 +51,8 @@ fn test_simple_operation_ssa() {
     let ssa_form = ssa(strict_graph);
 
     // Print the SSA
-    print_ssa_form(&ssa_form);
+    println!("SSA Decomposition:");
+    print_ssa(&ssa_form);
 
     // Basic assertions
     assert_eq!(ssa_form.len(), 1); // Should have 1 operation
@@ -142,7 +125,8 @@ fn test_matmul_and_pointwise_sum_ssa() {
     let ssa_form = ssa(strict_graph);
 
     // Print the SSA
-    print_ssa_form(&ssa_form);
+    println!("SSA Decomposition:");
+    print_ssa(&ssa_form);
 
     // Basic assertions
     assert_eq!(ssa_form.len(), 2); // Should have 2 operations: matmul + pointwise sum
