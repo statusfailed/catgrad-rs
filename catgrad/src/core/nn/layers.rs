@@ -108,6 +108,19 @@ pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
     outputs
 }
 
+pub fn squeeze(builder: &Builder, dim: usize, x: Var) -> Var {
+    let mut output_shape = x.label.shape.0.clone();
+    assert!(output_shape[dim] == 1);
+    output_shape.remove(dim);
+    reshape(builder, Shape(output_shape), x)
+}
+
+pub fn unsqueeze(builder: &Builder, dim: usize, x: Var) -> Var {
+    let mut output_shape = x.label.shape.0.clone();
+    output_shape.insert(dim, 1);
+    reshape(builder, Shape(output_shape), x)
+}
+
 pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
     assert!(
         x.label.shape.0[dim] >= start + length,
@@ -1130,6 +1143,35 @@ mod tests {
         assert_eq!(y2.get(&[0, 1]), 5.);
         assert_eq!(y2.get(&[3, 0]), 4.);
         assert_eq!(y2.get(&[3, 1]), 5.);
+    }
+
+    #[test]
+    fn test_squeeze_unsqueeze() {
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, 4, Dtype::F32);
+            let i = reshape(builder, Shape(vec![1, 4, 1]), i);
+            let s0 = squeeze(builder, 0, i.clone());
+            let s2 = squeeze(builder, 2, i.clone());
+
+            let j = unsqueeze(builder, 1, s0.clone());
+            (vec![], vec![i, s0, s2, j])
+        });
+
+        let [i, s0, s2, j] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // i = [[[0], [1], [2], [3]]]
+        assert_eq!(i.shape(), Shape(vec![1, 4, 1]));
+
+        // s0 = squeeze(i, 0) = [[0], [1], [2], [3]]
+        assert_eq!(s0.shape(), Shape(vec![4, 1]));
+
+        // s2 = squeeze(i, 2) = [[0, 1, 2, 3]]
+        assert_eq!(s2.shape(), Shape(vec![1, 4]));
+
+        // j = unsqueeze(s0, 1) = [[[0]], [[1]], [[2]], [[3]]]
+        assert_eq!(j.shape(), Shape(vec![4, 1, 1]));
     }
 
     #[test]
