@@ -52,7 +52,8 @@ pub enum Operation {
     /// Argmax value across last dimension
     Argmax,
 
-    /// TopK value across last dimension
+    /// Top K largest values and their indices across last dimension
+    /// InputArray -> [ValuesArray, IndicesArray] two outputs with last dim of length K
     TopK(usize),
 
     /// Broadcast a value to one of shape n+x.
