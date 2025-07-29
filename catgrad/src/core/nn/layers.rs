@@ -68,9 +68,10 @@ pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
 pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
     let mut shape = indices.label.shape.0.clone();
     shape.push(weights.label.shape.0[1]);
-    let out_type = NdArrayType::new(Shape(shape), weights.label.dtype);
-    let op = Operation::Embedding;
-    operation(builder, &[indices, weights], out_type, op)
+    let output_type = NdArrayType::new(Shape(shape), weights.label.dtype);
+
+    let op = Operation::Index { dim: 0 };
+    operation(builder, &[weights, indices], output_type, op)
 }
 
 // Create range indices for indexing

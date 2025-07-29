@@ -317,41 +317,6 @@ impl EvalState {
                 }
             }
 
-            Embedding => {
-                // The first source is the indices and second source is the embedding table
-                let i = sources[0]; // indices
-                let j = sources[1]; // embedding weights
-                let k = targets[0]; // output
-
-                match self.data[..].get_disjoint_mut([i, j, k]) {
-                    Ok([I32(indices), F32(weights), F32(output)]) => {
-                        let embedding_dim = weights.shape.0[1];
-
-                        // Flatten indices for processing
-                        let flat_indices: Vec<_> = indices.data.borrow().to_vec();
-                        let mut flat_index = 0;
-
-                        // For each index, look up the corresponding embedding vector
-                        for &idx in &flat_indices {
-                            if idx < 0 || idx as usize >= weights.shape.0[0] {
-                                panic!("Embedding index {idx} out of bounds");
-                            }
-
-                            let mut data = output.data.borrow_mut();
-                            // Copy embedding vector for this index
-                            for j in 0..embedding_dim {
-                                // Get the vector at index idx
-                                let src_offset = (idx as usize) * embedding_dim + j;
-                                data[flat_index + j] = weights.data.borrow()[src_offset];
-                            }
-                            flat_index += embedding_dim;
-                        }
-                    }
-                    // Similar implementations for other numeric types
-                    _ => panic!("invalid type for embedding operation"),
-                }
-            }
-
             Index { dim } => {
                 // The first source is the indices and second source is the tensor
                 let i = sources[0]; // indices
