@@ -52,6 +52,10 @@ pub enum Operation {
     /// Argmax value across last dimension
     Argmax,
 
+    /// Top K largest values and their indices across last dimension
+    /// InputArray -> [ValuesArray, IndicesArray] two outputs with last dim of length K
+    TopK(usize),
+
     /// Broadcast a value to one of shape n+x.
     Broadcast(Shape),
 
@@ -297,6 +301,21 @@ impl Operation {
     // Make an OpenHypergraph for an Argmax operation
     pub fn argmax(x: NdArrayType) -> Term {
         Operation::reduceop(x, Operation::Argmax)
+    }
+
+    // Make an OpenHypergraph for an TopK operation
+    pub fn topk(x: NdArrayType, k: usize) -> Term {
+        let source = x.clone();
+        let mut shape_vec = x.shape.0.clone();
+        if let Some(last_dim) = shape_vec.last_mut() {
+            *last_dim = k;
+        }
+
+        let output_shape = Shape(shape_vec);
+
+        let values = NdArrayType::new(output_shape.clone(), x.dtype);
+        let indices = NdArrayType::new(output_shape, Dtype::I32);
+        Operation::term(Operation::TopK(k), vec![source], vec![values, indices])
     }
 }
 
