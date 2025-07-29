@@ -378,6 +378,25 @@ impl EvalState {
                             output.set(output_indices, input.get(&input_indices));
                         });
                     }
+                    Ok([I32(input), I32(indices), I32(output)]) => {
+                        let input_dim_size = input.shape.0[*dim];
+
+                        output.shape.clone().for_each_index(|_, output_indices| {
+                            let mut input_indices = output_indices.to_vec();
+
+                            let idx_pos = output_indices[*dim];
+                            let input_idx: usize = indices.get(&[idx_pos]) as usize;
+
+                            if input_idx >= input_dim_size {
+                                panic!(
+                                    "Index {input_idx} out of bounds for dimension size {input_dim_size}",
+                                );
+                            }
+
+                            input_indices[*dim] = input_idx;
+                            output.set(output_indices, input.get(&input_indices));
+                        });
+                    }
                     _ => panic!("invalid type for Index operation"),
                 }
             }
