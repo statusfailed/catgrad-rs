@@ -92,9 +92,6 @@ pub enum Operation {
     /// Inputs injected at runtime (model parameters)
     Parameter(String),
 
-    /// Embedding lookup
-    Embedding,
-
     /// Index operator
     Index {
         dim: usize,
