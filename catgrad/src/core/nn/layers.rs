@@ -93,6 +93,15 @@ pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
     operation(builder, &[input, indices], output_type, op)
 }
 
+pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
+    let output_type = NdArrayType {
+        shape: Shape(vec![1]),
+        dtype: Dtype::I32,
+    };
+    let k = constant(builder, output_type, k as f32);
+    index(builder, dim, input, k)
+}
+
 pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
     assert!(x.label.shape.0[dim] % splits == 0);
 

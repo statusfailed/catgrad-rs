@@ -29,6 +29,8 @@ pub struct Config {
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
     pub head_dim: usize,
+    pub num_experts_per_tok: usize,
+    pub num_local_experts: usize,
     pub attention_multiplier: f32,
     pub embedding_multiplier: f32,
     pub residual_multiplier: f32,
@@ -48,6 +50,7 @@ pub struct Config {
     pub tie_word_embeddings: bool,
     pub eos_token_id: Option<EosTokenId>,
     pub vocab_size: usize,
+    pub model_type: String,
     pub architectures: Vec<String>,
 }
 
@@ -158,6 +161,7 @@ pub fn get_model(arch: &str) -> Result<Box<dyn ModelBuilder>, String> {
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
         "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
+        "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
         "ModernBertDecoderForCausalLM" => Ok(Box::new(ModernBertDecoderModel {})),
         "Phi3ForCausalLM" => Ok(Box::new(PhiModel {})),
         "SmolLM3ForCausalLM" => Ok(Box::new(SmolLM3Model {})),
