@@ -327,6 +327,21 @@ impl EvalState {
                     Ok([F32(input), I32(indices), F32(output)]) => {
                         let input_dim_size = input.shape.0[*dim];
 
+                        // Optimized path for when the largest blocks can be copied.
+                        if *dim == 0 {
+                            let size: usize = input.shape.0[1..].iter().product();
+                            for (idx, &value) in indices.data.borrow().iter().enumerate() {
+                                let offset = idx * size;
+                                let mut ioffset = (value as usize) * size;
+                                if input.strides[0] == 0 {
+                                    ioffset = 0;
+                                }
+                                output.data.borrow_mut()[offset..offset + size].clone_from_slice(
+                                    &input.data.borrow()[ioffset..ioffset + size],
+                                );
+                            }
+                            return;
+                        }
                         output.shape.clone().for_each_index(|_, output_indices| {
                             let mut input_indices = output_indices.to_vec();
 
