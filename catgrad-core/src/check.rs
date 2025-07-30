@@ -49,7 +49,7 @@ pub enum TypeExpr {
 /// A symbolic shape value
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NdArrayType {
-    dtype: Dtype,
+    dtype: DtypeExpr,
     shape: Vec<NatExpr>,
 }
 
@@ -69,15 +69,26 @@ pub enum DtypeExpr {
 ////////////////////////////////////////////////////////////////////////////////
 // Shapecheck a term
 
-/// Assign a shape value to each node in a term (hypergraph).
 pub fn check(term: Term) -> ShapeCheckResult {
+    // Set a "Var" (symbolic) value for each input node
+    let source_values = term
+        .sources
+        .iter()
+        .map(|id| var(*id, term.hypergraph.nodes[id.0].clone()))
+        .collect();
+
+    check_with(term, source_values)
+}
+
+/// Assign a shape value to each node in a term (hypergraph).
+pub fn check_with(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
     // Create evaluation state
     let n = term.hypergraph.nodes.len();
     let mut state: Vec<Option<Value>> = vec![None; n];
 
     // Set a "Var" (symbolic) value for each input node
-    for id in term.sources.iter() {
-        state[id.0] = Some(var(*id, term.hypergraph.nodes[id.0].clone()))
+    for (i, id) in term.sources.iter().enumerate() {
+        state[id.0] = Some(source_values[i].clone());
     }
 
     // Create SSA
@@ -175,10 +186,7 @@ fn type_coannotate(args: &[Value]) -> ApplyResult {
     }
 
     match &args[0] {
-        Value::Tensor(t) => {
-            let v = Value::Type(t.clone());
-            Ok(vec![v.clone(), v])
-        }
+        Value::Tensor(t) => Ok(vec![Value::Tensor(t.clone()), Value::Type(t.clone())]),
         _ => Err(ApplyError::TypeError),
     }
 }
@@ -190,28 +198,30 @@ fn type_annotate(args: &[Value]) -> ApplyResult {
 
     // TODO: FIXME: what if we annotate the same variable with different annotations?
     match (&args[0], &args[1]) {
-        (Value::Tensor(TypeExpr::Var(v)), Value::Type(t)) => Ok(vec![Value::Type(t.clone())]),
+        (Value::Tensor(TypeExpr::Var(_)), Value::Type(t)) => Ok(vec![Value::Tensor(t.clone())]),
         _ => Err(ApplyError::TypeError),
     }
 }
 
 fn type_pack(args: &[Value]) -> ApplyResult {
-    // concat should have n Value::Type(t) args.
-    // Match on all, then compute their concatenation as the final result.
-    let mut types: Vec<NdArrayType> = Vec::new();
-    for arg in args {
+    // type_pack should have 1 dtype + n nat args
+    // Creates an NdArrayType from a dtype and individual nat dimensions
+    if args.is_empty() {
+        return Err(ApplyError::ArityError);
+    }
+
+    let dtype = match &args[0] {
+        Value::Dtype(d) => d.clone(),
+        _ => return Err(ApplyError::TypeError),
+    };
+
+    let mut shape = Vec::new();
+    for arg in &args[1..] {
         match arg {
-            Value::Type(TypeExpr::NdArrayType(ty)) => {
-                types.push(ty.clone());
-            }
+            Value::Nat(n) => shape.push(n.clone()),
             _ => return Err(ApplyError::TypeError),
         }
     }
-
-    let dtype = unique(types.iter().map(|t| &t.dtype))
-        .ok_or(ApplyError::TypeError)?
-        .clone();
-    let shape = types.into_iter().flat_map(|t| t.shape).collect();
 
     Ok(vec![Value::Type(TypeExpr::NdArrayType(NdArrayType {
         dtype,
@@ -220,52 +230,65 @@ fn type_pack(args: &[Value]) -> ApplyResult {
 }
 
 fn type_unpack(args: &[Value]) -> ApplyResult {
-    // type_split should have exactly 1 Value::Type arg
+    // type_unpack should have exactly 1 NdArrayType arg
+    // Returns dtype + individual nat dimensions
     if args.len() != 1 {
         return Err(ApplyError::ArityError);
     }
 
     match &args[0] {
         Value::Type(TypeExpr::NdArrayType(ty)) => {
-            // Split the shape into individual dimensions, each as a separate NdArrayType
             let mut result = Vec::new();
+
+            // First return the dtype
+            result.push(Value::Dtype(ty.dtype.clone()));
+
+            // Then return each dimension as individual nats
             for dim in &ty.shape {
-                result.push(Value::Type(TypeExpr::NdArrayType(NdArrayType {
-                    dtype: ty.dtype.clone(),
-                    shape: vec![dim.clone()],
-                })));
+                result.push(Value::Nat(dim.clone()));
             }
+
             Ok(result)
         }
         _ => Err(ApplyError::TypeError),
     }
 }
 
-// Get a unique item from a list, or None if no or multiple elements.
-fn unique<T: PartialEq + Clone>(mut iter: impl Iterator<Item = T>) -> Option<T> {
-    let first = iter.next()?;
-    for item in iter {
-        if item != first {
-            return None;
-        }
-    }
-    Some(first)
-}
-
 ////////////////////////////////////////
 // Nat op application + helpers
+
 fn nat_op(op: &NatOp, args: &[Value]) -> ApplyResult {
-    todo!()
+    match op {
+        NatOp::Constant(n) => {
+            if !args.is_empty() {
+                return Err(ApplyError::ArityError);
+            }
+            Ok(vec![Value::Nat(NatExpr::Constant(*n))])
+        }
+        NatOp::Mul => nat_mul(args),
+    }
 }
 
 fn nat_mul(args: &[Value]) -> ApplyResult {
-    // Construct a NdArrayType::Concat
-    todo!()
-}
+    // Multiply n natural numbers together
+    if args.is_empty() {
+        return Err(ApplyError::ArityError);
+    }
 
-fn nat_lift(args: &[Value]) -> ApplyResult {
-    // len = 1 or error
-    todo!()
+    let mut nat_exprs = Vec::new();
+    for arg in args {
+        match arg {
+            Value::Nat(n) => nat_exprs.push(n.clone()),
+            _ => return Err(ApplyError::TypeError),
+        }
+    }
+
+    // If there's only one argument, return it directly
+    if nat_exprs.len() == 1 {
+        Ok(vec![Value::Nat(nat_exprs.into_iter().next().unwrap())])
+    } else {
+        Ok(vec![Value::Nat(NatExpr::Mul(nat_exprs))])
+    }
 }
 
 ////////////////////////////////////////
@@ -275,16 +298,34 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
     match op {
         TensorOp::Stack => tensor_stack(args),
         TensorOp::Split => tensor_split(args),
+        TensorOp::Reshape => tensor_reshape(args),
         _ => todo!(),
     }
 }
 
-fn tensor_stack(args: &[Value]) -> ApplyResult {
+fn tensor_stack(_args: &[Value]) -> ApplyResult {
     // Construct a NdArrayType::Concat
     todo!()
 }
 
-fn tensor_split(args: &[Value]) -> ApplyResult {
+fn tensor_split(_args: &[Value]) -> ApplyResult {
     // len = 1 or error
     todo!()
+}
+
+fn tensor_reshape(args: &[Value]) -> ApplyResult {
+    // reshape takes 2 args: target type and input tensor
+    if args.len() != 2 {
+        return Err(ApplyError::ArityError);
+    }
+
+    // TODO: check output tensor is isomorphic!
+
+    match (&args[0], &args[1]) {
+        (Value::Type(target_type), Value::Tensor(_input_tensor)) => {
+            // The output tensor has the target type
+            Ok(vec![Value::Tensor(target_type.clone())])
+        }
+        _ => Err(ApplyError::TypeError),
+    }
 }

@@ -6,10 +6,11 @@
 use catgrad_core::{
     category::core,
     category::shape::{
-        Builder, Object, Term, Var, annotate, coannotate, dtype_constant, matmul, reshape,
-        shape_pack, shape_unpack,
+        Builder, Object, Operation, Term, Var, annotate, coannotate, dtype_constant, matmul,
+        reshape, shape_pack, shape_unpack,
     },
     check::check,
+    ssa::{SSA, ssa},
     util::build_typed,
 };
 
@@ -31,7 +32,7 @@ fn linear2(builder: &Builder, p: Var, q: Var, x: Var) -> Var {
 // Example terms
 
 fn reshape_rank2(builder: &Builder, x: Var) -> Var {
-    let (x, t) = coannotate(builder, x.clone());
+    let (x, t) = coannotate(builder, x);
     let (dtype, [a, b]) = shape_unpack::<2>(builder, t);
     let s = shape_pack::<1>(builder, dtype, [a * b]);
 
@@ -76,6 +77,18 @@ fn hidden_term() -> Term {
     .expect("valid term")
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Tests, utils
+
+fn print_ssa(ssa: Vec<SSA<Object, Operation>>) {
+    let str = ssa
+        .iter()
+        .map(|ssa| format!("{ssa}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    println!("{str}");
+}
+
 // Check we can construct the hidden layer network
 #[test]
 fn construct_example_terms() {
@@ -85,15 +98,9 @@ fn construct_example_terms() {
 
 #[test]
 fn test_reshape_rank2() {
-    use catgrad_core::ssa::ssa;
     // reshape (A, B) → (A*B)
     let term = reshape_rank2_term();
     let ssa = ssa(term.clone().to_open_hypergraph());
-    let debug = ssa
-        .iter()
-        .map(|ssa| format!("{ssa}"))
-        .collect::<Vec<_>>()
-        .join("\n");
-    println!("{debug}");
+    print_ssa(ssa);
     println!("{:?}", check(term));
 }

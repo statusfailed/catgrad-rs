@@ -67,7 +67,7 @@ impl var::HasMul<Object, Operation> for Operation {
         match lhs_type {
             Object::Nat => (Object::Nat, Operation::Nat(NatOp::Mul)),
             Object::Tensor => (Object::Tensor, Operation::Nat(NatOp::Mul)),
-            obj => panic!("no Mul operator for Object {:?}", obj),
+            obj => panic!("no Mul operator for Object {obj:?}"),
         }
     }
 }
@@ -130,7 +130,7 @@ pub fn annotate(builder: &Builder, x: Var, t: Var) -> Var {
         builder,
         &[x, t],
         Object::Tensor,
-        Operation::Type(TypeOp::Coannotate),
+        Operation::Type(TypeOp::Annotate),
     )
 }
 
