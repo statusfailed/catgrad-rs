@@ -6,8 +6,7 @@
 use catgrad_core::{
     category::core,
     category::shape::{
-        Builder, Object, Operation, Term, Var, coannotate, matmul, reshape, shape_pack,
-        shape_unpack,
+        Builder, Object, Operation, Var, coannotate, matmul, reshape, shape_pack, shape_unpack,
     },
     ssa::{SSA, ssa},
     util::build_typed,
@@ -27,32 +26,10 @@ fn linear2(builder: &Builder, p: Var, q: Var, x: Var) -> Var {
     linear(builder, q, x)
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Example terms
-
 // flatmul is a matmul-and-then-reshape
 // flatmul : (t: Shape) (p: s + (a, b)) (x : s + (b, c)) (t \cong s + (a, c)) : (y : t)
 fn flatmul(builder: &Builder, t: Var, f: Var, g: Var) -> Var {
     reshape(builder, t, matmul(builder, f, g))
-}
-
-fn flatmul_term() -> Term {
-    use Object::*;
-    build_typed([NdArrayType, Tensor, Tensor], |graph, [t, f, g]| {
-        let result = vec![flatmul(graph, t, f, g)];
-        result
-    })
-    .expect("valid term")
-}
-
-// Assemble the full term for `hidden`
-fn hidden_term() -> Term {
-    use Object::*;
-    build_typed([Tensor, Tensor, Tensor], |graph, [p, q, x]| {
-        let result = vec![linear2(graph, p, q, x)];
-        result
-    })
-    .expect("valid term")
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,8 +47,19 @@ fn print_ssa(ssa: Vec<SSA<Object, Operation>>) {
 // Check we can construct the hidden layer network
 #[test]
 fn construct_example_terms() {
-    hidden_term();
-    flatmul_term();
+    // Stack of 2 linear layers
+    use Object::*;
+
+    build_typed([Tensor, Tensor, Tensor], |graph, [p, q, x]| {
+        vec![linear2(graph, p, q, x)]
+    })
+    .expect("valid term");
+
+    // matmul + reshape
+    build_typed([NdArrayType, Tensor, Tensor], |graph, [t, f, g]| {
+        vec![flatmul(graph, t, f, g)]
+    })
+    .expect("valid term");
 }
 
 #[test]
