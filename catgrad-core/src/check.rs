@@ -1,13 +1,13 @@
 // Catgrad's shape checker is an abstract interpreter for the *shaped* dialect.
 use crate::category::shape::*;
 use crate::ssa::*;
-use open_hypergraphs::lax::NodeId;
+use open_hypergraphs::lax::{EdgeId, NodeId};
 
 #[derive(Debug)]
 pub enum ShapeCheckError {
     /// SSA ordering was invalid: an op depended on some arguments which did not have a value at
     /// time of [`apply`]
-    EvaluationOrder,
+    EvaluationOrder(EdgeId),
 
     /// Some nodes in the term were not evaluated during shapechecking
     Unevaluated(Vec<NodeId>),
@@ -41,7 +41,7 @@ pub enum Value {
 // This means concat is partial: if any Var appears, we cannot handle it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeExpr {
-    Var(NodeId),
+    Var(usize),
     NdArrayType(NdArrayType),
 }
 
@@ -49,39 +49,42 @@ pub enum TypeExpr {
 /// A symbolic shape value
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NdArrayType {
-    dtype: DtypeExpr,
-    shape: Vec<NatExpr>,
+    pub dtype: DtypeExpr,
+    pub shape: Vec<NatExpr>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NatExpr {
-    Var(NodeId),
+    Var(usize),
     Mul(Vec<NatExpr>),
     Constant(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DtypeExpr {
-    Var(NodeId),
+    Var(usize),
     Constant(Dtype),
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Shapecheck a term
 
-pub fn check(term: Term) -> ShapeCheckResult {
+/*
+pub fn check(term: Term, ty: Term) -> ShapeCheckResult {
     // Set a "Var" (symbolic) value for each input node
-    let source_values = term
+    let source_values = ty
         .sources
         .iter()
-        .map(|id| var(*id, term.hypergraph.nodes[id.0].clone()))
+        .enumerate()
+        .map(|(i, id)| var(i, term.hypergraph.nodes[id.0].clone()))
         .collect();
 
     check_with(term, source_values)
 }
+*/
 
 /// Assign a shape value to each node in a term (hypergraph).
-pub fn check_with(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
+pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
     // Create evaluation state
     let n = term.hypergraph.nodes.len();
     let mut state: Vec<Option<Value>> = vec![None; n];
@@ -102,15 +105,15 @@ pub fn check_with(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
             if let Some(value) = state[*i].clone() {
                 args.push(value)
             } else {
-                let v = state[*i].clone();
-                println!("{i}: {v:?}");
-                return Err(ShapeCheckError::EvaluationOrder);
+                let _v = state[*i].clone();
+                return Err(ShapeCheckError::EvaluationOrder(op.edge_id));
             }
         }
 
         // Compute output values and write into the graph
         let coargs =
             apply(&op, &args).map_err(|e| ShapeCheckError::ApplyError(e, op.clone(), args))?;
+        assert_eq!(coargs.len(), op.targets.len());
         for ((NodeId(i), _), value) in op.targets.iter().zip(coargs.into_iter()) {
             state[*i] = Some(value)
         }
@@ -119,7 +122,7 @@ pub fn check_with(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
     node_values(state).map_err(ShapeCheckError::Unevaluated)
 }
 
-fn var(id: NodeId, ty: Object) -> Value {
+fn _var(id: usize, ty: Object) -> Value {
     match ty {
         Object::Nat => Value::Nat(NatExpr::Var(id)),
         Object::NdArrayType => Value::Type(TypeExpr::Var(id)),
