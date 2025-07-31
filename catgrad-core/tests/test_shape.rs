@@ -6,10 +6,9 @@
 use catgrad_core::{
     category::core,
     category::shape::{
-        Builder, Object, Operation, Term, Var, annotate, coannotate, dtype_constant, matmul,
-        reshape, shape_pack, shape_unpack,
+        Builder, Object, Operation, Term, Var, coannotate, matmul, reshape, shape_pack,
+        shape_unpack,
     },
-    check::check,
     ssa::{SSA, ssa},
     util::build_typed,
 };
@@ -30,27 +29,6 @@ fn linear2(builder: &Builder, p: Var, q: Var, x: Var) -> Var {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Example terms
-
-fn reshape_rank2(builder: &Builder, x: Var) -> Var {
-    let (x, t) = coannotate(builder, x);
-    let (dtype, [a, b]) = shape_unpack::<2>(builder, t);
-    let s = shape_pack::<1>(builder, dtype, [a * b]);
-
-    reshape(builder, s, x)
-}
-
-fn reshape_rank2_term() -> Term {
-    use Object::*;
-    // TODO: how do we input the tensor type?
-    build_typed([Tensor, Nat, Nat], |graph, [x, a, b]| {
-        let dtype = dtype_constant(graph, core::Dtype::F32);
-        let s = shape_pack::<2>(graph, dtype, [a, b]);
-        let x = annotate(graph, x, s);
-        let result = vec![reshape_rank2(graph, x)];
-        result
-    })
-    .expect("valid term")
-}
 
 // flatmul is a matmul-and-then-reshape
 // flatmul : (t: Shape) (p: s + (a, b)) (x : s + (b, c)) (t \cong s + (a, c)) : (y : t)
@@ -86,7 +64,7 @@ fn print_ssa(ssa: Vec<SSA<Object, Operation>>) {
         .map(|ssa| format!("{ssa}"))
         .collect::<Vec<_>>()
         .join("\n");
-    println!("{str}");
+    println!("SSA:\n{str}");
 }
 
 // Check we can construct the hidden layer network
@@ -99,8 +77,40 @@ fn construct_example_terms() {
 #[test]
 fn test_reshape_rank2() {
     // reshape (A, B) → (A*B)
-    let term = reshape_rank2_term();
+    use catgrad_core::check::*;
+    use open_hypergraphs::lax::functor::*;
+
+    let term = build_typed([Object::Tensor], |builder, [x]| {
+        // Get shape of input (s)
+        let (x, s) = coannotate(builder, x);
+
+        // Assume it's rank-2, and unpack to two nats, a and b.
+        let (dtype, [a, b]) = shape_unpack::<2>(builder, s);
+
+        // Create output shape: a*b.
+        let t = shape_pack::<1>(builder, dtype, [a * b]);
+
+        // reshape input with shape argument.
+        vec![reshape(builder, t, x)]
+    })
+    .expect("valid term");
+
+    // Symbolic shape accepted by this term
+    let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(core::Dtype::F32),
+        shape: vec![NatExpr::Var(0), NatExpr::Var(1)],
+    }));
+
+    // Simplify
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
+    // debug output
     let ssa = ssa(term.clone().to_open_hypergraph());
     print_ssa(ssa);
-    println!("{:?}", check(term));
+
+    let result = check(term, vec![ty]).expect("checking failed");
+    println!("Node values: ");
+    for (i, value) in result.iter().enumerate() {
+        println!("{i}: {value:?}");
+    }
 }
