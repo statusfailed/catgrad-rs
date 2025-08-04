@@ -178,30 +178,17 @@ fn type_op(op: &TypeOp, args: &[Value]) -> ApplyResult {
     match op {
         TypeOp::Pack => type_pack(args),
         TypeOp::Unpack => type_unpack(args),
-        TypeOp::Coannotate => type_coannotate(args),
-        TypeOp::Annotate => type_annotate(args),
+        TypeOp::Shape => type_shape(args),
     }
 }
 
-fn type_coannotate(args: &[Value]) -> ApplyResult {
+fn type_shape(args: &[Value]) -> ApplyResult {
     if args.len() != 1 {
         return Err(ApplyError::ArityError);
     }
 
     match &args[0] {
-        Value::Tensor(t) => Ok(vec![Value::Tensor(t.clone()), Value::Type(t.clone())]),
-        _ => Err(ApplyError::TypeError),
-    }
-}
-
-fn type_annotate(args: &[Value]) -> ApplyResult {
-    if args.len() != 2 {
-        return Err(ApplyError::ArityError);
-    }
-
-    // TODO: FIXME: what if we annotate the same variable with different annotations?
-    match (&args[0], &args[1]) {
-        (Value::Tensor(TypeExpr::Var(_)), Value::Type(t)) => Ok(vec![Value::Tensor(t.clone())]),
+        Value::Tensor(s) => Ok(vec![Value::Type(s.clone())]),
         _ => Err(ApplyError::TypeError),
     }
 }

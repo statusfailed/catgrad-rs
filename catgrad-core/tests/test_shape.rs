@@ -6,7 +6,7 @@
 use catgrad_core::{
     category::core,
     category::shape::{
-        Builder, Object, Operation, Var, coannotate, matmul, reshape, shape_pack, shape_unpack,
+        Builder, Object, Operation, Var, matmul, reshape, shape, shape_pack, shape_unpack,
     },
     ssa::{SSA, ssa},
     util::build_typed,
@@ -70,7 +70,7 @@ fn test_reshape_rank2() {
 
     let term = build_typed([Object::Tensor], |builder, [x]| {
         // Get shape of input (s)
-        let (x, s) = coannotate(builder, x);
+        let s = shape(builder, x.clone());
 
         // Assume it's rank-2, and unpack to two nats, a and b.
         let (dtype, [a, b]) = shape_unpack::<2>(builder, s);
