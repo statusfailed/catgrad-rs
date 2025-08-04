@@ -45,13 +45,9 @@ pub enum TypeOp {
     /// Unpack : Type → Dtype × Nat^k
     Unpack,
 
-    /// Declare the type of a tensor
-    /// Tensor × Type → Tensor
-    Annotate,
-
-    /// Opposite of annotate.
-    /// Tensor → Type × Tensor
-    Coannotate,
+    /// Get the shape of a tensor
+    /// Tensor → Shape
+    Shape,
 }
 
 // Copy lets us use HasVar
@@ -124,26 +120,14 @@ pub fn shape_pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -
     )
 }
 
-// x : t
-pub fn annotate(builder: &Builder, x: Var, t: Var) -> Var {
+// Tensor → NdArrayType
+pub fn shape(builder: &Builder, x: Var) -> Var {
     var::fn_operation(
         builder,
-        &[x, t],
-        Object::Tensor,
-        Operation::Type(TypeOp::Annotate),
-    )
-}
-
-// tensor → tensor × type
-pub fn coannotate(builder: &Builder, x: Var) -> (Var, Var) {
-    let result = var::operation(
-        builder,
         &[x],
-        vec![Object::Tensor, Object::NdArrayType],
-        Operation::Type(TypeOp::Coannotate),
-    );
-    assert_eq!(result.len(), 2);
-    (result[0].clone(), result[1].clone())
+        Object::NdArrayType,
+        Operation::Type(TypeOp::Shape),
+    )
 }
 
 pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
