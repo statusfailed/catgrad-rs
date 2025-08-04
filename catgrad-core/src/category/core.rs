@@ -16,7 +16,7 @@ pub enum Dtype {
 pub type Shape = Vec<usize>;
 
 /// Generating tensor operations
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TensorOp {
     /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
     /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
@@ -25,6 +25,9 @@ pub enum TensorOp {
     /// Reduce a tensor one one dimension using binary operation which is assumed to be associative
     /// `Reduce (.., N, ..) → (.., 1, ..)`
     Reduce(RingOp, i8),
+
+    /// Constant(i) : [] → [()]
+    ConstantF32(f32),
 
     /// S ● ... ● S → N×S
     Stack,
@@ -46,7 +49,7 @@ pub enum TensorOp {
 
 /// For now, we assume that every Dtype defines a ring & has comparisons
 /// TODO: constants, comparisons
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum RingOp {
     Add,
     Mul,

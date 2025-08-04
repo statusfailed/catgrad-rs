@@ -56,8 +56,8 @@ pub struct NdArrayType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NatExpr {
     Var(usize),
-    Mul(Vec<NatExpr>),
     Constant(usize),
+    Mul(Vec<NatExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
