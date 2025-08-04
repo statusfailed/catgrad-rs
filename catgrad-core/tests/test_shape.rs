@@ -5,9 +5,7 @@
 
 use catgrad_core::{
     category::core,
-    category::shape::{
-        Builder, Object, Operation, Var, matmul, reshape, shape, shape_pack, shape_unpack,
-    },
+    category::shape::{Builder, Object, Operation, Var, matmul, pack, reshape, shape, unpack},
     ssa::{SSA, ssa},
     util::build_typed,
 };
@@ -73,10 +71,10 @@ fn test_reshape_rank2() {
         let s = shape(builder, x.clone());
 
         // Assume it's rank-2, and unpack to two nats, a and b.
-        let (dtype, [a, b]) = shape_unpack::<2>(builder, s);
+        let (dtype, [a, b]) = unpack::<2>(builder, s);
 
         // Create output shape: a*b.
-        let t = shape_pack::<1>(builder, dtype, [a * b]);
+        let t = pack::<1>(builder, dtype, [a * b]);
 
         // reshape input with shape argument.
         vec![reshape(builder, t, x)]

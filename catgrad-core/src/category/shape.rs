@@ -8,7 +8,7 @@ pub use super::core::{Dtype, TensorOp};
 
 /// Objects of the category.
 /// Note that Nat and Rank-1 shapes are only isomorphic so we can safely index by naturals.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum Object {
     Nat, // natural numbers
     Dtype,
@@ -17,7 +17,7 @@ pub enum Object {
 }
 
 /// Operations are those of core, extended with operations on shapes
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operation {
     Type(TypeOp),
     Nat(NatOp),
@@ -26,7 +26,7 @@ pub enum Operation {
     Copy,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum NatOp {
     Constant(usize),
 
@@ -35,7 +35,7 @@ pub enum NatOp {
 }
 
 /// Operations involving shapes
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TypeOp {
     /// Pack a Dtype and k Nats into a shape
     /// Pack : Dtype × Nat^k → Type
@@ -79,7 +79,7 @@ pub type Builder = Rc<RefCell<Term>>;
 // Type Helpers
 
 /// Unpack a shape into a dtype and its constituent Nat dimensions
-pub fn shape_unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
+pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
     assert_eq!(x.label, Object::NdArrayType);
 
     let mut ty = vec![Object::Nat; N + 1];
@@ -93,16 +93,8 @@ pub fn shape_unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]
     (head, tail)
 }
 
-fn iter_to_array<T, const N: usize>(mut iter: impl Iterator<Item = T>) -> Option<[T; N]> {
-    let mut vec = Vec::with_capacity(N);
-    for _ in 0..N {
-        vec.push(iter.next()?);
-    }
-    vec.try_into().ok()
-}
-
 /// Pack a fixed number of Nat values into a specific shape
-pub fn shape_pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var {
+pub fn pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var {
     // should all be *shapes*.
     // TODO: if a nat, auto-lift to shape using Lift?
     assert_eq!(dtype.label, Object::Dtype);
@@ -118,6 +110,14 @@ pub fn shape_pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -
         Object::NdArrayType,
         Operation::Type(TypeOp::Pack),
     )
+}
+
+fn iter_to_array<T, const N: usize>(mut iter: impl Iterator<Item = T>) -> Option<[T; N]> {
+    let mut vec = Vec::with_capacity(N);
+    for _ in 0..N {
+        vec.push(iter.next()?);
+    }
+    vec.try_into().ok()
 }
 
 // Tensor → NdArrayType
