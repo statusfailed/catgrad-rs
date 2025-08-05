@@ -6,4 +6,6 @@ edition = "2024"
 [dependencies]
 dyn-eq = "0.1.3"
 dyn-hash = "0.2.2"
+graphviz-rust = "0.9.5"
 open-hypergraphs = "0.2.3"
+open-hypergraphs-dot = "0.2.1"

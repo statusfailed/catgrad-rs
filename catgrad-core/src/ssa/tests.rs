@@ -1,5 +1,5 @@
 use super::*;
-use crate::category::core::{Dtype, NdArrayType, RingOp, TensorOp};
+use crate::category::core::{Dtype, NdArrayType, ScalarOp, TensorOp};
 use open_hypergraphs::lax::OpenHypergraph;
 
 fn print_ssa(ssa: &[SSA<NdArrayType, TensorOp>]) {
@@ -33,7 +33,7 @@ fn test_simple_operation_ssa() {
 
     // Add a simple Map operation (negation)
     let _ = graph.new_edge(
-        TensorOp::Map(RingOp::Neg),
+        TensorOp::Map(ScalarOp::Neg),
         lax::Hyperedge {
             sources: vec![input_node],
             targets: vec![output_node],
@@ -107,7 +107,7 @@ fn test_matmul_and_pointwise_sum_ssa() {
 
     // Add pointwise sum edge (Map operation)
     let _sum_edge = graph.new_edge(
-        TensorOp::Map(RingOp::Add),
+        TensorOp::Map(ScalarOp::Add),
         lax::Hyperedge {
             sources: vec![matmul_result_node, c_node],
             targets: vec![final_result_node],
