@@ -178,7 +178,7 @@ pub fn pow(builder: &Builder, value: Var, exponent: Var) -> Var {
 ////////////////////////////////////////////////////////////////////////////////
 // Declarations
 
-// TODO: definition for exp
+// TODO: make exp a definition
 pub fn exp(builder: &Builder, x: Var) -> Var {
     let e = constant_f32(builder, std::f32::consts::E);
     pow(builder, e, x)
@@ -188,9 +188,6 @@ pub fn constant_f32(builder: &Builder, v: f32) -> Var {
     let l = Operation::Literal(Literal::F32(v));
     var::fn_operation(builder, &[], Object::Tensor, l)
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// Operation helpers
 
 /// Pack a fixed number of Nat values into a specific shape
 pub fn pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var {

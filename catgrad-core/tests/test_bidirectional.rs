@@ -55,13 +55,16 @@ fn test_graph_linear_sigmoid() {
 }
 
 /*
-// Check we can generate a dot image of the linear-sigmoid map - without inlining.
-
+// Shapecheck the linear-sigmoid term.
+// This should allow us to generate a diagram similar to the one in test_graph_linear_sigmoid(),
+// but where objects are "symbolic shapes".
 #[test]
 fn test_check_linear_sigmoid() {
     todo!()
 }
+*/
 
+/*
 #[test]
 fn test_cyclic_definition_fails() {
     todo!()
