@@ -1,15 +1,16 @@
 //! This is the primary interface for users to construct programs.
 use open_hypergraphs::lax::*;
 use std::collections::HashMap;
+use std::fmt;
 
 use crate::category::{core, shape};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Macros
 
-macro_rules! path {
+macro_rules! op {
     [$($x:expr),* $(,)?] => {
-        Operation::Definition(vec![$($x),*].try_into().expect("invalid operation name"))
+        Operation::Declaration(vec!["op", $($x),*].try_into().expect("invalid operation name"))
     };
 }
 
@@ -20,8 +21,21 @@ macro_rules! path {
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PathComponent(String); // only [a-zA-Z_]
 
+impl fmt::Display for PathComponent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Path(Vec<PathComponent>);
+
+impl fmt::Display for Path {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let components: Vec<String> = self.0.iter().map(|c| c.to_string()).collect();
+        write!(f, "{}", components.join("."))
+    }
+}
 
 impl TryFrom<String> for PathComponent {
     type Error = String;
@@ -56,12 +70,45 @@ pub fn path(components: Vec<&str>) -> Path {
 ////////////////////////////////////////////////////////////////////////////////
 // Operations
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum Literal {
+    F32(f32),
+    I32(i32),
+    Dtype(core::Dtype),
+}
+
+impl fmt::Display for Literal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Literal::F32(v) => write!(f, "{v}"),
+            Literal::I32(v) => write!(f, "{v}"),
+            Literal::Dtype(dtype) => write!(f, "{dtype:?}"),
+        }
+    }
+}
+
 // Operations are the core shape operations (and operation schemas like 'Constant') extended
 // with "Definitions".
 #[derive(Debug, Clone, PartialEq)]
 pub enum Operation {
+    /// Operations declared to exist, but without a definition (externally interpreted)
+    Declaration(Path),
+
+    /// Extended set of base operations with definitions
     Definition(Path),
-    Operation(super::shape::Operation),
+
+    /// Literals (floats, ints, dtypes, nats, etc.) are elements (maps with unit domain)
+    Literal(Literal),
+}
+
+impl fmt::Display for Operation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Operation::Declaration(path) => write!(f, "{path}"),
+            Operation::Definition(path) => write!(f, "{path}"),
+            Operation::Literal(literal) => write!(f, "{literal}"),
+        }
+    }
 }
 
 // The actual data of a definition: a term, its type, and ...?
@@ -93,59 +140,53 @@ pub type Builder = Rc<RefCell<Term>>;
 // Copy lets us use HasVar
 impl var::HasVar for Operation {
     fn var() -> Self {
-        path!["std", "copy"]
+        op!["copy"]
     }
 }
 
 impl var::HasAdd<Object, Operation> for Operation {
     fn add(lhs: Object, rhs: Object) -> (Object, Operation) {
         assert_eq!(lhs, rhs);
-        (lhs, path!["std", "add"])
+        (lhs, op!["add"])
     }
 }
 
 impl var::HasMul<Object, Operation> for Operation {
     fn mul(lhs: Object, rhs: Object) -> (Object, Operation) {
         assert_eq!(lhs, rhs);
-        (lhs, path!["std", "add"])
+        (lhs, op!["mul"])
     }
 }
 
 impl var::HasDiv<Object, Operation> for Operation {
     fn div(lhs: Object, rhs: Object) -> (Object, Operation) {
         assert_eq!(lhs, rhs);
-        (lhs, path!["std", "div"])
+        (lhs, op!["div"])
     }
 }
 
 impl var::HasNeg<Object, Operation> for Operation {
     fn neg(operand_type: Object) -> (Object, Operation) {
-        (operand_type, path!["std", "negate"])
+        (operand_type, op!["neg"])
     }
+}
+
+pub fn pow(builder: &Builder, value: Var, exponent: Var) -> Var {
+    var::fn_operation(builder, &[value, exponent], Object::Tensor, op!["pow"])
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Declarations
 
-pub fn copy_term(_env: &Environment) -> Term {
-    todo!();
-}
-
-pub fn exp_term(_env: &Environment) -> Term {
-    todo!();
-}
-
-pub fn exp(_x: Var) -> Var {
-    todo!()
+// TODO: definition for exp
+pub fn exp(builder: &Builder, x: Var) -> Var {
+    let e = constant_f32(builder, std::f32::consts::E);
+    pow(builder, e, x)
 }
 
 pub fn constant_f32(builder: &Builder, v: f32) -> Var {
-    var::fn_operation(
-        builder,
-        &[],
-        Object::Tensor,
-        Operation::Operation(shape::Operation::Tensor(core::TensorOp::ConstantF32(v))),
-    )
+    let l = Operation::Literal(Literal::F32(v));
+    var::fn_operation(builder, &[], Object::Tensor, l)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -162,12 +203,7 @@ pub fn pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var 
     }
 
     let args: Vec<Var> = std::iter::once(dtype).chain(xs).collect();
-    var::fn_operation(
-        builder,
-        &args,
-        Object::NdArrayType,
-        Operation::Operation(shape::Operation::Type(shape::TypeOp::Pack)),
-    )
+    var::fn_operation(builder, &args, Object::NdArrayType, op!["pack"])
 }
 
 /// Unpack a shape into a dtype and its constituent Nat dimensions
@@ -177,12 +213,7 @@ pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
     let mut ty = vec![Object::Nat; N + 1];
     ty[0] = Object::Dtype;
 
-    let elements = var::operation(
-        builder,
-        &[x],
-        ty,
-        Operation::Operation(shape::Operation::Type(shape::TypeOp::Unpack)),
-    );
+    let elements = var::operation(builder, &[x], ty, op!["unpack"]);
 
     let mut iter = elements.into_iter();
     let head = iter.next().unwrap();
@@ -192,12 +223,7 @@ pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
 
 // Tensor → NdArrayType
 pub fn shape(builder: &Builder, x: Var) -> Var {
-    var::fn_operation(
-        builder,
-        &[x],
-        Object::NdArrayType,
-        Operation::Operation(shape::Operation::Type(shape::TypeOp::Shape)),
-    )
+    var::fn_operation(builder, &[x], Object::NdArrayType, op!["shape"])
 }
 
 pub fn dtype_constant(builder: &Builder, dtype: shape::Dtype) -> Var {
@@ -205,7 +231,7 @@ pub fn dtype_constant(builder: &Builder, dtype: shape::Dtype) -> Var {
         builder,
         &[],
         Object::Dtype,
-        Operation::Operation(shape::Operation::DtypeConstant(dtype)),
+        Operation::Literal(Literal::Dtype(dtype)),
     )
 }
 
@@ -213,12 +239,7 @@ pub fn dtype_constant(builder: &Builder, dtype: shape::Dtype) -> Var {
 // Tensor Helpers
 
 pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
-    var::fn_operation(
-        builder,
-        &[t, x],
-        Object::Tensor,
-        Operation::Operation(shape::Operation::Tensor(core::TensorOp::Reshape)),
-    )
+    var::fn_operation(builder, &[t, x], Object::Tensor, op!["reshape"])
 }
 
 /// Batch matmul
@@ -227,10 +248,5 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
     assert_eq!(f.label, Object::Tensor);
     assert_eq!(g.label, Object::Tensor);
 
-    var::fn_operation(
-        builder,
-        &[f, g],
-        Object::Tensor,
-        Operation::Operation(shape::Operation::Tensor(core::TensorOp::MatMul)),
-    )
+    var::fn_operation(builder, &[f, g], Object::Tensor, op!["matmul"])
 }
