@@ -114,3 +114,28 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 
     var::fn_operation(builder, &[f, g], Object::Tensor, op!["matmul"])
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// S-interpretations of operations
+//
+macro_rules! opath{
+    [$($x:expr),* $(,)?] => {
+        vec!["op", $($x),*].try_into().expect("invalid operation name")
+    };
+}
+
+// basic declarations
+pub(crate) fn op_decls()
+-> std::collections::HashMap<super::path::Path, crate::category::shape::Operation> {
+    use crate::category::core::{ScalarOp::*, TensorOp::*};
+    use crate::category::shape::Operation;
+    use std::collections::HashMap;
+    HashMap::from([
+        (opath!["copy"], Operation::Tensor(Copy)),
+        (opath!["add"], Operation::Tensor(Map(Add))),
+        (opath!["mul"], Operation::Tensor(Map(Mul))),
+        (opath!["div"], Operation::Tensor(Map(Div))),
+        (opath!["matmul"], Operation::Tensor(MatMul)),
+        // todo
+    ])
+}
