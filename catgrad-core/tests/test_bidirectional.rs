@@ -45,6 +45,16 @@ fn test_construct_linear_sigmoid() {
 }
 
 #[test]
+fn test_graph_sigmoid() {
+    let term = sigmoid_term();
+    use open_hypergraphs::lax::functor::*;
+
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+    let svg_bytes = to_svg(&term).expect("create svg");
+    save_diagram_if_enabled("test_graph_sigmoid.svg", svg_bytes);
+}
+
+#[test]
 fn test_graph_linear_sigmoid() {
     let term = linear_sigmoid();
     use open_hypergraphs::lax::functor::*;

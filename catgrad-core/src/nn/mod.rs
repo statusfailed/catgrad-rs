@@ -31,6 +31,12 @@ pub fn sigmoid(builder: &Builder, x: Var) -> Var {
     )
 }
 
+// TODO: make exp a definition
+pub fn exp(builder: &Builder, x: Var) -> Var {
+    let e = constant_f32(builder, std::f32::consts::E);
+    pow(builder, e, x)
+}
+
 pub fn stdlib() -> Environment {
     let operations = HashMap::from([
         (
