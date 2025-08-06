@@ -31,10 +31,29 @@ pub fn sigmoid(builder: &Builder, x: Var) -> Var {
     )
 }
 
-// TODO: make exp a definition
+pub fn exp_term() -> Term {
+    build_typed([Object::Tensor], |graph, [x]| {
+        let e = constant_f32(graph, std::f32::consts::E);
+        vec![pow(graph, e, x)]
+    })
+    .expect("impossible")
+}
+
+pub fn exp_source() -> Term {
+    build_typed([Object::NdArrayType], |_graph, [t]| vec![t]).expect("impossible")
+}
+
+pub fn exp_target() -> Term {
+    build_typed([Object::NdArrayType], |_graph, [t]| vec![t]).expect("impossible")
+}
+
 pub fn exp(builder: &Builder, x: Var) -> Var {
-    let e = constant_f32(builder, std::f32::consts::E);
-    pow(builder, e, x)
+    var::fn_operation(
+        builder,
+        &[x],
+        Object::Tensor,
+        Operation::Definition(path(vec!["nn", "exp"])),
+    )
 }
 
 pub fn stdlib() -> Environment {
@@ -47,14 +66,14 @@ pub fn stdlib() -> Environment {
                 target_type: sigmoid_target(),
             },
         ),
-        //(
-        //path(vec!["nn", "exp"]),
-        //OperationDefinition {
-        //term: exp_term(),
-        //source_type: exp_source(),
-        //target_type: exp_target(),
-        //},
-        //),
+        (
+            path(vec!["nn", "exp"]),
+            OperationDefinition {
+                term: exp_term(),
+                source_type: exp_source(),
+                target_type: exp_target(),
+            },
+        ),
     ]);
 
     Environment { operations }

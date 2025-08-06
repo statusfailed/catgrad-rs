@@ -1,6 +1,6 @@
 use crate::category::bidirectional::Term;
 
-use open_hypergraphs_dot::generate_dot_with;
+use open_hypergraphs_dot::{Orientation, generate_dot_with};
 use std::path::PathBuf;
 
 pub fn to_svg(term: &Term) -> Result<Vec<u8>, std::io::Error> {
@@ -13,6 +13,7 @@ pub fn to_svg(term: &Term) -> Result<Vec<u8>, std::io::Error> {
     let opts = open_hypergraphs_dot::Options {
         node_label: Box::new(|n| format!("{n:?}")),
         edge_label: Box::new(|e| format!("{e}")),
+        orientation: Orientation::LR,
         ..Default::default()
     };
 

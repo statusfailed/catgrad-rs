@@ -13,7 +13,7 @@ use super::path::*;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
     F32(f32),
-    I32(i32),
+    U32(u32),
     Dtype(core::Dtype),
 }
 
@@ -57,7 +57,7 @@ impl fmt::Display for Literal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Literal::F32(v) => write!(f, "{v}"),
-            Literal::I32(v) => write!(f, "{v}"),
+            Literal::U32(v) => write!(f, "{v}"),
             Literal::Dtype(dtype) => write!(f, "{dtype:?}"),
         }
     }

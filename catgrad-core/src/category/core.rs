@@ -11,9 +11,16 @@ pub struct NdArrayType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Dtype {
     F32,
+    U32,
 }
 
 pub type Shape = Vec<usize>;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Constant {
+    F32(f32),
+    U32(i32),
+}
 
 /// Generating tensor operations
 #[derive(Debug, Clone, PartialEq)]
@@ -27,7 +34,7 @@ pub enum TensorOp {
     Reduce(ScalarOp, i8),
 
     /// Constant(i) : [] → [()]
-    ConstantF32(f32),
+    Constant(Constant),
 
     /// S ● ... ● S → N×S
     Stack,
@@ -45,6 +52,8 @@ pub enum TensorOp {
     // Array lookup indices
     // `Index: (N,) ● (M,) → (N,)`
     Index,
+
+    Copy,
 }
 
 /// For now, we assume that every Dtype defines a ring & has comparisons
