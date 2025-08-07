@@ -162,7 +162,7 @@ fn apply_literal(lit: &Literal) -> ApplyResult {
             let dtype = Dtype::F32;
             let ty = NdArrayType {
                 dtype: DtypeExpr::Constant(dtype),
-                shape: vec![],
+                shape: ShapeExpr::Shape(vec![]),
             };
             Value::Tensor(TypeExpr::NdArrayType(ty))
         }
@@ -170,7 +170,7 @@ fn apply_literal(lit: &Literal) -> ApplyResult {
             let dtype = Dtype::U32;
             let ty = NdArrayType {
                 dtype: DtypeExpr::Constant(dtype),
-                shape: vec![],
+                shape: ShapeExpr::Shape(vec![]),
             };
             Value::Tensor(TypeExpr::NdArrayType(ty))
         }

@@ -57,7 +57,7 @@ fn type_pack(args: &[Value]) -> ApplyResult {
 
     Ok(vec![Value::Type(TypeExpr::NdArrayType(NdArrayType {
         dtype,
-        shape,
+        shape: ShapeExpr::Shape(shape),
     }))])
 }
 
@@ -70,17 +70,22 @@ fn type_unpack(args: &[Value]) -> ApplyResult {
 
     match &args[0] {
         Value::Type(TypeExpr::NdArrayType(ty)) => {
-            let mut result = Vec::new();
+            match &ty.shape {
+                ShapeExpr::Var(_) => Err(ApplyError::TypeError),
+                ShapeExpr::Shape(nat_exprs) => {
+                    let mut result = Vec::new();
 
-            // First return the dtype
-            result.push(Value::Dtype(ty.dtype.clone()));
+                    // First return the dtype
+                    result.push(Value::Dtype(ty.dtype.clone()));
 
-            // Then return each dimension as individual nats
-            for dim in &ty.shape {
-                result.push(Value::Nat(dim.clone()));
+                    // Then return each dimension as individual nats
+                    for dim in nat_exprs {
+                        result.push(Value::Nat(dim.clone()));
+                    }
+
+                    Ok(result)
+                }
             }
-
-            Ok(result)
         }
         _ => Err(ApplyError::TypeError),
     }
@@ -134,7 +139,37 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::MatMul => tensor_matmul(args),
         TensorOp::Map(_) => Ok(vec![args[0].clone()]), // TODO: need to know op type, assert all args have same type!
         //TensorOp::Copy => // TODO: need to know op type!
+        TensorOp::Broadcast => tensor_broadcast(args),
         op => todo!("{op:?}"),
+    }
+}
+
+fn tensor_broadcast(args: &[Value]) -> ApplyResult {
+    match (&args[0], &args[1]) {
+        (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Type(TypeExpr::NdArrayType(u))) => {
+            if t.dtype != u.dtype {
+                return Err(ApplyError::TypeError);
+            }
+
+            let dtype = t.dtype.clone();
+
+            match (&t.shape, &u.shape) {
+                (ShapeExpr::Shape(t), ShapeExpr::Shape(u)) => {
+                    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                        dtype,
+                        shape: ShapeExpr::Shape([t.clone(), u.clone()].concat()),
+                    }))])
+                }
+                (ShapeExpr::Shape(t), ShapeExpr::Var(v)) if t.is_empty() => {
+                    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                        dtype,
+                        shape: ShapeExpr::Var(*v),
+                    }))])
+                }
+                _ => Err(ApplyError::TypeError),
+            }
+        }
+        _ => Err(ApplyError::TypeError),
     }
 }
 
@@ -160,38 +195,42 @@ fn tensor_matmul(args: &[Value]) -> ApplyResult {
                 return Err(ApplyError::TypeError);
             }
 
-            // Same rank
-            if t.shape.len() != u.shape.len() {
-                return Err(ApplyError::TypeError);
-            }
-
-            // need at least 2 dims in each to matmul
-            if t.shape.len() < 2 {
-                return Err(ApplyError::TypeError);
-            }
-
-            // Check contraction dimension matches
-            if t.shape[t.shape.len() - 1] != u.shape[u.shape.len() - 2] {
-                return Err(ApplyError::TypeError);
-            }
-
-            // check prefix dimensions match - e.g. for (N0, ..., Nk, A, B) and (N0..Nk, B, C), N0..Nk
-            // should match.
-            let prefix_len = t.shape.len() - 2;
-            if t.shape[..prefix_len] != u.shape[..prefix_len] {
-                return Err(ApplyError::TypeError);
-            }
-
             let dtype = t.dtype.clone();
 
-            // Result shape: all but last element of t, then append final element of u
-            let mut shape = t.shape[..t.shape.len() - 1].to_vec();
-            shape.push(u.shape[u.shape.len() - 1].clone());
+            if let (ShapeExpr::Shape(t), ShapeExpr::Shape(u)) = (t.shape.clone(), u.shape.clone()) {
+                // Same rank
+                if t.len() != u.len() {
+                    return Err(ApplyError::TypeError);
+                }
 
-            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                dtype,
-                shape,
-            }))])
+                // need at least 2 dims in each to matmul
+                if t.len() < 2 {
+                    return Err(ApplyError::TypeError);
+                }
+
+                // Check contraction dimension matches
+                if t[t.len() - 1] != u[u.len() - 2] {
+                    return Err(ApplyError::TypeError);
+                }
+
+                // check prefix dimensions match - e.g. for (N0, ..., Nk, A, B) and (N0..Nk, B, C), N0..Nk
+                // should match.
+                let prefix_len = t.len() - 2;
+                if t[..prefix_len] != u[..prefix_len] {
+                    return Err(ApplyError::TypeError);
+                }
+
+                // Result shape: all but last element of t, then append final element of u
+                let mut shape = t[..t.len() - 1].to_vec();
+                shape.push(u[u.len() - 1].clone());
+
+                Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                    dtype,
+                    shape: ShapeExpr::Shape(shape),
+                }))])
+            } else {
+                Err(ApplyError::TypeError)
+            }
         }
         _ => Err(ApplyError::TypeError),
     }

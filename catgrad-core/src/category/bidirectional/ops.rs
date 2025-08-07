@@ -113,6 +113,13 @@ pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
 ////////////////////////////////////////////////////////////////////////////////
 // Tensor Helpers
 
+// x : t    s : Shape
+// ------------------ broadcast
+//     x : (s × t)
+pub fn broadcast(builder: &Builder, x: Var, s: Var) -> Var {
+    var::fn_operation(builder, &[x, s], Object::Tensor, op!["broadcast"])
+}
+
 pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
     var::fn_operation(builder, &[t, x], Object::Tensor, op!["reshape"])
 }
@@ -151,6 +158,7 @@ pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::categor
         (path!["op", "pow"], Operation::Tensor(Map(Pow))),
         (path!["op", "matmul"], Operation::Tensor(MatMul)),
         (path!["op", "reshape"], Operation::Tensor(Reshape)),
+        (path!["op", "broadcast"], Operation::Tensor(Broadcast)),
         // shape ops
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
         (path!["op", "shape"], Operation::Type(TypeOp::Shape)),
