@@ -27,7 +27,18 @@ impl var::HasAdd<Object, Operation> for Operation {
 impl var::HasMul<Object, Operation> for Operation {
     fn mul(lhs: Object, rhs: Object) -> (Object, Operation) {
         assert_eq!(lhs, rhs);
-        (lhs, op!["mul"])
+        match lhs {
+            Object::Nat => (
+                lhs,
+                Operation::Declaration(
+                    vec!["nat", "mul"]
+                        .try_into()
+                        .expect("invalid operation name"),
+                ),
+            ),
+            Object::Tensor => (lhs, op!["mul"]),
+            _ => panic!("multiply undefined for {lhs:?}"),
+        }
     }
 }
 
@@ -118,24 +129,33 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 ////////////////////////////////////////////////////////////////////////////////
 // S-interpretations of operations
 //
-macro_rules! opath{
+macro_rules! path{
     [$($x:expr),* $(,)?] => {
-        vec!["op", $($x),*].try_into().expect("invalid operation name")
+        vec![$($x),*].try_into().expect("invalid operation name")
     };
 }
 
 // basic declarations
-pub(crate) fn op_decls()
--> std::collections::HashMap<super::path::Path, crate::category::shape::Operation> {
+pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::shape::Operation>
+{
     use crate::category::core::{ScalarOp::*, TensorOp::*};
-    use crate::category::shape::Operation;
+    use crate::category::shape::{NatOp, Operation, TypeOp};
     use std::collections::HashMap;
     HashMap::from([
-        (opath!["copy"], Operation::Tensor(Copy)),
-        (opath!["add"], Operation::Tensor(Map(Add))),
-        (opath!["mul"], Operation::Tensor(Map(Mul))),
-        (opath!["div"], Operation::Tensor(Map(Div))),
-        (opath!["matmul"], Operation::Tensor(MatMul)),
+        // TODO: rename tensor.copy etc.
+        (path!["op", "copy"], Operation::Tensor(Copy)),
+        (path!["op", "add"], Operation::Tensor(Map(Add))),
+        (path!["op", "neg"], Operation::Tensor(Map(Neg))),
+        (path!["op", "mul"], Operation::Tensor(Map(Mul))),
+        (path!["op", "div"], Operation::Tensor(Map(Div))),
+        (path!["op", "pow"], Operation::Tensor(Map(Pow))),
+        (path!["op", "matmul"], Operation::Tensor(MatMul)),
+        (path!["op", "reshape"], Operation::Tensor(Reshape)),
+        // shape ops
+        (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
+        (path!["op", "shape"], Operation::Type(TypeOp::Shape)),
+        (path!["op", "pack"], Operation::Type(TypeOp::Pack)),
+        (path!["op", "unpack"], Operation::Type(TypeOp::Unpack)),
         // todo
     ])
 }

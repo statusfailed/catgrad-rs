@@ -131,7 +131,10 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Stack => tensor_stack(args),
         TensorOp::Split => tensor_split(args),
         TensorOp::Reshape => tensor_reshape(args),
-        _ => todo!(),
+        TensorOp::MatMul => tensor_matmul(args),
+        TensorOp::Map(_) => Ok(vec![args[0].clone()]), // TODO: need to know op type, assert all args have same type!
+        //TensorOp::Copy => // TODO: need to know op type!
+        op => todo!("{op:?}"),
     }
 }
 
@@ -145,6 +148,55 @@ fn tensor_split(_args: &[Value]) -> ApplyResult {
     todo!()
 }
 
+fn tensor_matmul(args: &[Value]) -> ApplyResult {
+    // reshape takes 2 args: target type and input tensor
+    if args.len() != 2 {
+        return Err(ApplyError::ArityError);
+    }
+
+    match (&args[0], &args[1]) {
+        (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Tensor(TypeExpr::NdArrayType(u))) => {
+            if t.dtype != u.dtype {
+                return Err(ApplyError::TypeError);
+            }
+
+            // Same rank
+            if t.shape.len() != u.shape.len() {
+                return Err(ApplyError::TypeError);
+            }
+
+            // need at least 2 dims in each to matmul
+            if t.shape.len() < 2 {
+                return Err(ApplyError::TypeError);
+            }
+
+            // Check contraction dimension matches
+            if t.shape[t.shape.len() - 1] != u.shape[u.shape.len() - 2] {
+                return Err(ApplyError::TypeError);
+            }
+
+            // check prefix dimensions match - e.g. for (N0, ..., Nk, A, B) and (N0..Nk, B, C), N0..Nk
+            // should match.
+            let prefix_len = t.shape.len() - 2;
+            if t.shape[..prefix_len] != u.shape[..prefix_len] {
+                return Err(ApplyError::TypeError);
+            }
+
+            let dtype = t.dtype.clone();
+
+            // Result shape: all but last element of t, then append final element of u
+            let mut shape = t.shape[..t.shape.len() - 1].to_vec();
+            shape.push(u.shape[u.shape.len() - 1].clone());
+
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype,
+                shape,
+            }))])
+        }
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
 fn tensor_reshape(args: &[Value]) -> ApplyResult {
     // reshape takes 2 args: target type and input tensor
     if args.len() != 2 {
@@ -152,7 +204,6 @@ fn tensor_reshape(args: &[Value]) -> ApplyResult {
     }
 
     // TODO: check output tensor is isomorphic!
-
     match (&args[0], &args[1]) {
         (Value::Type(target_type), Value::Tensor(_input_tensor)) => {
             // The output tensor has the target type

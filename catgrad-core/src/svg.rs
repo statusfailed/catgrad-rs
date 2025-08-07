@@ -30,3 +30,31 @@ pub fn save_svg<P: Into<PathBuf>>(term: &Term, path: P) -> Result<(), std::io::E
     let svg_bytes = to_svg(term)?;
     std::fs::write(path.into(), svg_bytes)
 }
+
+// TODO: reduce code duplication
+use crate::category::bidirectional::Operation;
+use crate::check::Value;
+use open_hypergraphs::lax::OpenHypergraph;
+
+pub fn checked_to_svg(term: &OpenHypergraph<Value, Operation>) -> Result<Vec<u8>, std::io::Error> {
+    use graphviz_rust::{
+        cmd::{CommandArg, Format},
+        exec,
+        printer::PrinterContext,
+    };
+
+    let opts = open_hypergraphs_dot::Options {
+        node_label: Box::new(|n| format!("{n:?}")),
+        edge_label: Box::new(|e| format!("{e}")),
+        orientation: Orientation::LR,
+        ..Default::default()
+    };
+
+    let dot_graph = generate_dot_with(term, &opts);
+
+    exec(
+        dot_graph,
+        &mut PrinterContext::default(),
+        vec![CommandArg::Format(Format::Svg)],
+    )
+}
