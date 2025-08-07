@@ -67,27 +67,6 @@ fn test_graph_linear_sigmoid() {
     save_diagram_if_enabled("test_graph_linear_sigmoid.svg", svg_bytes);
 }
 
-// Shapecheck `exp`
-#[test]
-fn test_check_exp() {
-    let ops = catgrad_core::category::bidirectional::op_decls();
-    let mut env = catgrad_core::nn::stdlib();
-
-    let term = env.operations[&path(vec!["nn", "exp"])].term.clone();
-
-    let t = Value::Tensor(TypeExpr::Var(0));
-
-    use open_hypergraphs::lax::functor::*;
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-
-    for def in env.operations.values_mut() {
-        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
-    }
-
-    let result = check_with(&ops, &env, term, vec![t]).expect("works");
-    println!("result: {result:?}");
-}
-
 // Shapecheck the linear-sigmoid term.
 // This should allow us to generate a diagram similar to the one in test_graph_linear_sigmoid(),
 // but where objects are "symbolic shapes".
@@ -97,12 +76,12 @@ fn test_check_linear_sigmoid() {
 
     let t_f = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: vec![NatExpr::Var(0), NatExpr::Var(1)],
+        shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
     }));
 
     let t_g = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: vec![NatExpr::Var(1), NatExpr::Var(2)],
+        shape: ShapeExpr::Shape(vec![NatExpr::Var(1), NatExpr::Var(2)]),
     }));
 
     use open_hypergraphs::lax::functor::*;
@@ -132,6 +111,80 @@ fn test_check_linear_sigmoid() {
 
     let svg_bytes = to_svg(&term).expect("create svg");
     save_diagram_if_enabled("test_check_linear_sigmoid.svg", svg_bytes);
+}
+
+#[test]
+fn test_check_sigmoid() {
+    let term = sigmoid_term();
+    let t = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::F32),
+        shape: ShapeExpr::Var(0),
+    }));
+
+    use open_hypergraphs::lax::functor::*;
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
+    let ops = catgrad_core::category::bidirectional::op_decls();
+    let mut env = catgrad_core::nn::stdlib();
+    for def in env.operations.values_mut() {
+        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
+    }
+
+    let result = check_with(&ops, &env, term.clone(), vec![t]).expect("valid");
+    println!("result: {result:?}");
+
+    // .... sigh.
+    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
+    let term = OpenHypergraph {
+        sources: term.sources,
+        targets: term.targets,
+        hypergraph: Hypergraph {
+            nodes: result,
+            edges: term.hypergraph.edges,
+            adjacency: term.hypergraph.adjacency,
+            quotient: term.hypergraph.quotient,
+        },
+    };
+
+    let svg_bytes = to_svg(&term).expect("create svg");
+    save_diagram_if_enabled("test_check_sigmoid.svg", svg_bytes);
+}
+
+#[test]
+fn test_check_exp() {
+    let term = exp_term();
+    let t = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::F32),
+        shape: ShapeExpr::Var(0),
+    }));
+
+    use open_hypergraphs::lax::functor::*;
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
+    let ops = catgrad_core::category::bidirectional::op_decls();
+    let mut env = catgrad_core::nn::stdlib();
+    for def in env.operations.values_mut() {
+        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
+    }
+
+    let result = check_with(&ops, &env, term.clone(), vec![t]).expect("valid");
+    println!("result: {result:?}");
+
+    // .... sigh.
+    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
+    let term = OpenHypergraph {
+        sources: term.sources,
+        targets: term.targets,
+        hypergraph: Hypergraph {
+            nodes: result,
+            edges: term.hypergraph.edges,
+            adjacency: term.hypergraph.adjacency,
+            quotient: term.hypergraph.quotient,
+        },
+    };
+
+    let svg_bytes = to_svg(&term).expect("create svg");
+    save_diagram_if_enabled("test_check_exp.svg", svg_bytes);
 }
 
 /*

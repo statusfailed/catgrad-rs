@@ -8,6 +8,8 @@ use open_hypergraphs::lax::var;
 pub fn sigmoid_term() -> Term {
     build_typed([Object::Tensor], |graph, [x]| {
         let c1 = constant_f32(graph, 1.0);
+        let s = shape(graph, x.clone());
+        let c1 = broadcast(graph, c1, s);
         let r = c1.clone() / (c1 + exp(graph, -x));
         vec![r]
     })
@@ -34,6 +36,8 @@ pub fn sigmoid(builder: &Builder, x: Var) -> Var {
 pub fn exp_term() -> Term {
     build_typed([Object::Tensor], |graph, [x]| {
         let e = constant_f32(graph, std::f32::consts::E);
+        let s = shape(graph, x.clone());
+        let e = broadcast(graph, e, s);
         vec![pow(graph, e, x)]
     })
     .expect("impossible")

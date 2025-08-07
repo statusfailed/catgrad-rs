@@ -53,6 +53,11 @@ pub enum TensorOp {
     // `Index: (N,) ● (M,) → (N,)`
     Index,
 
+    // broadcast a tensor by appending a shape
+    // Broadcast : (x : S) ● (T: Shape) → (y : T×S)
+    Broadcast,
+
+    // Copy a tensor
     Copy,
 }
 
