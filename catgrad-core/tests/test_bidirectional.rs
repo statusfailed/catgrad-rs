@@ -1,6 +1,6 @@
 use catgrad_core::category::bidirectional::*;
 use catgrad_core::nn::*;
-use catgrad_core::svg::{checked_to_svg, to_svg};
+use catgrad_core::svg::to_svg;
 use catgrad_core::util::build_typed;
 
 use catgrad_core::check::*;
@@ -130,7 +130,7 @@ fn test_check_linear_sigmoid() {
         },
     };
 
-    let svg_bytes = checked_to_svg(&term).expect("create svg");
+    let svg_bytes = to_svg(&term).expect("create svg");
     save_diagram_if_enabled("test_check_linear_sigmoid.svg", svg_bytes);
 }
 

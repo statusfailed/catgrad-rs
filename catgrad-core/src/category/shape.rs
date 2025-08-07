@@ -16,6 +16,12 @@ pub enum Object {
     Tensor,
 }
 
+impl std::fmt::Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 /// Operations are those of core, extended with operations on shapes
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operation {
