@@ -21,9 +21,24 @@ pub fn check(term: Term, ty: Term) -> ShapeCheckResult {
 }
 */
 
-/// Assign a shape value to each node in a term (hypergraph).
 #[allow(clippy::result_large_err)]
 pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
+    let ops = op_decls();
+    let env = crate::nn::stdlib();
+
+    check_with(&ops, &env, term, source_values)
+}
+
+/// Assign a shape value to each node in a term (hypergraph).
+#[allow(clippy::result_large_err)]
+pub fn check_with(
+    ops: &HashMap<Path, shape::Operation>,
+    env: &Environment,
+    term: Term,
+    source_values: Vec<Value>,
+) -> ShapeCheckResult {
+    assert_eq!(source_values.len(), term.sources.len());
+
     // Create evaluation state
     let n = term.hypergraph.nodes.len();
     let mut state: Vec<Option<Value>> = vec![None; n];
@@ -35,9 +50,6 @@ pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
 
     // Create SSA
     let ssa = ssa(term.to_open_hypergraph());
-
-    let ops = op_decls();
-    let env = crate::nn::stdlib();
 
     // Iterate through SSA
     for op in ssa {
@@ -53,9 +65,9 @@ pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
         }
 
         // Compute output values and write into the graph
-        let coargs = apply(&ops, &env, &op, &args)
-            .map_err(|e| ShapeCheckError::ApplyError(e, op.clone(), args))?;
-        assert_eq!(coargs.len(), op.targets.len());
+        let coargs = apply(ops, env, &op, &args)?;
+        assert_eq!(coargs.len(), op.targets.len(), "{op:?}");
+
         for ((NodeId(i), _), value) in op.targets.iter().zip(coargs.into_iter()) {
             state[*i] = Some(value)
         }
@@ -64,6 +76,7 @@ pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
     node_values(state).map_err(ShapeCheckError::Unevaluated)
 }
 
+// Get values of each node, or return a list of node IDs which were unevaluated
 fn node_values<T>(v: Vec<Option<T>>) -> Result<Vec<T>, Vec<NodeId>> {
     let mut values = Vec::with_capacity(v.len());
     let mut none_indices = Vec::new();
@@ -88,16 +101,28 @@ fn node_values<T>(v: Vec<Option<T>>) -> Result<Vec<T>, Vec<NodeId>> {
 use super::apply::*;
 
 // Get a value for each resulting NodeId.
+#[allow(clippy::result_large_err)]
 pub fn apply(
     ops: &HashMap<Path, shape::Operation>,
     env: &Environment,
     ssa: &SSA<Object, Operation>,
     args: &[Value],
-) -> ApplyResult {
+) -> ShapeCheckResult {
     match &ssa.op {
-        Operation::Declaration(op) => apply_declaration(ops, op, args),
-        Operation::Definition(op) => apply_definition(env, op, args),
-        Operation::Literal(lit) => apply_literal(lit),
+        Operation::Definition(op) => {
+            // look up term
+            let OperationDefinition { term, .. } =
+                env.operations.get(op).ok_or(ShapeCheckError::ApplyError(
+                    ApplyError::UnknownOp(op.clone()),
+                    ssa.clone(),
+                    args.to_vec(),
+                ))?;
+            apply_definition(ops, env, term, args)
+        }
+        Operation::Declaration(op) => apply_declaration(ops, op, args)
+            .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
+        Operation::Literal(lit) => apply_literal(lit)
+            .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
     }
 }
 
@@ -106,16 +131,25 @@ fn apply_declaration(
     op: &Path,
     args: &[Value],
 ) -> ApplyResult {
-    let shape_op = ops
-        .get(op)
-        .ok_or(ApplyError::UnknownOp(op.clone()))
-        .expect("TODO");
+    let shape_op = ops.get(op).ok_or(ApplyError::UnknownOp(op.clone()))?;
     s_apply(shape_op, args)
 }
 
-// TODO: recursion with explicit stack?
-fn apply_definition(_env: &Environment, _op: &Path, _args: &[Value]) -> ApplyResult {
-    todo!()
+// TODO: manage recursion explicitly with a stack
+#[allow(clippy::result_large_err)]
+fn apply_definition(
+    ops: &HashMap<Path, shape::Operation>,
+    env: &Environment,
+    term: &Term,
+    args: &[Value],
+) -> Result<Vec<Value>, ShapeCheckError> {
+    let source_values = args.to_vec();
+    let nodes = check_with(ops, env, term.clone(), source_values)?;
+    Ok(term
+        .targets
+        .iter()
+        .map(|node_id| nodes[node_id.0].clone())
+        .collect())
 }
 
 // TODO: tidy this mess up

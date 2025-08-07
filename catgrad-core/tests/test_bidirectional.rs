@@ -1,7 +1,9 @@
 use catgrad_core::category::bidirectional::*;
 use catgrad_core::nn::*;
-use catgrad_core::svg::to_svg;
+use catgrad_core::svg::{checked_to_svg, to_svg};
 use catgrad_core::util::build_typed;
+
+use catgrad_core::check::*;
 
 fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
     if std::env::var("SAVE_DIAGRAMS").is_ok() {
@@ -57,22 +59,80 @@ fn test_graph_sigmoid() {
 #[test]
 fn test_graph_linear_sigmoid() {
     let term = linear_sigmoid();
-    use open_hypergraphs::lax::functor::*;
 
+    use open_hypergraphs::lax::functor::*;
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
     let svg_bytes = to_svg(&term).expect("create svg");
     save_diagram_if_enabled("test_graph_linear_sigmoid.svg", svg_bytes);
 }
 
-/*
+// Shapecheck `exp`
+#[test]
+fn test_check_exp() {
+    let ops = catgrad_core::category::bidirectional::op_decls();
+    let mut env = catgrad_core::nn::stdlib();
+
+    let term = env.operations[&path(vec!["nn", "exp"])].term.clone();
+
+    let t = Value::Tensor(TypeExpr::Var(0));
+
+    use open_hypergraphs::lax::functor::*;
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
+    for def in env.operations.values_mut() {
+        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
+    }
+
+    let result = check_with(&ops, &env, term, vec![t]).expect("works");
+    println!("result: {result:?}");
+}
+
 // Shapecheck the linear-sigmoid term.
 // This should allow us to generate a diagram similar to the one in test_graph_linear_sigmoid(),
 // but where objects are "symbolic shapes".
 #[test]
 fn test_check_linear_sigmoid() {
-    todo!()
+    let term = linear_sigmoid();
+
+    let t_f = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::F32),
+        shape: vec![NatExpr::Var(0), NatExpr::Var(1)],
+    }));
+
+    let t_g = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::F32),
+        shape: vec![NatExpr::Var(1), NatExpr::Var(2)],
+    }));
+
+    use open_hypergraphs::lax::functor::*;
+    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+
+    let ops = catgrad_core::category::bidirectional::op_decls();
+    let mut env = catgrad_core::nn::stdlib();
+    for def in env.operations.values_mut() {
+        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
+    }
+
+    let result = check_with(&ops, &env, term.clone(), vec![t_f, t_g]).expect("valid");
+    println!("result: {result:?}");
+
+    // .... sigh.
+    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
+    let term = OpenHypergraph {
+        sources: term.sources,
+        targets: term.targets,
+        hypergraph: Hypergraph {
+            nodes: result,
+            edges: term.hypergraph.edges,
+            adjacency: term.hypergraph.adjacency,
+            quotient: term.hypergraph.quotient,
+        },
+    };
+
+    let svg_bytes = checked_to_svg(&term).expect("create svg");
+    save_diagram_if_enabled("test_check_linear_sigmoid.svg", svg_bytes);
 }
-*/
 
 /*
 #[test]
