@@ -1,6 +1,3 @@
-// Core: a category of tensor programs with static shapes.
-use open_hypergraphs::lax::OpenHypergraph;
-
 /// Generating objects in Core
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NdArrayType {
@@ -70,10 +67,4 @@ pub enum ScalarOp {
     Div,
     Neg,
     Pow,
-    Zero,
-    One,
 }
-
-pub type Object = NdArrayType;
-pub type Arrow = TensorOp;
-pub type Term = OpenHypergraph<NdArrayType, TensorOp>;
