@@ -83,6 +83,22 @@ impl Display for NatExpr {
                     write!(f, ")")
                 }
             }
+            NatExpr::Add(terms) => {
+                if terms.is_empty() {
+                    write!(f, "0")
+                } else if terms.len() == 1 {
+                    write!(f, "{}", terms[0])
+                } else {
+                    write!(f, "(")?;
+                    for (i, term) in terms.iter().enumerate() {
+                        if i > 0 {
+                            write!(f, "+")?;
+                        }
+                        write!(f, "{term}")?;
+                    }
+                    write!(f, ")")
+                }
+            }
         }
     }
 }
