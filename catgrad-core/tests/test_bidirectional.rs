@@ -1,19 +1,11 @@
 use catgrad_core::category::bidirectional::*;
+use catgrad_core::check::*;
 use catgrad_core::nn::*;
 use catgrad_core::svg::to_svg;
 use catgrad_core::util::build_typed;
 
-use catgrad_core::check::*;
-
-fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
-    if std::env::var("SAVE_DIAGRAMS").is_ok() {
-        let output_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests")
-            .join("images")
-            .join(filename);
-        std::fs::write(output_path, data).expect("write diagram file");
-    }
-}
+mod test_utils;
+use test_utils::{get_forget_op_decls, replace_nodes_in_hypergraph, save_diagram_if_enabled};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Example program
@@ -84,33 +76,7 @@ fn test_check_linear_sigmoid() {
         shape: ShapeExpr::Shape(vec![NatExpr::Var(1), NatExpr::Var(2)]),
     }));
 
-    use open_hypergraphs::lax::functor::*;
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-
-    let ops = catgrad_core::category::bidirectional::op_decls();
-    let mut env = catgrad_core::nn::stdlib();
-    for def in env.operations.values_mut() {
-        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
-    }
-
-    let result = check_with(&ops, &env, term.clone(), vec![t_f, t_g]).expect("valid");
-    println!("result: {result:?}");
-
-    // .... sigh.
-    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
-    let term = OpenHypergraph {
-        sources: term.sources,
-        targets: term.targets,
-        hypergraph: Hypergraph {
-            nodes: result,
-            edges: term.hypergraph.edges,
-            adjacency: term.hypergraph.adjacency,
-            quotient: term.hypergraph.quotient,
-        },
-    };
-
-    let svg_bytes = to_svg(&term).expect("create svg");
-    save_diagram_if_enabled("test_check_linear_sigmoid.svg", svg_bytes);
+    run_check_test(term, vec![t_f, t_g], "test_check_linear_sigmoid.svg").expect("valid");
 }
 
 #[test]
@@ -121,33 +87,7 @@ fn test_check_sigmoid() {
         shape: ShapeExpr::Var(0),
     }));
 
-    use open_hypergraphs::lax::functor::*;
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-
-    let ops = catgrad_core::category::bidirectional::op_decls();
-    let mut env = catgrad_core::nn::stdlib();
-    for def in env.operations.values_mut() {
-        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
-    }
-
-    let result = check_with(&ops, &env, term.clone(), vec![t]).expect("valid");
-    println!("result: {result:?}");
-
-    // .... sigh.
-    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
-    let term = OpenHypergraph {
-        sources: term.sources,
-        targets: term.targets,
-        hypergraph: Hypergraph {
-            nodes: result,
-            edges: term.hypergraph.edges,
-            adjacency: term.hypergraph.adjacency,
-            quotient: term.hypergraph.quotient,
-        },
-    };
-
-    let svg_bytes = to_svg(&term).expect("create svg");
-    save_diagram_if_enabled("test_check_sigmoid.svg", svg_bytes);
+    run_check_test(term, vec![t], "test_check_sigmoid.svg").expect("valid");
 }
 
 #[test]
@@ -158,33 +98,28 @@ fn test_check_exp() {
         shape: ShapeExpr::Var(0),
     }));
 
+    run_check_test(term, vec![t], "test_check_exp.svg").expect("valid");
+}
+
+#[allow(clippy::result_large_err)]
+pub fn run_check_test(
+    term: catgrad_core::category::bidirectional::Term,
+    input_types: Vec<Value>,
+    svg_filename: &str,
+) -> Result<(), ShapeCheckError> {
     use open_hypergraphs::lax::functor::*;
+
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+    let (ops, env) = get_forget_op_decls();
 
-    let ops = catgrad_core::category::bidirectional::op_decls();
-    let mut env = catgrad_core::nn::stdlib();
-    for def in env.operations.values_mut() {
-        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
-    }
-
-    let result = check_with(&ops, &env, term.clone(), vec![t]).expect("valid");
+    let result = check_with(&ops, &env, term.clone(), input_types)?;
     println!("result: {result:?}");
 
-    // .... sigh.
-    use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
-    let term = OpenHypergraph {
-        sources: term.sources,
-        targets: term.targets,
-        hypergraph: Hypergraph {
-            nodes: result,
-            edges: term.hypergraph.edges,
-            adjacency: term.hypergraph.adjacency,
-            quotient: term.hypergraph.quotient,
-        },
-    };
+    let typed_term = replace_nodes_in_hypergraph(term, result);
+    let svg_bytes = to_svg(&typed_term).expect("create svg");
+    save_diagram_if_enabled(svg_filename, svg_bytes);
 
-    let svg_bytes = to_svg(&term).expect("create svg");
-    save_diagram_if_enabled("test_check_exp.svg", svg_bytes);
+    Ok(())
 }
 
 /*
