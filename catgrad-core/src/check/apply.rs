@@ -234,9 +234,12 @@ fn tensor_reshape(args: &[Value]) -> ApplyResult {
     match (&args[0], &args[1]) {
         (
             Value::Shape(target_shape),
-            Value::Tensor(TypeExpr::NdArrayType(NdArrayType { dtype, shape: _ })),
+            Value::Tensor(TypeExpr::NdArrayType(NdArrayType { dtype, shape })),
         ) => {
-            // TODO: check target_shape and shape are isomorphic
+            if !shapes_isomorphic(shape, target_shape) {
+                return Err(ApplyError::ArityError);
+            }
+
             let target_type = NdArrayType {
                 dtype: dtype.clone(),
                 shape: target_shape.clone(),
@@ -245,5 +248,18 @@ fn tensor_reshape(args: &[Value]) -> ApplyResult {
             Ok(vec![Value::Tensor(TypeExpr::NdArrayType(target_type))])
         }
         _ => Err(ApplyError::TypeError),
+    }
+}
+
+// Return normalized shapes for s, t
+// TODO: return ApplyResult
+fn shapes_isomorphic(s: &ShapeExpr, t: &ShapeExpr) -> bool {
+    match (s, t) {
+        (ShapeExpr::Var(v), ShapeExpr::Var(u)) => v == u,
+        (ShapeExpr::OfType(v), ShapeExpr::OfType(u)) => v == u,
+        (ShapeExpr::Shape(s), ShapeExpr::Shape(t)) => {
+            super::isomorphism::isomorphic(s.clone(), t.clone())
+        }
+        _ => false,
     }
 }
