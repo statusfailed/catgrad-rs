@@ -2,8 +2,6 @@
 //! Extends [`core`] with shape operations.
 
 use super::core;
-use open_hypergraphs::lax::var;
-
 pub use super::core::{Dtype, TensorOp};
 
 /// Objects of the category.
@@ -54,22 +52,4 @@ pub enum TypeOp {
     /// Get the shape of a tensor (not its dtype!)
     /// Tensor → Shape
     Shape,
-}
-
-// Copy lets us use HasVar
-impl var::HasVar for Operation {
-    fn var() -> Self {
-        Operation::Copy
-    }
-}
-
-impl var::HasMul<Object, Operation> for Operation {
-    fn mul(lhs_type: Object, rhs_type: Object) -> (Object, Operation) {
-        assert_eq!(lhs_type, rhs_type);
-        match lhs_type {
-            Object::Nat => (Object::Nat, Operation::Nat(NatOp::Mul)),
-            Object::Tensor => (Object::Tensor, Operation::Nat(NatOp::Mul)),
-            obj => panic!("no Mul operator for Object {obj:?}"),
-        }
-    }
 }
