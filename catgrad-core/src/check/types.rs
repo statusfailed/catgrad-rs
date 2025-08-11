@@ -68,6 +68,7 @@ pub enum NatExpr {
     Var(usize),
     Constant(usize),
     Mul(Vec<NatExpr>),
+    Add(Vec<NatExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
