@@ -34,7 +34,11 @@ impl var::HasVar for Operation {
 impl var::HasAdd<Object, Operation> for Operation {
     fn add(lhs: Object, rhs: Object) -> (Object, Operation) {
         assert_eq!(lhs, rhs);
-        (lhs, op!["tensor", "add"])
+        match lhs {
+            Object::Nat => (lhs, op!["nat", "add"]),
+            Object::Tensor => (lhs, op!["tensor", "add"]),
+            _ => panic!("multiply undefined for {lhs:?}"),
+        }
     }
 }
 
@@ -44,14 +48,7 @@ impl var::HasMul<Object, Operation> for Operation {
         // NOTE: this is a bit of a hack- we explicitly treat nat/tensor muls differently.
         // Would be better to have proper polymorphic ops
         match lhs {
-            Object::Nat => (
-                lhs,
-                Operation::Declaration(
-                    vec!["nat", "mul"]
-                        .try_into()
-                        .expect("invalid operation name"),
-                ),
-            ),
+            Object::Nat => (lhs, op!["nat", "mul"]),
             Object::Tensor => (lhs, op!["tensor", "mul"]),
             _ => panic!("multiply undefined for {lhs:?}"),
         }
