@@ -22,12 +22,12 @@ fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
 // matmul ; sigmoid ; reshape
 pub fn linear_sigmoid() -> Term {
     let term = build_typed([Object::Tensor, Object::Tensor], |graph, [x, p]| {
-        let s = shape(graph, x.clone());
         let x = matmul(graph, x, p);
         let x = sigmoid(graph, x);
 
-        let [a, b] = unpack::<2>(graph, s);
-        let t = pack::<1>(graph, [a * b]);
+        // flatten result shape
+        let [a, c] = unpack::<2>(graph, shape(graph, x.clone()));
+        let t = pack::<1>(graph, [a * c]);
 
         vec![reshape(graph, t, x)]
     });

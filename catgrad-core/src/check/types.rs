@@ -81,5 +81,6 @@ pub enum ApplyError {
     ArityError,
     TypeError,
     UnknownOp(Path),
+    ShapeMismatch(ShapeExpr, ShapeExpr),
 }
 pub type ApplyResult = Result<Vec<Value>, ApplyError>;
