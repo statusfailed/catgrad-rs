@@ -7,6 +7,7 @@ impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Value::Type(type_expr) => write!(f, "{type_expr}"),
+            Value::Shape(shape_expr) => write!(f, "{shape_expr}"),
             Value::Nat(nat_expr) => write!(f, "{nat_expr}"),
             Value::Dtype(dtype_expr) => write!(f, "{dtype_expr}"),
             Value::Tensor(type_expr) => write!(f, "{type_expr}"),
@@ -23,10 +24,30 @@ impl Display for TypeExpr {
     }
 }
 
+impl Display for ShapeExpr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            ShapeExpr::Var(i) => write!(f, "v{i}"),
+            ShapeExpr::OfType(i) => write!(f, "shape_of(v{i})"),
+            ShapeExpr::Shape(shape) => {
+                write!(f, "[")?;
+                for (i, dim) in shape.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{dim}")?;
+                }
+                write!(f, "]")
+            }
+        }
+    }
+}
+
 impl Display for NdArrayType {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match &self.shape {
             ShapeExpr::Var(i) => write!(f, "v{i} : {}", self.dtype),
+            ShapeExpr::OfType(i) => write!(f, "shape_of(v{i}) : {}", self.dtype),
             ShapeExpr::Shape(shape) => {
                 write!(f, "{}[", self.dtype)?;
                 for (i, dim) in shape.iter().enumerate() {

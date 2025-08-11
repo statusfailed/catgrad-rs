@@ -30,35 +30,28 @@ fn type_shape(args: &[Value]) -> ApplyResult {
     }
 
     match &args[0] {
-        Value::Tensor(s) => Ok(vec![Value::Type(s.clone())]),
+        Value::Tensor(TypeExpr::Var(v)) => Ok(vec![Value::Shape(ShapeExpr::OfType(*v))]),
+        Value::Tensor(TypeExpr::NdArrayType(s)) => Ok(vec![Value::Shape(s.shape.clone())]),
         _ => Err(ApplyError::TypeError),
     }
 }
 
 fn type_pack(args: &[Value]) -> ApplyResult {
-    // type_pack should have 1 dtype + n nat args
+    // type_pack should have n nat args
     // Creates an NdArrayType from a dtype and individual nat dimensions
     if args.is_empty() {
         return Err(ApplyError::ArityError);
     }
 
-    let dtype = match &args[0] {
-        Value::Dtype(d) => d.clone(),
-        _ => return Err(ApplyError::TypeError),
-    };
-
     let mut shape = Vec::new();
-    for arg in &args[1..] {
+    for arg in args {
         match arg {
             Value::Nat(n) => shape.push(n.clone()),
             _ => return Err(ApplyError::TypeError),
         }
     }
 
-    Ok(vec![Value::Type(TypeExpr::NdArrayType(NdArrayType {
-        dtype,
-        shape: ShapeExpr::Shape(shape),
-    }))])
+    Ok(vec![Value::Shape(ShapeExpr::Shape(shape))])
 }
 
 fn type_unpack(args: &[Value]) -> ApplyResult {
@@ -69,16 +62,14 @@ fn type_unpack(args: &[Value]) -> ApplyResult {
     }
 
     match &args[0] {
-        Value::Type(TypeExpr::NdArrayType(ty)) => {
-            match &ty.shape {
+        Value::Shape(s) => {
+            match &s {
                 ShapeExpr::Var(_) => Err(ApplyError::TypeError),
+                ShapeExpr::OfType(_) => Err(ApplyError::TypeError),
                 ShapeExpr::Shape(nat_exprs) => {
                     let mut result = Vec::new();
 
-                    // First return the dtype
-                    result.push(Value::Dtype(ty.dtype.clone()));
-
-                    // Then return each dimension as individual nats
+                    // Return each dimension as individual nats
                     for dim in nat_exprs {
                         result.push(Value::Nat(dim.clone()));
                     }
@@ -87,7 +78,10 @@ fn type_unpack(args: &[Value]) -> ApplyResult {
                 }
             }
         }
-        _ => Err(ApplyError::TypeError),
+        _ => {
+            println!("here?");
+            Err(ApplyError::TypeError)
+        }
     }
 }
 
@@ -146,23 +140,17 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
 
 fn tensor_broadcast(args: &[Value]) -> ApplyResult {
     match (&args[0], &args[1]) {
-        (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Type(TypeExpr::NdArrayType(u))) => {
-            if t.dtype != u.dtype {
-                return Err(ApplyError::TypeError);
-            }
-
-            let dtype = t.dtype.clone();
-
-            match (&t.shape, &u.shape) {
-                (ShapeExpr::Shape(t), ShapeExpr::Shape(u)) => {
+        (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Shape(shape)) => {
+            match (&t.shape, &shape) {
+                (ShapeExpr::Shape(s1), ShapeExpr::Shape(s2)) => {
                     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                        dtype,
-                        shape: ShapeExpr::Shape([t.clone(), u.clone()].concat()),
+                        dtype: t.dtype.clone(),
+                        shape: ShapeExpr::Shape([s1.clone(), s2.clone()].concat()),
                     }))])
                 }
-                (ShapeExpr::Shape(t), ShapeExpr::Var(v)) if t.is_empty() => {
+                (ShapeExpr::Shape(s), ShapeExpr::Var(v)) if s.is_empty() => {
                     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                        dtype,
+                        dtype: t.dtype.clone(),
                         shape: ShapeExpr::Var(*v),
                     }))])
                 }
@@ -244,9 +232,17 @@ fn tensor_reshape(args: &[Value]) -> ApplyResult {
 
     // TODO: check output tensor is isomorphic!
     match (&args[0], &args[1]) {
-        (Value::Type(target_type), Value::Tensor(_input_tensor)) => {
-            // The output tensor has the target type
-            Ok(vec![Value::Tensor(target_type.clone())])
+        (
+            Value::Shape(target_shape),
+            Value::Tensor(TypeExpr::NdArrayType(NdArrayType { dtype, shape: _ })),
+        ) => {
+            // TODO: check target_shape and shape are isomorphic
+            let target_type = NdArrayType {
+                dtype: dtype.clone(),
+                shape: target_shape.clone(),
+            };
+
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(target_type))])
         }
         _ => Err(ApplyError::TypeError),
     }

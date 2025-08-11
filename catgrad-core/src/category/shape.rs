@@ -43,15 +43,15 @@ pub enum NatOp {
 /// Operations involving shapes
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TypeOp {
-    /// Pack a Dtype and k Nats into a shape
-    /// Pack : Dtype × Nat^k → Type
+    /// Pack k Nats into a shape
+    /// Pack : Nat^k → Type
     Pack,
 
     /// Split a shape into dtype and nat dimensions
-    /// Unpack : Type → Dtype × Nat^k
+    /// Unpack : Type → Nat^k
     Unpack,
 
-    /// Get the shape of a tensor
+    /// Get the shape of a tensor (not its dtype!)
     /// Tensor → Shape
     Shape,
 }
