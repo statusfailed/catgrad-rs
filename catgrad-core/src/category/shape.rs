@@ -36,6 +36,9 @@ pub enum NatOp {
 
     // Multiply n naturals
     Mul,
+
+    // Add n naturals
+    Add,
 }
 
 /// Operations involving shapes

@@ -97,6 +97,7 @@ fn nat_op(op: &NatOp, args: &[Value]) -> ApplyResult {
             Ok(vec![Value::Nat(NatExpr::Constant(*n))])
         }
         NatOp::Mul => nat_mul(args),
+        NatOp::Add => nat_add(args),
     }
 }
 
@@ -119,6 +120,28 @@ fn nat_mul(args: &[Value]) -> ApplyResult {
         Ok(vec![Value::Nat(nat_exprs.into_iter().next().unwrap())])
     } else {
         Ok(vec![Value::Nat(NatExpr::Mul(nat_exprs))])
+    }
+}
+
+fn nat_add(args: &[Value]) -> ApplyResult {
+    // Multiply n natural numbers together
+    if args.is_empty() {
+        return Err(ApplyError::ArityError);
+    }
+
+    let mut nat_exprs = Vec::new();
+    for arg in args {
+        match arg {
+            Value::Nat(n) => nat_exprs.push(n.clone()),
+            _ => return Err(ApplyError::TypeError),
+        }
+    }
+
+    // If there's only one argument, return it directly
+    if nat_exprs.len() == 1 {
+        Ok(vec![Value::Nat(nat_exprs.into_iter().next().unwrap())])
+    } else {
+        Ok(vec![Value::Nat(NatExpr::Add(nat_exprs))])
     }
 }
 
