@@ -26,8 +26,8 @@ pub fn linear_sigmoid() -> Term {
         let x = matmul(graph, x, p);
         let x = sigmoid(graph, x);
 
-        let (dtype, [a, b]) = unpack::<2>(graph, s);
-        let t = pack::<1>(graph, dtype, [a * b]);
+        let [a, b] = unpack::<2>(graph, s);
+        let t = pack::<1>(graph, [a * b]);
 
         vec![reshape(graph, t, x)]
     });

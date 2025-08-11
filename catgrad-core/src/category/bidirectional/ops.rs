@@ -92,37 +92,27 @@ pub fn constant_f32(builder: &Builder, v: f32) -> Var {
 }
 
 /// Pack a fixed number of Nat values into a specific shape
-pub fn pack<const N: usize>(builder: &Builder, dtype: Var, xs: [Var; N]) -> Var {
-    // should all be *shapes*.
-    // TODO: if a nat, auto-lift to shape using Lift?
-    assert_eq!(dtype.label, Object::Dtype);
-
-    for x in &xs {
+pub fn pack<const N: usize>(builder: &Builder, extents: [Var; N]) -> Var {
+    for x in &extents {
         assert_eq!(x.label, Object::Nat);
     }
 
-    let args: Vec<Var> = std::iter::once(dtype).chain(xs).collect();
-    var::fn_operation(builder, &args, Object::NdArrayType, op!["shape", "pack"])
+    var::fn_operation(builder, &extents, Object::NdArrayType, op!["shape", "pack"])
 }
 
 /// Unpack a shape into a dtype and its constituent Nat dimensions
-pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> (Var, [Var; N]) {
+pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> [Var; N] {
     assert_eq!(x.label, Object::NdArrayType);
 
-    let mut ty = vec![Object::Nat; N + 1];
-    ty[0] = Object::Dtype;
-
+    let ty = vec![Object::Nat; N];
     let elements = var::operation(builder, &[x], ty, op!["shape", "unpack"]);
 
-    let mut iter = elements.into_iter();
-    let head = iter.next().unwrap();
-    let tail: [Var; N] = crate::util::iter_to_array(iter).expect("N elements");
-    (head, tail)
+    crate::util::iter_to_array(elements.into_iter()).expect("N elements")
 }
 
 // Tensor → NdArrayType
 pub fn shape(builder: &Builder, x: Var) -> Var {
-    var::fn_operation(builder, &[x], Object::NdArrayType, op!["shape", "shape"])
+    var::fn_operation(builder, &[x], Object::NdArrayType, op!["tensor", "shape"])
 }
 
 pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
@@ -178,10 +168,10 @@ pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::categor
         (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
         (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
         (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
+        (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
         // shape ops
         (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
         (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
-        (path!["shape", "shape"], Operation::Type(TypeOp::Shape)),
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
     ])
 }

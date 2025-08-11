@@ -25,7 +25,10 @@ pub type ShapeCheckResult = Result<Vec<Value>, ShapeCheckError>;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Value {
     /// An NdArrayType
+    /// TODO: remove
     Type(TypeExpr),
+
+    Shape(ShapeExpr),
 
     /// An expression whose value is a natural number
     Nat(NatExpr),
@@ -48,6 +51,7 @@ pub enum TypeExpr {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ShapeExpr {
     Var(usize),
+    OfType(usize), // shape of a *type* variable
     Shape(Vec<NatExpr>),
 }
 
