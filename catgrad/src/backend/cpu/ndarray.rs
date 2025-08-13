@@ -346,6 +346,13 @@ impl TaggedNdArray {
         }
     }
 
+    pub fn dtype(&self) -> Dtype {
+        match self {
+            TaggedNdArray::F16(_) => Dtype::F16,
+            TaggedNdArray::F32(_) => Dtype::F32,
+            TaggedNdArray::I32(_) => Dtype::I32,
+        }
+    }
     pub fn strides(&self) -> Vec<isize> {
         match self {
             TaggedNdArray::F16(vec) => vec.strides.clone(),

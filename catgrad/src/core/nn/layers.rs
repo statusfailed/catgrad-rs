@@ -56,7 +56,13 @@ pub fn print(builder: &Builder, name: &str, verbose: bool, x: &Var) {
     side_effect(
         builder,
         Callback::new(move |a: &TaggedNdArray| {
-            println!("{}: shape: {:?} stride: {:?}", name, a.shape(), a.strides());
+            println!(
+                "{}: shape: {:?} stride: {:?} dtype: {:?}",
+                name,
+                a.shape(),
+                a.strides(),
+                a.dtype()
+            );
             if verbose {
                 println!("{}", a.pretty_print());
             }
@@ -146,6 +152,7 @@ pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
     assert!(dim < a.label.shape.0.len());
+    assert_eq!(a.label.dtype, b.label.dtype);
 
     let mut output_shape = a.label.shape.0.clone();
     output_shape[dim] = a.label.shape.0[dim] + b.label.shape.0[dim];
