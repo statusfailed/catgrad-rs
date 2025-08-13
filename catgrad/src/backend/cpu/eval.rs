@@ -250,7 +250,32 @@ impl EvalState {
                         *dst = *src as f32;
                     });
                 }
-                _ => panic!("Unsupported types for cast operation"),
+                Ok([F16(a), I32(b)]) => {
+                    b.clone().shape.for_each_index(|_, indices| {
+                        let v = a.get(indices);
+                        b.set(indices, half::f16::to_f32(v) as i32);
+                    });
+                }
+                Ok([F16(a), F32(b)]) => {
+                    b.clone().shape.for_each_index(|_, indices| {
+                        let v = a.get(indices);
+                        b.set(indices, half::f16::to_f32(v));
+                    });
+                }
+                Ok([F32(a), F16(b)]) => {
+                    b.clone().shape.for_each_index(|_, indices| {
+                        let v = a.get(indices);
+                        b.set(indices, half::f16::from_f32(v));
+                    });
+                }
+                t => {
+                    let b = t.unwrap();
+                    panic!(
+                        "Unsupported types for cast operation {:?} -> {:?}",
+                        b[0].dtype(),
+                        b[1].dtype()
+                    );
+                }
             },
 
             Copy => {
@@ -288,6 +313,11 @@ impl EvalState {
                         *x = i as f32;
                     }
                 }
+                Some(F16(a)) => {
+                    for (i, x) in a.data.borrow_mut().iter_mut().enumerate() {
+                        *x = f16::from_f32(i as f32);
+                    }
+                }
                 _ => panic!("invalid type"),
             },
 
@@ -310,6 +340,14 @@ impl EvalState {
                                 panic!("Parameters loaded, parameter '{name}'::F32 not found.")
                             }
                         }
+                        Some(F16(a)) => {
+                            let p = parameters.get(name);
+                            if let Some(TaggedNdArray::F16(x)) = p {
+                                a.data = Rc::clone(&x.data);
+                            } else {
+                                panic!("Parameters loaded, parameter '{name}'::F16 not found.")
+                            }
+                        }
                         _ => panic!("Invalid type for parameter '{name}'"),
                     }
                 } else {
@@ -325,6 +363,40 @@ impl EvalState {
 
                 match self.data[..].get_disjoint_mut([i, j, k]) {
                     Ok([F32(input), I32(indices), F32(output)]) => {
+                        let input_dim_size = input.shape.0[*dim];
+
+                        // Optimized path for when the largest blocks can be copied.
+                        if *dim == 0 {
+                            let size: usize = input.shape.0[1..].iter().product();
+                            for (idx, &value) in indices.data.borrow().iter().enumerate() {
+                                let offset = idx * size;
+                                let mut ioffset = (value as usize) * size;
+                                if input.strides[0] == 0 {
+                                    ioffset = 0;
+                                }
+                                output.data.borrow_mut()[offset..offset + size].clone_from_slice(
+                                    &input.data.borrow()[ioffset..ioffset + size],
+                                );
+                            }
+                            return;
+                        }
+                        output.shape.clone().for_each_index(|_, output_indices| {
+                            let mut input_indices = output_indices.to_vec();
+
+                            let idx_pos = output_indices[*dim];
+                            let input_idx: usize = indices.get(&[idx_pos]) as usize;
+
+                            if input_idx >= input_dim_size {
+                                panic!(
+                                    "Index {input_idx} out of bounds for dimension size {input_dim_size}",
+                                );
+                            }
+
+                            input_indices[*dim] = input_idx;
+                            output.set(output_indices, input.get(&input_indices));
+                        });
+                    }
+                    Ok([F16(input), I32(indices), F16(output)]) => {
                         let input_dim_size = input.shape.0[*dim];
 
                         // Optimized path for when the largest blocks can be copied.
