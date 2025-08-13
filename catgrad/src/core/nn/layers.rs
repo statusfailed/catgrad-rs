@@ -375,7 +375,16 @@ pub fn tanh(builder: &Builder, x: Var) -> Var {
 }
 
 pub fn silu(builder: &Builder, x: Var) -> Var {
-    x.clone() * sigmoid(builder, x)
+    let xdtype = x.label.dtype;
+    let mut x = x;
+    if xdtype != Dtype::F32 {
+        x = cast(builder, Dtype::F32, x);
+    }
+    let mut r = x.clone() * sigmoid(builder, x);
+    if xdtype != Dtype::F32 {
+        r = cast(builder, xdtype, r);
+    }
+    r
 }
 
 // approx GELU(x) ≈ 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
@@ -431,6 +440,11 @@ pub fn layernorm_no_bias(builder: &Builder, eps: f32, name: &str, x: Var) -> Var
 
 pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let n = x.label.shape.0[x.label.shape.0.len() - 1];
+    let xdtype = x.label.dtype;
+    let mut x = x;
+    if xdtype != Dtype::F32 {
+        x = cast(builder, Dtype::F32, x);
+    }
     let s = sum(builder, x.clone() * x.clone());
     let constn = constant(builder, s.label.clone(), n as f32);
     let ms = s / constn;
@@ -438,7 +452,11 @@ pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let rms = sqrt(builder, ms + epsilon);
     let b = expand(builder, x.label.shape.clone(), rms);
 
-    x / b
+    let mut r = x / b;
+    if xdtype != Dtype::F32 {
+        r = cast(builder, xdtype, r);
+    }
+    r
 }
 
 // rmsnorm(x) = x / √(E[x²] + ε) × γ
@@ -452,13 +470,22 @@ pub fn rmsnorm(builder: &Builder, eps: f32, name: &str, x: Var) -> Var {
 }
 
 pub fn softmax(builder: &Builder, x: Var) -> Var {
+    let xdtype = x.label.dtype;
+    let mut x = x;
+    if xdtype != Dtype::F32 {
+        x = cast(builder, Dtype::F32, x);
+    }
     let m = max(builder, x.clone());
     let bmax = expand(builder, x.label.shape.clone(), m);
     let x = x - bmax;
     let ex = exp(builder, x.clone());
     let s = sum(builder, ex.clone());
     let bsum = expand(builder, x.label.shape, s);
-    ex / bsum
+    let mut r = ex / bsum;
+    if xdtype != Dtype::F32 {
+        r = cast(builder, xdtype, r);
+    }
+    r
 }
 
 // Generate rope tables. This part is usually precomputed
@@ -500,9 +527,18 @@ pub fn apply_rope_embedding(builder: &Builder, pos: usize, cos: Var, sin: Var, x
     let cos = expand(builder, x.label.shape.clone(), cos);
     let sin = expand(builder, x.label.shape.clone(), sin);
 
+    let xdtype = x.label.dtype;
+    let mut x = x;
+    if xdtype != Dtype::F32 {
+        x = cast(builder, Dtype::F32, x);
+    }
     let rotated_x = rotate_half(builder, x.clone());
 
-    cos * x + sin * rotated_x
+    let mut r = cos * x + sin * rotated_x;
+    if xdtype != Dtype::F32 {
+        r = cast(builder, xdtype, r);
+    }
+    r
 }
 
 /// Apply RoPE (Rotary Positional Embedding) to the input tensor by calculating the tables
@@ -759,6 +795,38 @@ mod tests {
             assert_eq!(fc.shape, Shape(vec![4]));
             assert_eq!(*fc.data.borrow(), vec![0, 1, 2, 3]);
         };
+    }
+
+    #[test]
+    fn test_cast_float() {
+        let mut state = EvalState::build(|builder| {
+            let h = arange(builder, 4, Dtype::F16);
+            let hc = cast(builder, Dtype::F32, h);
+            let f = arange(builder, 4, Dtype::F32);
+            let fc = cast(builder, Dtype::F16, f);
+            (vec![], vec![hc, fc])
+        });
+
+        let [hc, fc] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        if let (TaggedNdArray::F32(hc), TaggedNdArray::F16(fc)) = (hc, fc) {
+            assert_eq!(hc.shape, Shape(vec![4]));
+            assert_eq!(*hc.data.borrow(), vec![0., 1., 2., 3.]);
+            assert_eq!(fc.shape, Shape(vec![4]));
+
+            // Convert to f32 for comparison
+            let fc_data: Vec<f32> = fc
+                .data
+                .borrow()
+                .iter()
+                .map(|&x| half::f16::to_f32(x))
+                .collect();
+            assert_eq!(fc_data, vec![0., 1., 2., 3.]);
+        } else {
+            panic!("Unexpected array types");
+        }
     }
 
     #[test]
