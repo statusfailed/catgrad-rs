@@ -35,7 +35,6 @@ fn read_to_value<V: for<'a> serde::Deserialize<'a>>(path: impl AsRef<Path>) -> R
 impl ModelLoader {
     pub fn new(model_name: &str, use_kv_cache: bool) -> Result<Self> {
         let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main")?;
-
         let chat_template = get_model_chat_template(model_name, "main")?;
         let config: Config = read_to_value(config_path)?;
 
@@ -70,21 +69,20 @@ impl ModelTokenizer {
         })
     }
 
-    fn render_context(&self, messages: &[serve::Message]) -> String {
+    fn render_context(&self, messages: &[serve::Message]) -> Result<String> {
         let mut env = Environment::new();
         env.set_unknown_method_callback(unknown_method_callback);
-        env.add_template("chat", &self.chat_template).unwrap();
-        let tmpl = env.get_template("chat").unwrap();
+        env.add_template("chat", &self.chat_template)?;
+        let tmpl = env.get_template("chat")?;
         let message_context: Vec<_> = messages
             .iter()
             .map(|msg| context!(role => msg.role, content => msg.content))
             .collect();
-        tmpl.render(context!(
+        Ok(tmpl.render(context!(
             messages => message_context,
             add_generation_prompt => true,
             enable_thinking => false
-        ))
-        .expect("template failed to render")
+        ))?)
     }
 }
 
@@ -219,7 +217,7 @@ impl serve::Tokenizer<i32> for ModelTokenizer {
 impl serve::ChatTokenizer<i32> for ModelTokenizer {
     fn encode_messages(&self, messages: Vec<serve::Message>) -> Result<Vec<i32>> {
         // initialize context
-        let content = self.render_context(&messages);
+        let content = self.render_context(&messages)?;
         use serve::Tokenizer;
         self.encode(content)
     }

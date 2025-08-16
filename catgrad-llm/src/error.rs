@@ -11,6 +11,9 @@ pub enum LLMError {
     #[error("Unsupported model architecture: {0}")]
     UnsupportedModel(String),
 
+    #[error("Invalid model config: {0}")]
+    InvalidModelConfig(String),
+
     #[error("Failed to parse JSON: {0}")]
     JsonError(#[from] serde_json::Error),
 
@@ -18,8 +21,18 @@ pub enum LLMError {
     SafetensorsError(#[from] safetensors::SafeTensorError),
 
     #[error("Tokenizer Error: {0}")]
-    TokenizerError(#[from] tokenizers::tokenizer::Error),
+    TokenizerError(String),
 
     #[error("Unknown error occurred: {0}")]
     HuggingFaceAPIError(#[from] hf_hub::api::sync::ApiError),
+
+    #[error("Template rendering error: {0}")]
+    TemplateError(#[from] minijinja::Error),
+}
+
+// iirc we didn't want to expose the `tokenizers` crate's error type directly (why?)
+impl From<tokenizers::Error> for LLMError {
+    fn from(err: tokenizers::Error) -> Self {
+        LLMError::TokenizerError(err.to_string())
+    }
 }
