@@ -14,7 +14,7 @@ use catgrad::{
 use minijinja::{Environment, context};
 use minijinja_contrib::pycompat::unknown_method_callback;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use tokenizers::tokenizer::Tokenizer;
 
@@ -27,7 +27,7 @@ pub struct ModelLoader {
     use_kv_cache: bool,
 }
 
-fn read_to_value<V: for<'a> serde::Deserialize<'a>>(path: PathBuf) -> Result<V> {
+fn read_to_value<V: for<'a> serde::Deserialize<'a>>(path: impl AsRef<Path>) -> Result<V> {
     let config_str = &std::fs::read_to_string(path)?;
     Ok(serde_json::from_str(config_str)?)
 }
@@ -36,7 +36,7 @@ impl ModelLoader {
     pub fn new(model_name: &str, use_kv_cache: bool) -> Result<Self> {
         let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main")?;
 
-        let chat_template = get_model_chat_template(model_name, "main");
+        let chat_template = get_model_chat_template(model_name, "main")?;
         let config: Config = read_to_value(config_path)?;
 
         Ok(Self {

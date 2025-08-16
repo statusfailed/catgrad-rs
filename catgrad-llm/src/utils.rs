@@ -98,9 +98,8 @@ pub fn get_model_files(
 }
 
 // Try getting the model's chat template from the repository
-pub fn get_model_chat_template(model: &str, revision: &str) -> String {
-    let api = Api::new().unwrap();
-
+pub fn get_model_chat_template(model: &str, revision: &str) -> Result<String> {
+    let api = Api::new()?;
     let repo = api.repo(Repo::with_revision(
         model.to_string(),
         RepoType::Model,
@@ -108,17 +107,15 @@ pub fn get_model_chat_template(model: &str, revision: &str) -> String {
     ));
 
     if let Ok(ct) = repo.get("chat_template.jinja") {
-        std::fs::read_to_string(ct).unwrap()
+        Ok(std::fs::read_to_string(ct)?)
     } else {
-        let tc = repo.get("tokenizer_config.json").unwrap();
-
-        let tokenizer_config: serde_json::Value =
-            serde_json::from_str(&std::fs::read_to_string(tc).unwrap()).unwrap();
-
-        tokenizer_config
+        let tc_path = repo.get("tokenizer_config.json")?;
+        let tc = std::fs::read_to_string(tc_path)?;
+        let tokenizer_config: serde_json::Value = serde_json::from_str(&tc)?;
+        Ok(tokenizer_config
             .get("chat_template")
             .and_then(|v| v.as_str())
             .unwrap_or("")
-            .to_string()
+            .to_string())
     }
 }

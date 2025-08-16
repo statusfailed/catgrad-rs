@@ -19,4 +19,7 @@ pub enum LLMError {
 
     #[error("Tokenizer Error: {0}")]
     TokenizerError(#[from] tokenizers::tokenizer::Error),
+
+    #[error("Unknown error occurred: {0}")]
+    HuggingFaceAPIError(#[from] hf_hub::api::sync::ApiError),
 }

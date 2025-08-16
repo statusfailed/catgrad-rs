@@ -266,7 +266,7 @@ pub fn main() -> Result<()> {
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
     let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
 
-    let chat_template = get_model_chat_template(model_name, &args.revision);
+    let chat_template = get_model_chat_template(model_name, &args.revision)?;
 
     // SmolLM3 template specific hack, move to lib.
     let chat_template = chat_template
