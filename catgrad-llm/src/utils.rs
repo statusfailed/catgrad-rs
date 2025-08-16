@@ -1,15 +1,18 @@
+use crate::{LLMError, Result};
 use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
 use catgrad::core::Shape;
 use hf_hub::{Repo, RepoType, api::sync::Api};
 use std::collections::HashMap;
+use std::path::Path;
 use std::path::PathBuf;
 
-fn read_safetensors_file(path: PathBuf, map: &mut HashMap<String, TaggedNdArray>) {
-    let file = std::fs::File::open(path).unwrap();
-    let data = unsafe { memmap2::Mmap::map(&file).unwrap() };
-    let tensors = safetensors::SafeTensors::deserialize(&data).unwrap();
+fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, TaggedNdArray>> {
+    let file = std::fs::File::open(path)?;
+    let data = unsafe { memmap2::Mmap::map(&file)? };
+    let tensors = safetensors::SafeTensors::deserialize(&data)?;
 
     // Read each tensor
+    let mut map = HashMap::new();
     for (name, view) in tensors.tensors() {
         let shape = Shape(view.shape().to_vec());
         let tensor_data = view.data();
@@ -42,27 +45,29 @@ fn read_safetensors_file(path: PathBuf, map: &mut HashMap<String, TaggedNdArray>
             }
             // Add other dtype conversions as needed
             _ => {
-                panic!("Unsupported dtype {:?}", view.dtype())
+                return Err(LLMError::UnsupportedDtype(format!("{:?}", view.dtype())));
             }
         }
     }
+
+    Ok(map)
 }
 
-pub fn read_safetensors(path: &str) -> HashMap<String, TaggedNdArray> {
+pub fn read_safetensors_multiple(
+    paths: impl IntoIterator<Item = impl AsRef<Path>>,
+) -> Result<HashMap<String, TaggedNdArray>> {
     let mut map = HashMap::new();
-    read_safetensors_file(PathBuf::from(path), &mut map);
-    map
-}
-
-pub fn read_safetensors_multiple(path: Vec<PathBuf>) -> HashMap<String, TaggedNdArray> {
-    let mut map = HashMap::new();
-    for path in path {
-        read_safetensors_file(path, &mut map);
+    for path in paths {
+        let file_map = read_safetensors_file(path)?;
+        map.extend(file_map);
     }
-    map
+    Ok(map)
 }
 
-pub fn get_model_files(model: &str, revision: &str) -> (Vec<PathBuf>, PathBuf, PathBuf, PathBuf) {
+pub fn get_model_files(
+    model: &str,
+    revision: &str,
+) -> Result<(Vec<PathBuf>, PathBuf, PathBuf, PathBuf)> {
     let api = Api::new().unwrap();
 
     let repo = api.repo(Repo::with_revision(
@@ -89,7 +94,7 @@ pub fn get_model_files(model: &str, revision: &str) -> (Vec<PathBuf>, PathBuf, P
     let t = repo.get("tokenizer.json").unwrap();
     let tc = repo.get("tokenizer_config.json").unwrap();
 
-    (m, c, t, tc)
+    Ok((m, c, t, tc))
 }
 
 // Try getting the model's chat template from the repository

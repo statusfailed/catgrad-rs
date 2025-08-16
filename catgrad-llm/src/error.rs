@@ -1,6 +1,6 @@
-use thiserror;
+use thiserror::Error;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum LLMError {
     #[error("IO error occurred: {0}")]
     IoError(#[from] std::io::Error),
@@ -19,6 +19,4 @@ pub enum LLMError {
 
     #[error("Tokenizer Error: {0}")]
     TokenizerError(#[from] tokenizers::tokenizer::Error),
-    // #[error("Failed to access Hugging Face Hub: {0}")]
-    // HfHubError(String),
 }
