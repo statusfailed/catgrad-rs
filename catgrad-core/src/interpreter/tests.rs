@@ -9,13 +9,13 @@ fn test_literal_u32() {
     let result = lit_to_value(&literal);
 
     match result {
-        Value::Tensor(tensor) => {
+        Value::NdArray(tensor) => {
             assert_eq!(tensor.shape, vec![]);
             assert_eq!(tensor.strides, vec![]);
             assert_eq!(tensor.offset, 0);
             assert_eq!(tensor.buf, 42u32.to_ne_bytes().to_vec());
         }
-        _ => panic!("Expected Tensor value for U32 literal"),
+        _ => panic!("Expected NdArray value for U32 literal"),
     }
 }
 
@@ -25,13 +25,13 @@ fn test_literal_f32() {
     let result = lit_to_value(&literal);
 
     match result {
-        Value::Tensor(tensor) => {
+        Value::NdArray(tensor) => {
             assert_eq!(tensor.shape, vec![]);
             assert_eq!(tensor.strides, vec![]);
             assert_eq!(tensor.offset, 0);
             assert_eq!(tensor.buf, 3.15f32.to_ne_bytes().to_vec());
         }
-        _ => panic!("Expected Tensor value for F32 literal"),
+        _ => panic!("Expected NdArray value for F32 literal"),
     }
 }
 
