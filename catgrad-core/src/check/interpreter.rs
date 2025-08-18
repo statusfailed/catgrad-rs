@@ -49,7 +49,7 @@ pub fn check_with(
     }
 
     // Create SSA
-    let ssa = ssa(term.to_open_hypergraph());
+    let ssa = ssa(term.to_strict());
 
     // Iterate through SSA
     for op in ssa {
