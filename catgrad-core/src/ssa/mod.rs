@@ -14,7 +14,9 @@ pub struct SSA<O, A> {
     pub targets: Vec<(lax::NodeId, O)>, // target nodes and type labels
 }
 
-pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<SSA<O, A>> {
+pub fn parallel_ssa<O: Clone, A: Clone>(
+    f: strict::OpenHypergraph<VecKind, O, A>,
+) -> Vec<Vec<SSA<O, A>>> {
     // partial topological ordering on edges
     let (op_order, unvisited) = strict::layer::layered_operations(&f);
 
@@ -25,28 +27,38 @@ pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<
     // Convert to nonstrict
     let f = lax::OpenHypergraph::from_strict(f);
 
-    // Turn partial ordering into total one
-    let sorted_edge_ids = op_order.iter().flat_map(|layer| layer.0.iter());
-
-    // Collect all hyperedges into SSA form
-    sorted_edge_ids
-        .map(|edge_id| {
-            let lax::Hyperedge { sources, targets } = f.hypergraph.adjacency[*edge_id].clone();
-            let op = f.hypergraph.edges[*edge_id].clone();
-            SSA {
-                op,
-                edge_id: lax::EdgeId(*edge_id),
-                sources: sources
-                    .iter()
-                    .map(|id| (*id, f.hypergraph.nodes[id.0].clone()))
-                    .collect(),
-                targets: targets
-                    .iter()
-                    .map(|id| (*id, f.hypergraph.nodes[id.0].clone()))
-                    .collect(),
-            }
+    // Keep as partial ordering - each layer is a Vec<SSA>
+    op_order
+        .iter()
+        .map(|layer| {
+            layer
+                .0
+                .iter()
+                .map(|edge_id| {
+                    let lax::Hyperedge { sources, targets } =
+                        f.hypergraph.adjacency[*edge_id].clone();
+                    let op = f.hypergraph.edges[*edge_id].clone();
+                    SSA {
+                        op,
+                        edge_id: lax::EdgeId(*edge_id),
+                        sources: sources
+                            .iter()
+                            .map(|id| (*id, f.hypergraph.nodes[id.0].clone()))
+                            .collect(),
+                        targets: targets
+                            .iter()
+                            .map(|id| (*id, f.hypergraph.nodes[id.0].clone()))
+                            .collect(),
+                    }
+                })
+                .collect()
         })
         .collect()
+}
+
+pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<SSA<O, A>> {
+    // Flatten the partial order into a total order
+    parallel_ssa(f).into_iter().flatten().collect()
 }
 
 impl<O: Debug, A: Debug> Display for SSA<O, A> {
