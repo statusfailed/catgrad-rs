@@ -8,39 +8,7 @@ use std::collections::HashMap;
 
 use crate::category::{bidirectional::*, shape};
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum InterpreterError {
-    NonMonogamousWrite(NodeId), // A value (identified by a node id) was written to multiple times
-    NonMonogamousRead(NodeId),  // a value either didn't exist or was already used
-    ApplyError(Box<ApplyError>),
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub struct ApplyError {
-    pub kind: ApplyErrorKind,
-    pub ssa: SSA<Object, Operation>,
-    pub args: Vec<Value>,
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum ApplyErrorKind {
-    TypeError,
-    MissingOperation(Path),  // Operation declaration not found in ops
-    MissingDefinition(Path), // Operation definition not found in env
-}
-
-impl From<ApplyError> for InterpreterError {
-    fn from(err: ApplyError) -> Self {
-        InterpreterError::ApplyError(Box::new(err))
-    }
-}
-
-// Actual values produced by the interpreter
-#[derive(PartialEq, Debug, Clone)]
-pub enum Value {
-    Dtype(Dtype),
-    NdArray(NdArray),
-}
+use super::types::*;
 
 pub struct Interpreter {
     ops: HashMap<Path, shape::Operation>,
@@ -133,13 +101,14 @@ impl Interpreter {
         path: &Path,
     ) -> Result<Vec<Value>, InterpreterError> {
         let op = self.get_op(path, ssa, &args)?;
-        match op {
-            shape::Operation::Type(_type_op) => todo!(),
-            shape::Operation::Nat(_nat_op) => todo!(),
-            shape::Operation::DtypeConstant(_dtype) => todo!(),
+        use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
+        Ok(match op {
+            shape::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
+            shape::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
+            shape::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
             shape::Operation::Tensor(_tensor_op) => todo!(),
-            shape::Operation::Copy => todo!(),
-        }
+            shape::Operation::Copy => apply_copy(args, ssa)?,
+        })
     }
 
     fn apply_definition(
@@ -180,5 +149,40 @@ pub(crate) fn lit_to_value(lit: &Literal) -> Value {
             })
         }
         Literal::Dtype(d) => Value::Dtype(d.clone()),
+    }
+}
+
+// Apply Copy operation
+fn apply_copy(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+            args,
+        }));
+    }
+
+    Ok(vec![args[0].clone()])
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum InterpreterError {
+    NonMonogamousWrite(NodeId), // A value (identified by a node id) was written to multiple times
+    NonMonogamousRead(NodeId),  // a value either didn't exist or was already used
+    ApplyError(Box<ApplyError>),
+}
+
+impl From<ApplyError> for InterpreterError {
+    fn from(err: ApplyError) -> Self {
+        InterpreterError::ApplyError(Box::new(err))
+    }
+}
+
+impl From<Box<ApplyError>> for InterpreterError {
+    fn from(err: Box<ApplyError>) -> Self {
+        InterpreterError::ApplyError(err)
     }
 }
