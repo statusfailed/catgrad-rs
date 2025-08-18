@@ -45,7 +45,7 @@ fn test_simple_operation_ssa() {
     graph.targets = vec![output_node];
 
     // Convert to strict form for SSA decomposition
-    let strict_graph = graph.to_open_hypergraph();
+    let strict_graph = graph.to_strict();
 
     // Decompose to SSA
     let ssa_form = ssa(strict_graph);
@@ -119,7 +119,7 @@ fn test_matmul_and_pointwise_sum_ssa() {
     graph.targets = vec![final_result_node];
 
     // Convert to strict form for SSA decomposition
-    let strict_graph = graph.to_open_hypergraph();
+    let strict_graph = graph.to_strict();
 
     // Decompose to SSA
     let ssa_form = ssa(strict_graph);

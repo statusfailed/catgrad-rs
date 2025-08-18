@@ -4,4 +4,5 @@ pub mod nn;
 pub mod ssa;
 pub mod util;
 
+pub mod interpreter;
 pub mod svg;
