@@ -1,6 +1,6 @@
 //! Catgrad reference interpreter
 
-use super::ndarray::NdArray;
+use super::ndarray::{NdArray, TaggedArray};
 use crate::ssa::{SSA, parallel_ssa};
 
 use open_hypergraphs::lax::NodeId;
@@ -103,11 +103,12 @@ impl Interpreter {
     ) -> Result<Vec<Value>, InterpreterError> {
         let op = self.get_op(path, ssa, &args)?;
         use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
+        use super::tensor_op::apply_tensor_op;
         Ok(match op {
             shape::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
             shape::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
             shape::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
-            shape::Operation::Tensor(_tensor_op) => todo!(),
+            shape::Operation::Tensor(tensor_op) => apply_tensor_op(tensor_op, args, ssa)?,
             shape::Operation::Copy => apply_copy(args, ssa)?,
         })
     }
@@ -156,7 +157,7 @@ impl From<Box<ApplyError>> for InterpreterError {
 pub(crate) fn lit_to_value(lit: &Literal) -> Value {
     match lit {
         Literal::U32(x) => {
-            let buf = x.to_ne_bytes().to_vec();
+            let buf = TaggedArray::U32(vec![*x]);
             Value::NdArray(NdArray {
                 buf,
                 shape: vec![],
@@ -165,7 +166,7 @@ pub(crate) fn lit_to_value(lit: &Literal) -> Value {
             })
         }
         Literal::F32(x) => {
-            let buf = x.to_ne_bytes().to_vec();
+            let buf = TaggedArray::F32(vec![*x]);
             Value::NdArray(NdArray {
                 buf,
                 shape: vec![],
