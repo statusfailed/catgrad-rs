@@ -6,6 +6,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::path::PathBuf;
 
+use rayon::prelude::*;
+
 fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, TaggedNdArray>> {
     let file = std::fs::File::open(path)?;
     let data = unsafe { memmap2::Mmap::map(&file)? };
@@ -21,7 +23,7 @@ fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, Tagge
         match view.dtype() {
             safetensors::Dtype::F32 => {
                 let data: Vec<f32> = tensor_data
-                    .chunks_exact(4)
+                    .par_chunks_exact(4)
                     .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
                     .collect();
                 map.insert(
@@ -32,7 +34,7 @@ fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, Tagge
             // cast BF16 to F32 until we support BF16
             safetensors::Dtype::BF16 => {
                 let data: Vec<f32> = tensor_data
-                    .chunks_exact(2)
+                    .par_chunks_exact(2)
                     .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
                     .collect();
                 map.insert(
