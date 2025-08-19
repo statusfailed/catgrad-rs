@@ -48,7 +48,7 @@ pub enum TypeOp {
     /// Pack : Nat^k → Type
     Pack,
 
-    /// Split a shape into dtype and nat dimensions
+    /// Split a shape into nat dimensions
     /// Unpack : Type → Nat^k
     Unpack,
 

@@ -1,5 +1,6 @@
 //! Catgrad reference interpreter
 use super::ndarray::NdArray;
+use crate::category::core::NdArrayType;
 use crate::ssa::SSA;
 
 use crate::category::bidirectional::*;
@@ -35,11 +36,4 @@ pub enum Value {
 
     /// A tensor with actual data
     NdArray(NdArray),
-}
-
-/// Concrete NdArrayType for interpreter (no symbolic expressions)
-#[derive(PartialEq, Debug, Clone)]
-pub struct NdArrayType {
-    pub dtype: Dtype,
-    pub shape: Vec<usize>,
 }

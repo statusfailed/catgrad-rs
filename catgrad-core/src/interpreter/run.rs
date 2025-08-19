@@ -21,6 +21,7 @@ impl Interpreter {
         Self { ops, env }
     }
 
+    /// Run the interpreter with specified input values
     pub fn run(&self, term: Term, values: Vec<Value>) -> Result<Vec<Value>, InterpreterError> {
         assert_eq!(values.len(), term.sources.len());
 
@@ -128,6 +129,30 @@ impl Interpreter {
     }
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum InterpreterError {
+    /// A value (identified by a node id) was written to multiple times
+    NonMonogamousWrite(NodeId),
+
+    /// a value either didn't exist or was already used
+    NonMonogamousRead(NodeId),
+
+    /// An error during application of an operation
+    ApplyError(Box<ApplyError>),
+}
+
+impl From<ApplyError> for InterpreterError {
+    fn from(err: ApplyError) -> Self {
+        InterpreterError::ApplyError(Box::new(err))
+    }
+}
+
+impl From<Box<ApplyError>> for InterpreterError {
+    fn from(err: Box<ApplyError>) -> Self {
+        InterpreterError::ApplyError(err)
+    }
+}
+
 pub(crate) fn lit_to_value(lit: &Literal) -> Value {
     match lit {
         Literal::U32(x) => {
@@ -152,37 +177,11 @@ pub(crate) fn lit_to_value(lit: &Literal) -> Value {
     }
 }
 
-// Apply Copy operation
 fn apply_copy(
     args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-            args,
-        }));
-    }
-
+    use super::shape_op::expect_arity;
+    expect_arity(&args, 1, ssa)?;
     Ok(vec![args[0].clone()])
-}
-
-#[derive(PartialEq, Debug, Clone)]
-pub enum InterpreterError {
-    NonMonogamousWrite(NodeId), // A value (identified by a node id) was written to multiple times
-    NonMonogamousRead(NodeId),  // a value either didn't exist or was already used
-    ApplyError(Box<ApplyError>),
-}
-
-impl From<ApplyError> for InterpreterError {
-    fn from(err: ApplyError) -> Self {
-        InterpreterError::ApplyError(Box::new(err))
-    }
-}
-
-impl From<Box<ApplyError>> for InterpreterError {
-    fn from(err: Box<ApplyError>) -> Self {
-        InterpreterError::ApplyError(err)
-    }
 }
