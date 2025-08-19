@@ -3,17 +3,20 @@ use crate::category::bidirectional::{Environment, Literal, Object, Operation};
 use open_hypergraphs::lax::OpenHypergraph;
 use std::collections::HashMap;
 
+use super::ndarray::TaggedArray;
+
 #[test]
 fn test_literal_u32() {
     let literal = Literal::U32(42);
     let result = lit_to_value(&literal);
+    let expected = TaggedArray::U32(vec![42]);
 
     match result {
         Value::NdArray(tensor) => {
             assert_eq!(tensor.shape, vec![]);
             assert_eq!(tensor.strides, vec![]);
             assert_eq!(tensor.offset, 0);
-            assert_eq!(tensor.buf, 42u32.to_ne_bytes().to_vec());
+            assert_eq!(tensor.buf, expected);
         }
         _ => panic!("Expected NdArray value for U32 literal"),
     }
@@ -23,13 +26,14 @@ fn test_literal_u32() {
 fn test_literal_f32() {
     let literal = Literal::F32(3.15);
     let result = lit_to_value(&literal);
+    let expected = TaggedArray::F32(vec![3.15]);
 
     match result {
         Value::NdArray(tensor) => {
             assert_eq!(tensor.shape, vec![]);
             assert_eq!(tensor.strides, vec![]);
             assert_eq!(tensor.offset, 0);
-            assert_eq!(tensor.buf, 3.15f32.to_ne_bytes().to_vec());
+            assert_eq!(tensor.buf, expected);
         }
         _ => panic!("Expected NdArray value for F32 literal"),
     }

@@ -9,5 +9,7 @@ pub use ndarray::*;
 
 pub mod shape_op;
 
+pub mod tensor_op;
+
 #[cfg(test)]
 mod tests;

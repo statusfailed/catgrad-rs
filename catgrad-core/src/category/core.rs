@@ -62,9 +62,9 @@ pub enum TensorOp {
 /// TODO: constants, comparisons
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ScalarOp {
-    Add,
-    Mul,
-    Div,
-    Neg,
-    Pow,
+    Add, // 2 → 1
+    Mul, // 2 → 1
+    Div, // 2 → 1
+    Neg, // 1 → 1
+    Pow, // 2 → 1
 }
