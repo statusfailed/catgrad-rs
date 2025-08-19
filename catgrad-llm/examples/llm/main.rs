@@ -245,7 +245,7 @@ pub fn main() -> Result<()> {
     let models = HashMap::from([
         ("gpt", "openai-community/gpt2"),
         ("smollm2", "HuggingFaceTB/SmolLM2-135M-Instruct"),
-        ("smollm3", "HuggingFaceTB/SmolLM3-3B-Base"),
+        ("smollm3", "HuggingFaceTB/SmolLM3-3B"),
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
