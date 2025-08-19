@@ -6,7 +6,7 @@ use crate::category::{core, shape};
 use crate::ssa::SSA;
 
 /// Apply a Type operation
-pub fn apply_type_op(
+pub(crate) fn apply_type_op(
     type_op: &shape::TypeOp,
     args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
@@ -19,7 +19,7 @@ pub fn apply_type_op(
 }
 
 /// Apply a Nat operation
-pub fn apply_nat_op(
+pub(crate) fn apply_nat_op(
     nat_op: &shape::NatOp,
     args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
@@ -32,63 +32,123 @@ pub fn apply_nat_op(
 }
 
 /// Apply a Dtype constant operation
-pub fn apply_dtype_constant(
+pub(crate) fn apply_dtype_constant(
     dtype: &core::Dtype,
     args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    if !args.is_empty() {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-            args,
-        }));
-    }
-
+    expect_arity(&args, 0, ssa)?;
     Ok(vec![Value::Dtype(dtype.clone())])
 }
 
 // Type operation implementations
-fn apply_pack(
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_pack(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("Pack: Nat^k → Type")
+    let mut shape = Vec::new();
+    for arg in &args {
+        match arg {
+            Value::Nat(n) => shape.push(*n),
+            _ => return type_error(ssa, args),
+        }
+    }
+    Ok(vec![Value::Shape(shape)])
 }
 
-fn apply_unpack(
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_unpack(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("Unpack: Type → Nat^k")
+    expect_arity(&args, 1, ssa)?;
+    match &args[0] {
+        Value::Shape(shape) => {
+            let mut result = Vec::new();
+            for dim in shape {
+                result.push(Value::Nat(*dim));
+            }
+            Ok(result)
+        }
+        _ => type_error(ssa, args),
+    }
 }
 
-fn apply_shape(
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_shape(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("Shape: Tensor → Shape")
+    expect_arity(&args, 1, ssa)?;
+    match &args[0] {
+        Value::NdArray(tensor) => Ok(vec![Value::Shape(tensor.shape.clone())]),
+        _ => type_error(ssa, args),
+    }
 }
 
 // Nat operation implementations
-fn apply_nat_constant(
-    _n: usize,
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_nat_constant(
+    n: usize,
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("NatConstant: [] → Nat")
+    expect_arity(&args, 0, ssa)?;
+    Ok(vec![Value::Nat(n)])
 }
 
-fn apply_nat_mul(
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_nat_mul(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("NatMul: Nat^n → Nat")
+    if args.is_empty() {
+        return Ok(vec![Value::Nat(1)]);
+    }
+    let mut result = 1;
+    for arg in &args {
+        match arg {
+            Value::Nat(n) => result *= n,
+            _ => return type_error(ssa, args),
+        }
+    }
+    Ok(vec![Value::Nat(result)])
 }
 
-fn apply_nat_add(
-    _args: Vec<Value>,
-    _ssa: &SSA<Object, Operation>,
+pub(crate) fn apply_nat_add(
+    args: Vec<Value>,
+    ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
-    todo!("NatAdd: Nat^n → Nat")
+    if args.is_empty() {
+        return Ok(vec![Value::Nat(0)]);
+    }
+    let mut result = 0;
+    for arg in &args {
+        match arg {
+            Value::Nat(n) => result += n,
+            _ => return type_error(ssa, args),
+        }
+    }
+    Ok(vec![Value::Nat(result)])
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// utilities
+
+pub fn type_error(
+    ssa: &SSA<Object, Operation>,
+    args: Vec<Value>,
+) -> Result<Vec<Value>, Box<ApplyError>> {
+    Err(Box::new(ApplyError {
+        kind: ApplyErrorKind::TypeError,
+        ssa: ssa.clone(),
+        args,
+    }))
+}
+
+pub fn expect_arity(
+    args: &[Value],
+    expected: usize,
+    ssa: &SSA<Object, Operation>,
+) -> Result<(), Box<ApplyError>> {
+    if args.len() != expected {
+        type_error(ssa, args.to_vec())?;
+    }
+    Ok(())
 }
