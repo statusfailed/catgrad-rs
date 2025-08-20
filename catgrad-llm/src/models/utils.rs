@@ -53,6 +53,9 @@ pub struct Config {
     pub vocab_size: usize,
     pub model_type: String,
     pub architectures: Vec<String>,
+    // This is set by the app to determine whether to use f16 or f32 for weights at runtime
+    #[serde(skip)]
+    pub dtype: Dtype,
 }
 
 impl Config {
