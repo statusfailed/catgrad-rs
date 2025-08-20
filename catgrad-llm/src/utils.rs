@@ -8,7 +8,10 @@ use std::path::PathBuf;
 
 use rayon::prelude::*;
 
-fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, TaggedNdArray>> {
+fn read_safetensors_file(
+    path: impl AsRef<Path>,
+    use_fp16: bool,
+) -> Result<HashMap<String, TaggedNdArray>> {
     let file = std::fs::File::open(path)?;
     let data = unsafe { memmap2::Mmap::map(&file)? };
     let tensors = safetensors::SafeTensors::deserialize(&data)?;
@@ -31,16 +34,30 @@ fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, Tagge
                     TaggedNdArray::F32(NdArray::new(data, shape)),
                 );
             }
-            // cast BF16 to F32 until we support BF16
+            // cast BF16 to F16 or F32
             safetensors::Dtype::BF16 => {
-                let data: Vec<f32> = tensor_data
-                    .par_chunks_exact(2)
-                    .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
-                    .collect();
-                map.insert(
-                    name.to_string(),
-                    TaggedNdArray::F32(NdArray::new(data, shape)),
-                );
+                if use_fp16 {
+                    let data: Vec<half::f16> = tensor_data
+                        .par_chunks_exact(2)
+                        .map(|b| {
+                            let f = half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32();
+                            half::f16::from_f32(f)
+                        })
+                        .collect();
+                    map.insert(
+                        name.to_string(),
+                        TaggedNdArray::F16(NdArray::new(data, shape)),
+                    );
+                } else {
+                    let data: Vec<f32> = tensor_data
+                        .par_chunks_exact(2)
+                        .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
+                        .collect();
+                    map.insert(
+                        name.to_string(),
+                        TaggedNdArray::F32(NdArray::new(data, shape)),
+                    );
+                }
             }
             safetensors::Dtype::I64 => {
                 log::warn!("Ignoring I64 tensor: {name}");
@@ -57,10 +74,11 @@ fn read_safetensors_file(path: impl AsRef<Path>) -> Result<HashMap<String, Tagge
 
 pub fn read_safetensors_multiple(
     paths: impl IntoIterator<Item = impl AsRef<Path>>,
+    use_fp16: bool,
 ) -> Result<HashMap<String, TaggedNdArray>> {
     let mut map = HashMap::new();
     for path in paths {
-        let file_map = read_safetensors_file(path)?;
+        let file_map = read_safetensors_file(path, use_fp16)?;
         map.extend(file_map);
     }
     Ok(map)

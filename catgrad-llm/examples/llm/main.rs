@@ -28,11 +28,16 @@ struct ModelRunner {
     pub use_kv_cache: bool,
     pub kv_cache: Vec<TaggedNdArray>,
     pub total_tokens: usize,
+    pub use_fp16: bool,
 }
 
 impl ModelRunner {
     fn next_token(&self, builder: &Builder, logits: Var) -> Var {
         let batches = logits.label.shape.0[0];
+        let mut logits = logits;
+        if logits.label.dtype != Dtype::F32 {
+            logits = cast(builder, Dtype::F32, logits);
+        }
         let am = argmax(builder, logits);
         let am = reshape(builder, Shape(vec![batches, 1]), am);
         cast(builder, Dtype::I32, am)
@@ -59,7 +64,7 @@ impl ModelRunner {
                         self.total_tokens,
                         config.get_head_dim(),
                     ]),
-                    Dtype::F32,
+                    config.dtype,
                 );
 
                 for layer_id in 0..config.num_hidden_layers {
@@ -114,16 +119,18 @@ impl ModelRunner {
             .set_parameters(Rc::clone(&self.tensors));
     }
 
-    fn new(config: &Config, tokenizer: Tokenizer, use_kv_cache: bool) -> Self {
+    fn new(config: &Config, tokenizer: Tokenizer, use_kv_cache: bool, use_fp16: bool) -> Self {
         let arch = config.architectures[0].as_str();
         let model = get_model(arch).expect("Unknown architecture {arch}");
         let kv_cache = if use_kv_cache {
-            let v = TaggedNdArray::F32(NdArray::new_empty(Shape(vec![
-                1,
-                config.get_num_kv_heads(),
-                0,
-                config.get_head_dim(),
-            ])));
+            let shape = Shape(vec![1, config.get_num_kv_heads(), 0, config.get_head_dim()]);
+
+            let v = if use_fp16 {
+                TaggedNdArray::F16(NdArray::new_empty(shape))
+            } else {
+                TaggedNdArray::F32(NdArray::new_empty(shape))
+            };
+
             vec![v; 2 * config.num_hidden_layers]
         } else {
             vec![]
@@ -135,12 +142,14 @@ impl ModelRunner {
             tokenizer,
             use_kv_cache,
             kv_cache,
+            use_fp16,
             total_tokens: 0,
         }
     }
 
     fn load(&mut self, model_paths: Vec<PathBuf>) {
-        let mut tensors = read_safetensors_multiple(model_paths).expect("loading model weights");
+        let mut tensors =
+            read_safetensors_multiple(model_paths, self.use_fp16).expect("loading model weights");
         self.model.post_load(&mut tensors);
 
         self.tensors = Rc::new(tensors);
@@ -232,6 +241,10 @@ struct Args {
     /// Enable thinking
     #[arg(short = 't', long)]
     thinking: bool,
+
+    /// Use F16 weights
+    #[arg(short = 'f', long)]
+    use_fp16: bool,
 }
 
 fn strftime_now(format_str: String) -> String {
@@ -264,8 +277,11 @@ pub fn main() -> Result<()> {
     let (model_paths, config_path, tokenizer_path, _) =
         get_model_files(model_name, &args.revision).expect("loading model files");
     let tokenizer = Tokenizer::from_file(tokenizer_path)?;
-    let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
+    let mut config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
 
+    if args.use_fp16 {
+        config.dtype = Dtype::F16;
+    }
     let chat_template = get_model_chat_template(model_name, &args.revision)?;
 
     // SmolLM3 template specific hack, move to lib.
@@ -292,7 +308,7 @@ pub fn main() -> Result<()> {
     let tokens = token_ids.len();
     let batches = 1;
 
-    let mut model_runner = ModelRunner::new(&config, tokenizer, args.kv_cache);
+    let mut model_runner = ModelRunner::new(&config, tokenizer, args.kv_cache, args.use_fp16);
 
     if let Some(ref path) = args.save_dot {
         model_runner.save_dot(&config, path);
