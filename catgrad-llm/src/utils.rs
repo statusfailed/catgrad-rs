@@ -59,8 +59,25 @@ fn read_safetensors_file(
                     );
                 }
             }
+            safetensors::Dtype::I32 => {
+                let data: Vec<i32> = tensor_data
+                    .par_chunks_exact(4)
+                    .map(|b| i32::from_le_bytes(b.try_into().unwrap()))
+                    .collect();
+                map.insert(
+                    name.to_string(),
+                    TaggedNdArray::I32(NdArray::new(data, shape)),
+                );
+            }
             safetensors::Dtype::I64 => {
-                log::warn!("Ignoring I64 tensor: {name}");
+                let data: Vec<i32> = tensor_data
+                    .par_chunks_exact(8)
+                    .map(|b| i64::from_le_bytes(b.try_into().unwrap()) as i32)
+                    .collect();
+                map.insert(
+                    name.to_string(),
+                    TaggedNdArray::I32(NdArray::new(data, shape)),
+                );
             }
             // Add other dtype conversions as needed
             _ => {
