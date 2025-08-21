@@ -130,7 +130,7 @@ impl Model {
         let mut attn = attn / denom;
 
         if s > 1 {
-            let mask = causal_mask(builder, s);
+            let mask = causal_mask(builder, s, attn.label.dtype);
             let mask = expand(builder, attn.label.shape.clone(), mask);
             attn = attn + mask;
         }

@@ -138,7 +138,12 @@ impl EvalState {
 
                 op.apply(a, b, c);
             }
-            t => panic!("invalid type: {t:?}"),
+            (a, b, c) => panic!(
+                "invalid type for binary operation {operation:?}: [{:?}, {:?}] -> {:?}",
+                a.dtype(),
+                b.dtype(),
+                c.dtype()
+            ),
         }
     }
 

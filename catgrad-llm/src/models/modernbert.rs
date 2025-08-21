@@ -3,7 +3,7 @@
 use super::utils::{Cache, Config, ModelBuilder};
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::nn::layers::*;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad::core::{NdArrayType, Shape, Var};
 
 pub struct Model;
 
@@ -55,7 +55,7 @@ impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(
             Shape(vec![config.vocab_size, config.hidden_size]),
-            Dtype::F32,
+            config.dtype,
         );
         let weights = parameter(builder, t, "decoder.weight".to_string());
         let result = embedding(builder, x, weights);
@@ -140,7 +140,7 @@ impl Model {
         let denom = constant(builder, attn.label.clone(), f32::sqrt(head_dim as f32));
         let attn = attn / denom;
 
-        let mask = causal_mask(builder, s);
+        let mask = causal_mask(builder, s, attn.label.dtype);
         let mask = expand(builder, attn.label.shape.clone(), mask);
         let attn = attn + mask;
 
