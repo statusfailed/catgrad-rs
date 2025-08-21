@@ -99,6 +99,16 @@ pub struct ModelRunner {
 }
 
 impl ModelRunner {
+    fn initial_kv_cache(config: &Config) -> Vec<TaggedNdArray> {
+        let v = TaggedNdArray::F32(NdArray::new_empty(Shape(vec![
+            1,
+            config.get_num_kv_heads(),
+            0,
+            config.get_head_dim(),
+        ])));
+        vec![v; 2 * config.num_hidden_layers]
+    }
+
     pub fn new(
         model_paths: Vec<PathBuf>,
         config: Config,
@@ -111,13 +121,7 @@ impl ModelRunner {
         model.post_load(&mut tensors);
 
         let kv_cache = if use_kv_cache {
-            let v = TaggedNdArray::F32(NdArray::new_empty(Shape(vec![
-                1,
-                config.get_num_kv_heads(),
-                0,
-                config.get_head_dim(),
-            ])));
-            vec![v; 2 * config.num_hidden_layers]
+            Self::initial_kv_cache(&config)
         } else {
             vec![]
         };
@@ -290,10 +294,13 @@ fn longest_common_prefix<T: Eq>(x: &[T], y: &[T]) -> usize {
 impl serve::LM<i32> for ModelRunner {
     fn set_context(&mut self, context: Vec<i32>) {
         let n = longest_common_prefix(&self.context, &context);
-        // TODO: if n < self.context.len, just restart (smarter: try to keep as much of kv cache as possible)
-        assert_eq!(n, self.context.len());
-        self.context = context[..n].to_vec();
-        self.tokens = context[n..].to_vec();
+        if n < self.context.len() {
+            // PERFORMANCE: just *truncate* the context instead of fully resetting it.
+            self.kv_cache = Self::initial_kv_cache(&self.config);
+            self.total_tokens = 0;
+        }
+        self.context = context.to_vec();
+        self.tokens = context.to_vec();
     }
 }
 
