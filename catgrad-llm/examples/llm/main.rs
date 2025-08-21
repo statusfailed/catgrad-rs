@@ -260,6 +260,7 @@ pub fn main() -> Result<()> {
         ("smollm2", "HuggingFaceTB/SmolLM2-135M-Instruct"),
         ("smollm3", "HuggingFaceTB/SmolLM3-3B"),
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
+        ("mistral", "mistralai/Ministral-8B-Instruct-2410"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
         ("granitemoe", "ibm-granite/granite-3.1-1b-a400m-instruct"),
