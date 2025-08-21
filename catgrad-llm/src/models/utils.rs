@@ -53,6 +53,7 @@ pub struct Config {
     pub vocab_size: usize,
     pub model_type: String,
     pub architectures: Vec<String>,
+    pub layer_types: Vec<String>,
     // This is set by the app to determine whether to use f16 or f32 for weights at runtime
     #[serde(skip)]
     pub dtype: Dtype,
@@ -161,6 +162,7 @@ use super::smollm3::Model as SmolLM3Model;
 pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
     match arch {
         "LlamaForCausalLM" => Ok(Box::new(LlamaModel {})),
+        "MistralForCausalLM" => Ok(Box::new(LlamaModel {})),
         "Olmo2ForCausalLM" => Ok(Box::new(OlmoModel {})),
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),

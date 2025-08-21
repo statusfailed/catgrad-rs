@@ -4,7 +4,7 @@ These examples work with safetensor weights as found on [Huggingface Hub](https:
 
 ### Supported architectures: ###
 
-**GPT-2**, **Llama-3**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**, **SmolLM3-3B**, **Granite-3**
+**GPT-2**, **Llama-3**, **Mistral**, **Qwen-3**, **OLMo-2**, **Gemma-3**, **Phi-3**, **SmolLM3-3B**, **Granite-3**
 
 ### LLM example ###
 
@@ -32,6 +32,10 @@ Here are links to some supported models to test the `llm` example with. All are 
 <https://huggingface.co/meta-llama/Llama-3.2-1B-Instruct>
 
 <https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct>
+
+<https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3>
+
+<https://huggingface.co/mistralai/Ministral-8B-Instruct-2410>
 
 <https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct>
 
