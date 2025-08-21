@@ -337,17 +337,23 @@ pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
     reshape(builder, Shape(vec![b, rep * num_kv_heads, s, head_dim]), x)
 }
 
-pub fn causal_mask(builder: &Builder, size: usize) -> Var {
-    let i = arange(builder, size, Dtype::F32);
+pub fn causal_mask(builder: &Builder, size: usize, dtype: Dtype) -> Var {
+    let i = arange(builder, size, dtype);
     let i = expand(builder, Shape(vec![size, size]), i);
 
-    let j = arange(builder, size, Dtype::F32);
+    let j = arange(builder, size, dtype);
     let j = reshape(builder, Shape(vec![size, 1]), j);
     let j = expand(builder, Shape(vec![size, size]), j);
 
     let mask = lt(builder, j, i);
 
-    let ninf = constant(builder, mask.label.clone(), f32::MIN);
+    let min = if dtype == Dtype::F32 {
+        f32::MIN
+    } else {
+        half::f16::to_f32(half::f16::MIN)
+    };
+
+    let ninf = constant(builder, mask.label.clone(), min);
 
     mask * ninf
 }
@@ -1027,7 +1033,7 @@ mod tests {
     #[test]
     fn test_causal_mask() {
         let mut state = EvalState::build(|builder| {
-            let mask = causal_mask(builder, 3);
+            let mask = causal_mask(builder, 3, Dtype::F32);
 
             (vec![], vec![mask])
         });
