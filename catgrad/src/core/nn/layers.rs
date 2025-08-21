@@ -208,12 +208,14 @@ pub fn increment(builder: &Builder, x: Var) -> Var {
 
 pub fn sin(builder: &Builder, x: Var) -> Var {
     let op = Operation::Sin;
+    #[allow(unknown_lints)]
     #[allow(clippy::cloned_ref_to_slice_refs)]
     operation(builder, &[x.clone()], x.label, op)
 }
 
 pub fn cos(builder: &Builder, x: Var) -> Var {
     let op = Operation::Cos;
+    #[allow(unknown_lints)]
     #[allow(clippy::cloned_ref_to_slice_refs)]
     operation(builder, &[x.clone()], x.label, op)
 }
