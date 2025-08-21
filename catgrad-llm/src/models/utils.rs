@@ -97,11 +97,8 @@ impl Cache {
     pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
         let (cos, sin) = rope_tables(builder, config.rope_theta, positions, config.get_head_dim());
 
-        // Empty KV Cache of the correct shape
-        let kv_cache_type = NdArrayType::new(
-            Shape(vec![1, config.get_num_kv_heads(), 0, config.get_head_dim()]),
-            Dtype::F32,
-        );
+        let kv_cache_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
+        // Just a placeholder
         let empty = Var::new(builder.clone(), kv_cache_type);
         Self {
             cos,

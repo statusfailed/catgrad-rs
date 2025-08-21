@@ -104,7 +104,7 @@ impl ModelRunner {
         let arch = &config.architectures[0];
 
         let mut model = get_model(arch)?;
-        let mut tensors = read_safetensors_multiple(model_paths)?;
+        let mut tensors = read_safetensors_multiple(model_paths, false)?;
         model.post_load(&mut tensors);
 
         Ok(Self {

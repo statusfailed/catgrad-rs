@@ -419,7 +419,7 @@ impl ModelRunner {
     }
 
     fn load(&mut self, model_paths: Vec<PathBuf>) {
-        let tensors = read_safetensors_multiple(model_paths).expect("loading model weights");
+        let tensors = read_safetensors_multiple(model_paths, false).expect("loading model weights");
         self.tensors = Rc::new(tensors);
     }
 
