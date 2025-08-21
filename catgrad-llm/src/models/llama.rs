@@ -40,16 +40,21 @@ impl ModelBuilder for Model {
             result = narrow(builder, 1, tokens - 1, 1, result);
         }
 
+        let lm_head_weights = if config.tie_word_embeddings {
+            "model.embed_tokens"
+        } else {
+            "lm_head"
+        };
+
         // Add lm_head if weight tying is used
-        if config.tie_word_embeddings {
-            result = linear_no_bias(
-                builder,
-                config.hidden_size,
-                config.vocab_size,
-                "model.embed_tokens",
-                result,
-            );
-        }
+        result = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.vocab_size,
+            lm_head_weights,
+            result,
+        );
+
         result
     }
 }
