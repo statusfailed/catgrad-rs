@@ -109,6 +109,20 @@ pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
     index(builder, dim, input, k)
 }
 
+pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
+    assert!(x.label.shape.0[dim] % chunks == 0);
+
+    let d = x.label.shape.0[dim] / chunks;
+
+    let mut outputs = vec![];
+    for i in 0..chunks {
+        let s = slice(builder, dim, i * d, d, x.clone());
+        outputs.push(s);
+    }
+
+    outputs
+}
+
 pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
     assert!(x.label.shape.0[dim] % splits == 0);
 
@@ -135,6 +149,27 @@ pub fn unsqueeze(builder: &Builder, dim: usize, x: Var) -> Var {
     let mut output_shape = x.label.shape.0.clone();
     output_shape.insert(dim, 1);
     reshape(builder, Shape(output_shape), x)
+}
+
+pub fn slice(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
+    assert!(
+        x.label.shape.0[dim] >= start + length,
+        "dim: {dim} {:?} >= {:?} + {:?}",
+        x.label.shape.0[dim],
+        start,
+        length
+    );
+
+    let mut output_type = x.label.clone();
+    output_type.shape.0[dim] = length;
+
+    let op = Operation::Slice { dim, start, length };
+    operation(builder, &[x], output_type, op)
+}
+
+pub fn select(builder: &Builder, dim: usize, index: usize, x: Var) -> Var {
+    let x = slice(builder, dim, index, 1, x);
+    squeeze(builder, dim, x)
 }
 
 pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
