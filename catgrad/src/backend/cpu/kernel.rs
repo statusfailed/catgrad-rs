@@ -486,6 +486,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
 
         log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
         b.data = Rc::clone(&a.data);
+        b.offset = a.offset;
         log::debug!(
             "A len: {:?} B len: {:?}",
             a.data.borrow().len(),
@@ -511,6 +512,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
         let mut new_strides = a.strides.clone();
         new_strides.swap(self.dim0, self.dim1);
         b.strides = new_strides;
+        b.offset = a.offset;
 
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
         b.data = Rc::clone(&a.data);
