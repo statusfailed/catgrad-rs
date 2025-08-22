@@ -283,7 +283,7 @@ pub fn main() -> Result<()> {
     if args.use_fp16 {
         config.dtype = Dtype::F16;
     }
-    let chat_template = get_model_chat_template(model_name, &args.revision)?;
+    let chat_template = get_model_chat_template(model_name, &args.revision).unwrap_or_default();
 
     // SmolLM3 template specific hack, move to lib.
     let chat_template = chat_template
