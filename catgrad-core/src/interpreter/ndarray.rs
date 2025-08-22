@@ -20,9 +20,6 @@ pub enum NdArrayError {
     ShapeMismatch,
 }
 
-// memory manager.
-pub struct NdArrayManager;
-
 impl NdArray {
     /// Create scalar from constant
     pub fn from_constant(_constant: Constant) -> Self {

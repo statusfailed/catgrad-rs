@@ -253,14 +253,16 @@ fn tensor_reshape(args: &[Value]) -> ApplyResult {
         return Err(ApplyError::ArityError);
     }
 
-    // TODO: check output tensor is isomorphic!
     match (&args[0], &args[1]) {
         (
             Value::Shape(target_shape),
             Value::Tensor(TypeExpr::NdArrayType(NdArrayType { dtype, shape })),
         ) => {
             if !shapes_isomorphic(shape, target_shape) {
-                return Err(ApplyError::ArityError);
+                return Err(ApplyError::ShapeMismatch(
+                    shape.clone(),
+                    target_shape.clone(),
+                ));
             }
 
             let target_type = NdArrayType {
