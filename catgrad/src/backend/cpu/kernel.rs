@@ -507,14 +507,6 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
             "TransposeOp: dimensions must be valid for input shape"
         );
 
-        // Create new shape with swapped dimensions
-        let mut new_shape = a.shape.0.clone();
-        new_shape.swap(self.dim0, self.dim1);
-
-        b.shape = Shape(new_shape);
-
-        log::debug!("Transpose shapes from {:?} to {:?}", a.shape, b.shape);
-
         // Create new strides with swapped dimensions
         let mut new_strides = a.strides.clone();
         new_strides.swap(self.dim0, self.dim1);
