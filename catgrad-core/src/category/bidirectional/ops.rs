@@ -155,7 +155,7 @@ pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::categor
     use crate::category::shape::{NatOp, Operation, TypeOp};
     use std::collections::HashMap;
     HashMap::from([
-        (path!["cartesian", "copy"], Operation::Tensor(Copy)),
+        (path!["cartesian", "copy"], Operation::Copy),
         // tensor ops
         (path!["tensor", "add"], Operation::Tensor(Map(Add))),
         (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),

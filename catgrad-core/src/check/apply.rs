@@ -1,16 +1,32 @@
 use super::types::*;
-use crate::category::shape::*;
+use crate::category::{bidirectional, shape::*};
+use crate::ssa::SSA;
 
 // Get a value for each resulting NodeId.
-pub fn s_apply(op: &Operation, args: &[Value]) -> ApplyResult {
+pub fn s_apply(
+    op: &Operation,
+    args: &[Value],
+    ssa: &SSA<bidirectional::Object, bidirectional::Operation>,
+) -> ApplyResult {
     // Unwrap each optional value-
     match &op {
         Operation::Type(op) => type_op(op, args),
         Operation::DtypeConstant(d) => Ok(vec![Value::Dtype(DtypeExpr::Constant(d.clone()))]),
         Operation::Nat(op) => nat_op(op, args),
         Operation::Tensor(op) => tensor_op(op, args),
-        Operation::Copy => Ok(args.iter().cloned().chain(args.iter().cloned()).collect()),
+        Operation::Copy => apply_copy(args, ssa),
     }
+}
+
+fn apply_copy(
+    args: &[Value],
+    ssa: &SSA<bidirectional::Object, bidirectional::Operation>,
+) -> ApplyResult {
+    if args.len() != 1 {
+        return Err(ApplyError::ArityError);
+    }
+
+    Ok(vec![args[0].clone(); ssa.targets.len()])
 }
 
 ////////////////////////////////////////
@@ -157,7 +173,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Map(_) => Ok(vec![args[0].clone()]), // TODO: need to know op type, assert all args have same type!
         //TensorOp::Copy => // TODO: need to know op type!
         TensorOp::Broadcast => tensor_broadcast(args),
-        op => todo!("{op:?}"),
+        op => todo!("operation {op:?}"),
     }
 }
 
