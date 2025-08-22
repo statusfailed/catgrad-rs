@@ -119,7 +119,7 @@ pub fn apply(
                 ))?;
             apply_definition(ops, env, term, args)
         }
-        Operation::Declaration(op) => apply_declaration(ops, op, args)
+        Operation::Declaration(op) => apply_declaration(ops, op, args, ssa)
             .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
         Operation::Literal(lit) => apply_literal(lit)
             .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
@@ -130,9 +130,10 @@ fn apply_declaration(
     ops: &HashMap<Path, shape::Operation>,
     op: &Path,
     args: &[Value],
+    ssa: &SSA<Object, Operation>,
 ) -> ApplyResult {
     let shape_op = ops.get(op).ok_or(ApplyError::UnknownOp(op.clone()))?;
-    s_apply(shape_op, args)
+    s_apply(shape_op, args, ssa)
 }
 
 // TODO: manage recursion explicitly with a stack

@@ -25,7 +25,11 @@ impl Interpreter {
     pub fn run(&self, term: Term, values: Vec<Value>) -> Result<Vec<Value>, InterpreterError> {
         assert_eq!(values.len(), term.sources.len());
 
+        // create initial state by moving argument values into state
         let mut state = HashMap::<NodeId, Value>::new();
+        for (node_id, value) in term.sources.iter().zip(values) {
+            state.insert(*node_id, value);
+        }
 
         // Save target nodes before moving term
         let target_nodes = term.targets.clone();
@@ -163,10 +167,14 @@ pub(crate) fn lit_to_value(lit: &Literal) -> Value {
 }
 
 fn apply_copy(
-    args: Vec<Value>,
+    mut args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
     use super::shape_op::expect_arity;
     expect_arity(&args, 1, ssa)?;
-    Ok(vec![args[0].clone()])
+    let n = ssa.targets.len();
+    for _ in 1..n {
+        args.push(args[0].clone());
+    }
+    Ok(args)
 }

@@ -4,7 +4,7 @@ use catgrad_core::nn::*;
 use catgrad_core::svg::to_svg;
 use catgrad_core::util::build_typed;
 
-mod test_utils;
+pub mod test_utils;
 use test_utils::{get_forget_op_decls, replace_nodes_in_hypergraph, save_diagram_if_enabled};
 
 ////////////////////////////////////////////////////////////////////////////////
