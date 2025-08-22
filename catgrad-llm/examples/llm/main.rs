@@ -260,6 +260,7 @@ pub fn main() -> Result<()> {
         ("smollm2", "HuggingFaceTB/SmolLM2-135M-Instruct"),
         ("smollm3", "HuggingFaceTB/SmolLM3-3B"),
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
+        ("mistral", "mistralai/Ministral-8B-Instruct-2410"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
         ("granitemoe", "ibm-granite/granite-3.1-1b-a400m-instruct"),
@@ -282,7 +283,7 @@ pub fn main() -> Result<()> {
     if args.use_fp16 {
         config.dtype = Dtype::F16;
     }
-    let chat_template = get_model_chat_template(model_name, &args.revision)?;
+    let chat_template = get_model_chat_template(model_name, &args.revision).unwrap_or_default();
 
     // SmolLM3 template specific hack, move to lib.
     let chat_template = chat_template
