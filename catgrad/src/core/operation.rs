@@ -97,6 +97,13 @@ pub enum Operation {
         dim: usize,
     },
 
+    /// Slice operator
+    Slice {
+        dim: usize,
+        start: usize,
+        length: usize,
+    },
+
     /// Concatenate
     Concat {
         dim: usize,

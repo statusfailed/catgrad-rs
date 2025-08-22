@@ -164,6 +164,11 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
+                    Slice { dim, start, length } => Box::new(kernel::SliceOp {
+                        dim: *dim,
+                        start: *start,
+                        length: *length,
+                    }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),
@@ -180,6 +185,11 @@ impl EvalState {
                     Transpose { dim0, dim1 } => Box::new(kernel::TransposeOp {
                         dim0: *dim0,
                         dim1: *dim1,
+                    }),
+                    Slice { dim, start, length } => Box::new(kernel::SliceOp {
+                        dim: *dim,
+                        start: *start,
+                        length: *length,
                     }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
@@ -227,6 +237,7 @@ impl EvalState {
             | Not
             | Reshape
             | Broadcast { .. }
+            | Slice { .. }
             | Transpose { .. } => {
                 self.apply_unary_operation(sources, targets, op);
             }
@@ -481,7 +492,10 @@ impl EvalState {
         // Operations that reuse existing data do not need to allocate new memory.
         !matches!(
             op,
-            Operation::Broadcast { .. } | Operation::Transpose { .. } | Operation::Parameter { .. }
+            Operation::Broadcast { .. }
+                | Operation::Transpose { .. }
+                | Operation::Parameter { .. }
+                | Operation::Slice { .. }
         )
     }
 

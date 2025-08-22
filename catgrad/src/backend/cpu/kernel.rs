@@ -517,6 +517,31 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
     }
 }
 
+pub struct SliceOp {
+    pub dim: usize,
+    pub start: usize,
+    pub length: usize,
+}
+
+impl<T: Numeric> UnaryOp<T> for SliceOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        assert!(
+            self.dim < a.shape.0.len(),
+            "SliceOp: dimensions must be valid for input shape"
+        );
+        assert!(
+            self.start + self.length <= a.shape.0[self.dim],
+            "SliceOp: out of bounds indexing",
+        );
+
+        // The slice will reuse the input data,ve the same strides as the original
+        // and will start at the specified offset
+        b.data = Rc::clone(&a.data);
+        b.strides = a.strides.clone();
+        b.offset = a.offset + self.start * (a.strides[self.dim] as usize);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
