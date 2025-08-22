@@ -11,7 +11,25 @@ pub enum Dtype {
     U32,
 }
 
-pub type Shape = Vec<usize>;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct Shape(pub Vec<usize>);
+
+impl Shape {
+    /// Product of extents
+    pub fn size(&self) -> usize {
+        self.0.iter().product()
+    }
+
+    /// Compute contiguous strides for a shape
+    pub fn contiguous_strides(&self) -> Vec<isize> {
+        let mut strides: Vec<isize> = vec![1];
+        for dim in self.0.iter().skip(1).rev() {
+            strides.push(strides.last().unwrap() * (*dim as isize));
+        }
+        strides.reverse();
+        strides
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constant {

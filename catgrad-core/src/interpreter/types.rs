@@ -1,8 +1,9 @@
 //! Catgrad reference interpreter
-use super::ndarray::NdArray;
-use crate::category::core::NdArrayType;
+
+use crate::category::core::{NdArrayType, Shape};
 use crate::ssa::SSA;
 
+use super::ndarray::TaggedNdArray;
 use crate::category::bidirectional::*;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -29,11 +30,11 @@ pub enum Value {
     Dtype(Dtype),
 
     /// A concrete shape (list of natural numbers)
-    Shape(Vec<usize>),
+    Shape(Shape),
 
     /// A concrete NdArrayType (dtype + shape)
     Type(NdArrayType),
 
     /// A tensor with actual data
-    NdArray(NdArray),
+    NdArray(TaggedNdArray),
 }

@@ -2,7 +2,7 @@
 
 use super::{ApplyError, ApplyErrorKind, Value};
 use crate::category::bidirectional::{Object, Operation};
-use crate::category::{core, shape};
+use crate::category::{core, core::Shape, shape};
 use crate::ssa::SSA;
 
 /// Apply a Type operation
@@ -53,7 +53,7 @@ pub(crate) fn apply_pack(
             _ => return type_error(ssa, args),
         }
     }
-    Ok(vec![Value::Shape(shape)])
+    Ok(vec![Value::Shape(Shape(shape))])
 }
 
 pub(crate) fn apply_unpack(
@@ -64,7 +64,7 @@ pub(crate) fn apply_unpack(
     match &args[0] {
         Value::Shape(shape) => {
             let mut result = Vec::new();
-            for dim in shape {
+            for dim in shape.0.iter() {
                 result.push(Value::Nat(*dim));
             }
             Ok(result)
@@ -79,7 +79,7 @@ pub(crate) fn apply_shape(
 ) -> Result<Vec<Value>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
-        Value::NdArray(tensor) => Ok(vec![Value::Shape(tensor.shape.clone())]),
+        Value::NdArray(tensor) => Ok(vec![Value::Shape(tensor.shape())]),
         _ => type_error(ssa, args),
     }
 }

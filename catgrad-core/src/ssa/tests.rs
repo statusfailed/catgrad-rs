@@ -1,5 +1,5 @@
 use super::*;
-use crate::category::core::{Dtype, NdArrayType, ScalarOp, TensorOp};
+use crate::category::core::{Dtype, NdArrayType, ScalarOp, Shape, TensorOp};
 use open_hypergraphs::lax::OpenHypergraph;
 
 fn print_ssa(ssa: &[SSA<NdArrayType, TensorOp>]) {
@@ -16,11 +16,11 @@ fn print_ssa(ssa: &[SSA<NdArrayType, TensorOp>]) {
 fn test_simple_operation_ssa() {
     // Start with a simpler test - just one Map operation
     let input_type = NdArrayType {
-        shape: vec![2, 2],
+        shape: Shape(vec![2, 2]),
         dtype: Dtype::F32,
     };
     let output_type = NdArrayType {
-        shape: vec![2, 2],
+        shape: Shape(vec![2, 2]),
         dtype: Dtype::F32,
     };
 
@@ -62,23 +62,23 @@ fn test_simple_operation_ssa() {
 fn test_matmul_and_pointwise_sum_ssa() {
     // Create tensor types
     let matrix_a_type = NdArrayType {
-        shape: vec![2, 3],
+        shape: Shape(vec![2, 3]),
         dtype: Dtype::F32,
     };
     let matrix_b_type = NdArrayType {
-        shape: vec![3, 4],
+        shape: Shape(vec![3, 4]),
         dtype: Dtype::F32,
     };
     let result_matmul_type = NdArrayType {
-        shape: vec![2, 4],
+        shape: Shape(vec![2, 4]),
         dtype: Dtype::F32,
     };
     let vector_type = NdArrayType {
-        shape: vec![2, 4],
+        shape: Shape(vec![2, 4]),
         dtype: Dtype::F32,
     };
     let final_result_type = NdArrayType {
-        shape: vec![2, 4],
+        shape: Shape(vec![2, 4]),
         dtype: Dtype::F32,
     };
 
