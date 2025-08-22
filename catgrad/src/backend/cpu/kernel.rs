@@ -486,6 +486,7 @@ impl<T: Numeric> UnaryOp<T> for BroadcastOp {
 
         log::debug!("Broadcast strides from {:?} to {:?}", a.strides, b.strides);
         b.data = Rc::clone(&a.data);
+        b.offset = a.offset;
         log::debug!(
             "A len: {:?} B len: {:?}",
             a.data.borrow().len(),
@@ -507,21 +508,39 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
             "TransposeOp: dimensions must be valid for input shape"
         );
 
-        // Create new shape with swapped dimensions
-        let mut new_shape = a.shape.0.clone();
-        new_shape.swap(self.dim0, self.dim1);
-
-        b.shape = Shape(new_shape);
-
-        log::debug!("Transpose shapes from {:?} to {:?}", a.shape, b.shape);
-
         // Create new strides with swapped dimensions
         let mut new_strides = a.strides.clone();
         new_strides.swap(self.dim0, self.dim1);
         b.strides = new_strides;
+        b.offset = a.offset;
 
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
         b.data = Rc::clone(&a.data);
+    }
+}
+
+pub struct SliceOp {
+    pub dim: usize,
+    pub start: usize,
+    pub length: usize,
+}
+
+impl<T: Numeric> UnaryOp<T> for SliceOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        assert!(
+            self.dim < a.shape.0.len(),
+            "SliceOp: dimensions must be valid for input shape"
+        );
+        assert!(
+            self.start + self.length <= a.shape.0[self.dim],
+            "SliceOp: out of bounds indexing",
+        );
+
+        // The slice will reuse the input data,ve the same strides as the original
+        // and will start at the specified offset
+        b.data = Rc::clone(&a.data);
+        b.strides = a.strides.clone();
+        b.offset = a.offset + self.start * (a.strides[self.dim] as usize);
     }
 }
 
