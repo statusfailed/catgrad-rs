@@ -1,6 +1,5 @@
 //! Catgrad reference interpreter
 
-use super::ndarray::{NdArray, TaggedArray};
 use crate::ssa::{SSA, parallel_ssa};
 
 use open_hypergraphs::lax::NodeId;
@@ -8,6 +7,7 @@ use std::collections::HashMap;
 
 use crate::category::{bidirectional::*, shape};
 
+use super::ndarray::TaggedNdArray;
 use super::types::*;
 
 pub struct Interpreter {
@@ -156,24 +156,8 @@ impl From<Box<ApplyError>> for InterpreterError {
 
 pub(crate) fn lit_to_value(lit: &Literal) -> Value {
     match lit {
-        Literal::U32(x) => {
-            let buf = TaggedArray::U32(vec![*x]);
-            Value::NdArray(NdArray {
-                buf,
-                shape: vec![],
-                strides: vec![],
-                offset: 0,
-            })
-        }
-        Literal::F32(x) => {
-            let buf = TaggedArray::F32(vec![*x]);
-            Value::NdArray(NdArray {
-                buf,
-                shape: vec![],
-                strides: vec![],
-                offset: 0,
-            })
-        }
+        Literal::U32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
+        Literal::F32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
         Literal::Dtype(d) => Value::Dtype(d.clone()),
     }
 }

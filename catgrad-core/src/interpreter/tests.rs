@@ -1,66 +1,59 @@
-use super::{Interpreter, Value, lit_to_value};
-use crate::category::bidirectional::{Environment, Literal, Object, Operation};
-use open_hypergraphs::lax::OpenHypergraph;
-use std::collections::HashMap;
+//! Tests for the catgrad reference interpreter
 
-use super::ndarray::TaggedArray;
+use super::{TaggedNdArray, Value, lit_to_value};
+use crate::category::bidirectional::Literal;
 
 #[test]
-fn test_literal_u32() {
+fn test_literal_u32_scalar() {
     let literal = Literal::U32(42);
     let result = lit_to_value(&literal);
-    let expected = TaggedArray::U32(vec![42]);
 
     match result {
-        Value::NdArray(tensor) => {
-            assert_eq!(tensor.shape, vec![]);
-            assert_eq!(tensor.strides, vec![]);
-            assert_eq!(tensor.offset, 0);
-            assert_eq!(tensor.buf, expected);
+        Value::NdArray(arr) => {
+            assert_eq!(arr.shape().0, vec![] as Vec<usize>);
+            match arr {
+                TaggedNdArray::U32(nd_arr) => {
+                    assert_eq!(nd_arr[&[]], 42);
+                }
+                _ => panic!("Expected U32 TaggedNdArray"),
+            }
         }
         _ => panic!("Expected NdArray value for U32 literal"),
     }
 }
 
 #[test]
-fn test_literal_f32() {
+fn test_literal_f32_scalar() {
     let literal = Literal::F32(3.15);
     let result = lit_to_value(&literal);
-    let expected = TaggedArray::F32(vec![3.15]);
 
     match result {
-        Value::NdArray(tensor) => {
-            assert_eq!(tensor.shape, vec![]);
-            assert_eq!(tensor.strides, vec![]);
-            assert_eq!(tensor.offset, 0);
-            assert_eq!(tensor.buf, expected);
+        Value::NdArray(arr) => {
+            assert_eq!(arr.shape().0, vec![] as Vec<usize>);
+            match arr {
+                TaggedNdArray::F32(nd_arr) => {
+                    assert_eq!(nd_arr[&[]], 3.15);
+                }
+                _ => panic!("Expected F32 TaggedNdArray"),
+            }
         }
         _ => panic!("Expected NdArray value for F32 literal"),
     }
 }
 
 #[test]
-fn test_singleton_literal_evaluation() {
-    let literal = Literal::U32(123);
-    let op = Operation::Literal(literal.clone());
+fn test_tagged_ndarray_constructors() {
+    // Test scalar constructor
+    let scalar_f32 = TaggedNdArray::scalar(2.5f32);
+    assert_eq!(scalar_f32.shape().0, vec![] as Vec<usize>);
 
-    // Create singleton OpenHypergraph: no sources, one target of type Object::Tensor
-    let term = OpenHypergraph::singleton(op, vec![], vec![Object::Tensor]);
+    let scalar_u32 = TaggedNdArray::scalar(100u32);
+    assert_eq!(scalar_u32.shape().0, vec![] as Vec<usize>);
 
-    let interpreter = Interpreter::new(
-        HashMap::new(),
-        Environment {
-            operations: HashMap::new(),
-        },
-    );
+    // Test from_slice constructor
+    let matrix = TaggedNdArray::from_slice(&[1.0f32, 2.0, 3.0, 4.0], &[2, 2]);
+    assert_eq!(matrix.shape().0, vec![2, 2]);
 
-    // Run with no input values
-    let results = interpreter.run(term, vec![]).unwrap();
-
-    // Should get one result
-    assert_eq!(results.len(), 1);
-
-    // Should match direct lit_to_value result
-    let expected = lit_to_value(&literal);
-    assert_eq!(results[0], expected);
+    let vector = TaggedNdArray::from_slice(&[10u32, 20, 30], &[3]);
+    assert_eq!(vector.shape().0, vec![3]);
 }

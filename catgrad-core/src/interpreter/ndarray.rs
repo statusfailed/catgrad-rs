@@ -1,91 +1,127 @@
-use crate::category::core::{Constant, ScalarOp, Shape};
+use crate::category::core::Shape;
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum TaggedArray {
-    F32(Vec<f32>),
-    U32(Vec<u32>),
-}
+pub struct NdArray<T>(pub ndarray::Array<T, ndarray::IxDyn>);
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct NdArray {
-    pub buf: TaggedArray,
-    pub shape: Shape,
-    pub strides: Vec<isize>,
-    pub offset: usize,
+pub enum TaggedNdArray {
+    F32(NdArray<f32>),
+    U32(NdArray<u32>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum NdArrayError {
-    TypeError,
-    ShapeMismatch,
-}
-
-impl NdArray {
-    /// Create scalar from constant
-    pub fn from_constant(_constant: Constant) -> Self {
-        todo!()
+impl TaggedNdArray {
+    /// Create from a slice with shape
+    pub fn from_slice<T: IntoTagged>(data: &[T], shape: &[usize]) -> TaggedNdArray {
+        let arr =
+            ndarray::Array::from_shape_vec(shape, data.to_vec()).expect("Invalid shape for data");
+        T::into_tagged(NdArray(arr.into_dyn()))
     }
 
-    /// Check if array is stored contiguously in memory
-    pub fn is_contiguous(&self) -> bool {
-        if self.shape.is_empty() {
-            return true;
+    /// Create a scalar (0-dimensional array)
+    pub fn scalar<T: IntoTagged>(value: T) -> TaggedNdArray {
+        let arr = ndarray::Array::from_elem(ndarray::IxDyn(&[]), value);
+        T::into_tagged(NdArray(arr))
+    }
+
+    /// Create from existing ndarray
+    pub fn from_array<T: IntoTagged>(arr: NdArray<T>) -> TaggedNdArray {
+        T::into_tagged(NdArray(arr.0))
+    }
+
+    /// Get the shape of the array
+    pub fn shape(&self) -> Shape {
+        match self {
+            TaggedNdArray::F32(arr) => Shape(arr.shape().to_vec()),
+            TaggedNdArray::U32(arr) => Shape(arr.shape().to_vec()),
         }
-
-        let mut expected_stride = 1_isize;
-
-        // Check strides from right to left (last dimension should have stride 1)
-        for i in (0..self.shape.len()).rev() {
-            if self.strides[i] != expected_stride {
-                return false;
-            }
-            expected_stride *= self.shape[i] as isize;
-        }
-
-        true
-    }
-
-    /// Apply scalar operation element-wise (m → n)
-    pub fn map(mut _inputs: Vec<Self>, _op: &ScalarOp) -> Result<Vec<Self>, NdArrayError> {
-        todo!()
-    }
-
-    /// Reduce along a dimension
-    pub fn reduce(&self, _op: ScalarOp, _axis: i8) -> Result<Self, NdArrayError> {
-        todo!()
-    }
-
-    /// Matrix multiplication
-    pub fn matmul(&self, _other: &Self) -> Result<Self, NdArrayError> {
-        todo!()
-    }
-
-    /// Reshape
-    pub fn reshape(&self, _new_shape: Shape) -> Result<Self, NdArrayError> {
-        todo!()
-    }
-
-    /// Stack multiple arrays along a new dimension
-    pub fn stack(_arrays: Vec<&Self>) -> Result<Self, NdArrayError> {
-        todo!()
-    }
-
-    // Split array along the first dimension (no copies; slices original)
-    pub fn split(&self) -> Result<Vec<Self>, NdArrayError> {
-        todo!()
-    }
-
-    // Index into array using another array as indices
-    // Result buffer is distinct from input.
-    pub fn index(&self, _indices: &Self) -> Result<Self, NdArrayError> {
-        todo!()
-    }
-
-    /// Broadcast array by appending a shape.
-    /// Does not change underlying buffer, just strides/offset.
-    pub fn broadcast(self, _shape_extension: Shape) -> Result<Self, NdArrayError> {
-        todo!("port Shape, NdArrayType, etc. from catgrad main")
     }
 }
 
-impl TaggedArray {}
+////////////////////////////////////////////////////////////////////////////////
+// Reduce some boilerplate for TaggedNdArray
+
+/// Trait for types that can be used in TaggedNdArray
+pub trait IntoTagged: Clone + PartialEq + std::fmt::Debug {
+    fn into_tagged(arr: NdArray<Self>) -> TaggedNdArray;
+}
+
+impl IntoTagged for f32 {
+    fn into_tagged(arr: NdArray<Self>) -> TaggedNdArray {
+        TaggedNdArray::F32(arr)
+    }
+}
+
+impl IntoTagged for u32 {
+    fn into_tagged(arr: NdArray<Self>) -> TaggedNdArray {
+        TaggedNdArray::U32(arr)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Passing through traits from ndarray
+
+impl<T> std::ops::Add for &NdArray<T>
+where
+    T: Clone + ndarray::LinalgScalar,
+{
+    type Output = NdArray<T>;
+
+    fn add(self, other: &NdArray<T>) -> NdArray<T> {
+        NdArray(&self.0 + &other.0)
+    }
+}
+
+impl<T> std::ops::Mul for &NdArray<T>
+where
+    T: Clone + ndarray::LinalgScalar,
+{
+    type Output = NdArray<T>;
+
+    fn mul(self, other: &NdArray<T>) -> NdArray<T> {
+        NdArray(&self.0 * &other.0)
+    }
+}
+
+impl<T> std::ops::Sub for &NdArray<T>
+where
+    T: Clone + ndarray::LinalgScalar,
+{
+    type Output = NdArray<T>;
+
+    fn sub(self, other: &NdArray<T>) -> NdArray<T> {
+        NdArray(&self.0 - &other.0)
+    }
+}
+
+impl<T> std::ops::Div for &NdArray<T>
+where
+    T: Clone + ndarray::LinalgScalar,
+{
+    type Output = NdArray<T>;
+
+    fn div(self, other: &NdArray<T>) -> NdArray<T> {
+        NdArray(&self.0 / &other.0)
+    }
+}
+
+impl<T> NdArray<T> {
+    pub fn new(arr: ndarray::Array<T, ndarray::IxDyn>) -> Self {
+        NdArray(arr)
+    }
+
+    pub fn shape(&self) -> &[usize] {
+        self.0.shape()
+    }
+
+    pub fn ndim(&self) -> usize {
+        self.0.ndim()
+    }
+}
+
+impl<T> std::ops::Index<&[usize]> for NdArray<T> {
+    type Output = T;
+
+    fn index(&self, index: &[usize]) -> &Self::Output {
+        &self.0[index]
+    }
+}
