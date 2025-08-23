@@ -1,19 +1,20 @@
 //! Tests for the catgrad reference interpreter
 
-use super::{TaggedNdArray, Value, lit_to_value};
+use super::{TaggedNdArray, Value, backend::NdArrayBackend, lit_to_value};
 use crate::category::bidirectional::Literal;
+use crate::category::core::Shape;
 
 #[test]
 fn test_literal_u32_scalar() {
     let literal = Literal::U32(42);
-    let result = lit_to_value(&literal);
+    let result: Value<NdArrayBackend> = lit_to_value(&literal);
 
     match result {
         Value::NdArray(arr) => {
             assert_eq!(arr.shape().0, vec![] as Vec<usize>);
             match arr {
                 TaggedNdArray::U32(nd_arr) => {
-                    assert_eq!(nd_arr[&[]], 42);
+                    assert_eq!(nd_arr[[]], 42);
                 }
                 _ => panic!("Expected U32 TaggedNdArray"),
             }
@@ -25,14 +26,14 @@ fn test_literal_u32_scalar() {
 #[test]
 fn test_literal_f32_scalar() {
     let literal = Literal::F32(3.15);
-    let result = lit_to_value(&literal);
+    let result: Value<NdArrayBackend> = lit_to_value(&literal);
 
     match result {
         Value::NdArray(arr) => {
             assert_eq!(arr.shape().0, vec![] as Vec<usize>);
             match arr {
                 TaggedNdArray::F32(nd_arr) => {
-                    assert_eq!(nd_arr[&[]], 3.15);
+                    assert_eq!(nd_arr[[]], 3.15);
                 }
                 _ => panic!("Expected F32 TaggedNdArray"),
             }
@@ -43,17 +44,19 @@ fn test_literal_f32_scalar() {
 
 #[test]
 fn test_tagged_ndarray_constructors() {
+    let backend = NdArrayBackend;
+
     // Test scalar constructor
-    let scalar_f32 = TaggedNdArray::scalar(2.5f32);
+    let scalar_f32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(2.5f32);
     assert_eq!(scalar_f32.shape().0, vec![] as Vec<usize>);
 
-    let scalar_u32 = TaggedNdArray::scalar(100u32);
+    let scalar_u32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(100u32);
     assert_eq!(scalar_u32.shape().0, vec![] as Vec<usize>);
 
     // Test from_slice constructor
-    let matrix = TaggedNdArray::from_slice(&[1.0f32, 2.0, 3.0, 4.0], &[2, 2]);
+    let matrix = TaggedNdArray::from_slice(&backend, &[1.0f32, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
     assert_eq!(matrix.shape().0, vec![2, 2]);
 
-    let vector = TaggedNdArray::from_slice(&[10u32, 20, 30], &[3]);
+    let vector = TaggedNdArray::from_slice(&backend, &[10u32, 20, 30], Shape(vec![3]));
     assert_eq!(vector.shape().0, vec![3]);
 }
