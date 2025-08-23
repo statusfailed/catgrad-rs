@@ -13,8 +13,8 @@ pub(crate) fn apply_tensor_op(
 ) -> Result<Vec<Value>, Box<ApplyError>> {
     match tensor_op {
         TensorOp::Map(ScalarOp::Add) => binop(args, ssa, |x, y| x + y, |x, y| x + y),
-        TensorOp::Map(ScalarOp::Mul) => binop(args, ssa, |x, y| x * y, |x, y| x * y),
-        TensorOp::Map(ScalarOp::Div) => binop(args, ssa, |x, y| x / y, |x, y| x / y),
+        //TensorOp::Map(ScalarOp::Mul) => binop(args, ssa, |x, y| x * y, |x, y| x * y),
+        //TensorOp::Map(ScalarOp::Div) => binop(args, ssa, |x, y| x / y, |x, y| x / y),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Reduce(_scalar_op, _axis) => todo!("implement tensor reduce"),
         TensorOp::Constant(_constant) => todo!("implement tensor constant"),
@@ -32,8 +32,8 @@ pub(crate) fn apply_tensor_op(
 fn binop(
     args: Vec<Value>,
     ssa: &SSA<Object, Operation>,
-    f32_op: impl Fn(&NdArray<f32>, &NdArray<f32>) -> NdArray<f32>,
-    u32_op: impl Fn(&NdArray<u32>, &NdArray<u32>) -> NdArray<u32>,
+    f32_op: impl Fn(NdArray<f32>, NdArray<f32>) -> NdArray<f32>,
+    u32_op: impl Fn(NdArray<u32>, NdArray<u32>) -> NdArray<u32>,
 ) -> Result<Vec<Value>, Box<ApplyError>> {
     if args.len() != 2 {
         return Err(Box::new(ApplyError {
@@ -43,7 +43,8 @@ fn binop(
         }));
     }
 
-    let (x, y) = match (&args[0], &args[1]) {
+    // TODO: get rid of clones!
+    let (x, y) = match (args[0].clone(), args[1].clone()) {
         (Value::NdArray(x), Value::NdArray(y)) => (x, y),
         _ => {
             return Err(Box::new(ApplyError {
