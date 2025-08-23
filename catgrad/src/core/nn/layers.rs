@@ -173,16 +173,7 @@ pub fn select(builder: &Builder, dim: usize, index: usize, x: Var) -> Var {
 }
 
 pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
-    assert!(
-        x.label.shape.0[dim] >= start + length,
-        "dim: {dim} {:?} >= {:?} + {:?}",
-        x.label.shape.0[dim],
-        start,
-        length
-    );
-
-    let indices = range_indices(builder, start, start + length);
-    index(builder, dim, x, indices)
+    slice(builder, dim, start, length, x)
 }
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
