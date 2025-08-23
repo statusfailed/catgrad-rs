@@ -14,8 +14,6 @@ pub(crate) fn apply_tensor_op<B: Backend>(
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
         TensorOp::Map(ScalarOp::Add) => binop(args, ssa, |x, y| x.add(y), |x, y| x.add(y)),
-        //TensorOp::Map(ScalarOp::Mul) => binop(args, ssa, |x, y| x * y, |x, y| x * y),
-        //TensorOp::Map(ScalarOp::Div) => binop(args, ssa, |x, y| x / y, |x, y| x / y),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Reduce(_scalar_op, _axis) => todo!("implement tensor reduce"),
         TensorOp::Constant(_constant) => todo!("implement tensor constant"),
