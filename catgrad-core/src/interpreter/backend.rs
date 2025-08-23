@@ -18,14 +18,8 @@ pub trait NdArray<D: DType>: Send + Sync + Clone + Debug + PartialEq {
     type Backend: Backend;
     fn shape(&self) -> Shape;
     fn add(self, rhs: Self) -> Self;
+    fn matmul(self, rhs: Self) -> Self;
 }
-
-// The ONLY generic parameter is here.
-/*
-pub struct Runtime<B: Backend> {
-    pub be: B,
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // ndarray backend implementation
@@ -62,5 +56,9 @@ impl<D: DType> NdArray<D> for ArrayD<D> {
 
     fn add(self, rhs: Self) -> Self {
         self + rhs
+    }
+
+    fn matmul(self, _rhs: Self) -> Self {
+        todo!()
     }
 }
