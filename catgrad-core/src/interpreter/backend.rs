@@ -12,13 +12,15 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn scalar<D: DType>(d: D) -> Self::NdArray<D>;
     fn zeros<D: DType + Default>(&self, shape: Shape) -> Self::NdArray<D>;
     fn ndarray_from_slice<D: DType>(&self, data: &[D], shape: Shape) -> Self::NdArray<D>;
+
+    fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32>;
+    fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32>;
 }
 
 pub trait NdArray<D: DType>: Send + Sync + Clone + Debug + PartialEq {
     type Backend: Backend;
     fn shape(&self) -> Shape;
     fn add(self, rhs: Self) -> Self;
-    fn matmul(self, rhs: Self) -> Self;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -45,6 +47,36 @@ impl Backend for NdArrayBackend {
         let dims: Vec<usize> = shape.0;
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
+
+    fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
+        // For now, only handle rank 2 case
+        assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
+        assert_eq!(rhs.ndim(), 2, "matmul: rhs must be rank 2");
+
+        // Convert ArrayD to Array2 for dot product
+        // NOTE: ndarray needs to know we have 2d arrays statically to use .dot():
+        // https://stackoverflow.com/questions/79035190/
+        let self_2d = lhs.into_dimensionality::<ndarray::Ix2>().unwrap();
+        let rhs_2d = rhs.into_dimensionality::<ndarray::Ix2>().unwrap();
+
+        // Perform matrix multiplication and convert back to ArrayD
+        self_2d.dot(&rhs_2d).into_dyn()
+    }
+
+    fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+        // For now, only handle rank 2 case
+        assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
+        assert_eq!(rhs.ndim(), 2, "matmul: rhs must be rank 2");
+
+        // Convert ArrayD to Array2 for dot product
+        // NOTE: ndarray needs to know we have 2d arrays statically to use .dot():
+        // https://stackoverflow.com/questions/79035190/
+        let self_2d = lhs.into_dimensionality::<ndarray::Ix2>().unwrap();
+        let rhs_2d = rhs.into_dimensionality::<ndarray::Ix2>().unwrap();
+
+        // Perform matrix multiplication and convert back to ArrayD
+        self_2d.dot(&rhs_2d).into_dyn()
+    }
 }
 
 impl<D: DType> NdArray<D> for ArrayD<D> {
@@ -56,9 +88,5 @@ impl<D: DType> NdArray<D> for ArrayD<D> {
 
     fn add(self, rhs: Self) -> Self {
         self + rhs
-    }
-
-    fn matmul(self, _rhs: Self) -> Self {
-        todo!()
     }
 }
