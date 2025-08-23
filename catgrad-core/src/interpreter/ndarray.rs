@@ -60,6 +60,26 @@ impl IntoTagged for u32 {
 ////////////////////////////////////////////////////////////////////////////////
 // Passing through traits from ndarray
 
+// Make sure T implements the right traits
+fn add_arrays<T>(mut a: ndarray::ArrayD<T>, b: &ndarray::ArrayD<T>) -> ndarray::ArrayD<T>
+where
+    T: Clone + std::ops::AddAssign<T> + ndarray::ScalarOperand,
+{
+    a += b;
+    a
+}
+
+impl<T> std::ops::Add for NdArray<T>
+where
+    T: Clone + ndarray::LinalgScalar + ndarray::ScalarOperand + std::ops::AddAssign<T>,
+{
+    type Output = NdArray<T>;
+
+    fn add(self, other: NdArray<T>) -> NdArray<T> {
+        NdArray(add_arrays(self.0, &other.0))
+    }
+}
+
 impl<T> std::ops::Add for &NdArray<T>
 where
     T: Clone + ndarray::LinalgScalar,
@@ -105,7 +125,7 @@ where
 }
 
 impl<T> NdArray<T> {
-    pub fn new(arr: ndarray::Array<T, ndarray::IxDyn>) -> Self {
+    pub fn new(arr: ndarray::ArrayD<T>) -> Self {
         NdArray(arr)
     }
 
