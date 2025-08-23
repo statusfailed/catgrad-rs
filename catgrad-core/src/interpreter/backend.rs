@@ -49,21 +49,19 @@ impl Backend for NdArrayBackend {
     }
 
     fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        // For now, only handle rank 2 case
-        assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
-        assert_eq!(rhs.ndim(), 2, "matmul: rhs must be rank 2");
-
-        // Convert ArrayD to Array2 for dot product
-        // NOTE: ndarray needs to know we have 2d arrays statically to use .dot():
-        // https://stackoverflow.com/questions/79035190/
-        let self_2d = lhs.into_dimensionality::<ndarray::Ix2>().unwrap();
-        let rhs_2d = rhs.into_dimensionality::<ndarray::Ix2>().unwrap();
-
-        // Perform matrix multiplication and convert back to ArrayD
-        self_2d.dot(&rhs_2d).into_dyn()
+        Self::matmul_generic(lhs, rhs)
     }
 
     fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+        Self::matmul_generic(lhs, rhs)
+    }
+}
+
+impl NdArrayBackend {
+    fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
+    where
+        D: DType + ndarray::LinalgScalar,
+    {
         // For now, only handle rank 2 case
         assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
         assert_eq!(rhs.ndim(), 2, "matmul: rhs must be rank 2");
