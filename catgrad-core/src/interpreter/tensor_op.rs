@@ -22,7 +22,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Stack => todo!("implement tensor stack"),
         TensorOp::Split => todo!("implement tensor split"),
         TensorOp::Reshape => todo!("implement tensor reshape"),
-        TensorOp::MatMul => todo!("implement tensor matmul"),
+        TensorOp::MatMul => binop(args, ssa, |x, y| x.matmul(y), |x, y| x.matmul(y)),
         TensorOp::Index => todo!("implement tensor index"),
         TensorOp::Broadcast => todo!("implement tensor broadcast"),
         TensorOp::Copy => todo!("implement tensor copy"),
