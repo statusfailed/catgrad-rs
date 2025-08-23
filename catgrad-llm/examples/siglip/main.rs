@@ -248,8 +248,8 @@ fn vision_head_attention(
     let b_type = NdArrayType::new(Shape(vec![3 * dim]), x.label.dtype);
     let bias = parameter(builder, b_type, format!("{name}.in_proj_bias"));
 
-    let ws = split(builder, 0, 3, weight);
-    let bs = split(builder, 0, 3, bias);
+    let ws = chunk(builder, 0, 3, weight);
+    let bs = chunk(builder, 0, 3, bias);
 
     let q = linear_wb(builder, dim, dim, ws[0].clone(), bs[0].clone(), probe);
     let k = linear_wb(builder, dim, dim, ws[1].clone(), bs[1].clone(), x.clone());
