@@ -1,16 +1,17 @@
 //! Shape operation implementations for the interpreter
 
+use super::backend::Backend;
 use super::{ApplyError, ApplyErrorKind, Value};
 use crate::category::bidirectional::{Object, Operation};
 use crate::category::{core, core::Shape, shape};
 use crate::ssa::SSA;
 
 /// Apply a Type operation
-pub(crate) fn apply_type_op(
+pub(crate) fn apply_type_op<B: Backend>(
     type_op: &shape::TypeOp,
-    args: Vec<Value>,
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match type_op {
         shape::TypeOp::Pack => apply_pack(args, ssa),
         shape::TypeOp::Unpack => apply_unpack(args, ssa),
@@ -19,11 +20,11 @@ pub(crate) fn apply_type_op(
 }
 
 /// Apply a Nat operation
-pub(crate) fn apply_nat_op(
+pub(crate) fn apply_nat_op<B: Backend>(
     nat_op: &shape::NatOp,
-    args: Vec<Value>,
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match nat_op {
         shape::NatOp::Constant(n) => apply_nat_constant(*n, args, ssa),
         shape::NatOp::Mul => apply_nat_mul(args, ssa),
@@ -32,34 +33,34 @@ pub(crate) fn apply_nat_op(
 }
 
 /// Apply a Dtype constant operation
-pub(crate) fn apply_dtype_constant(
+pub(crate) fn apply_dtype_constant<B: Backend>(
     dtype: &core::Dtype,
-    args: Vec<Value>,
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 0, ssa)?;
     Ok(vec![Value::Dtype(dtype.clone())])
 }
 
 // Type operation implementations
-pub(crate) fn apply_pack(
-    args: Vec<Value>,
+pub(crate) fn apply_pack<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     let mut shape = Vec::new();
     for arg in &args {
         match arg {
             Value::Nat(n) => shape.push(*n),
-            _ => return type_error(ssa, args),
+            _ => return type_error(ssa),
         }
     }
     Ok(vec![Value::Shape(Shape(shape))])
 }
 
-pub(crate) fn apply_unpack(
-    args: Vec<Value>,
+pub(crate) fn apply_unpack<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
         Value::Shape(shape) => {
@@ -69,35 +70,35 @@ pub(crate) fn apply_unpack(
             }
             Ok(result)
         }
-        _ => type_error(ssa, args),
+        _ => type_error(ssa),
     }
 }
 
-pub(crate) fn apply_shape(
-    args: Vec<Value>,
+pub(crate) fn apply_shape<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
         Value::NdArray(tensor) => Ok(vec![Value::Shape(tensor.shape())]),
-        _ => type_error(ssa, args),
+        _ => type_error(ssa),
     }
 }
 
 // Nat operation implementations
-pub(crate) fn apply_nat_constant(
+pub(crate) fn apply_nat_constant<B: Backend>(
     n: usize,
-    args: Vec<Value>,
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 0, ssa)?;
     Ok(vec![Value::Nat(n)])
 }
 
-pub(crate) fn apply_nat_mul(
-    args: Vec<Value>,
+pub(crate) fn apply_nat_mul<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.is_empty() {
         return Ok(vec![Value::Nat(1)]);
     }
@@ -105,16 +106,16 @@ pub(crate) fn apply_nat_mul(
     for arg in &args {
         match arg {
             Value::Nat(n) => result *= n,
-            _ => return type_error(ssa, args),
+            _ => return type_error(ssa),
         }
     }
     Ok(vec![Value::Nat(result)])
 }
 
-pub(crate) fn apply_nat_add(
-    args: Vec<Value>,
+pub(crate) fn apply_nat_add<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.is_empty() {
         return Ok(vec![Value::Nat(0)]);
     }
@@ -122,7 +123,7 @@ pub(crate) fn apply_nat_add(
     for arg in &args {
         match arg {
             Value::Nat(n) => result += n,
-            _ => return type_error(ssa, args),
+            _ => return type_error(ssa),
         }
     }
     Ok(vec![Value::Nat(result)])
@@ -131,24 +132,22 @@ pub(crate) fn apply_nat_add(
 ////////////////////////////////////////////////////////////////////////////////
 // utilities
 
-pub fn type_error(
+pub fn type_error<B: Backend>(
     ssa: &SSA<Object, Operation>,
-    args: Vec<Value>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     Err(Box::new(ApplyError {
         kind: ApplyErrorKind::TypeError,
         ssa: ssa.clone(),
-        args,
     }))
 }
 
-pub fn expect_arity(
-    args: &[Value],
+pub fn expect_arity<B: Backend>(
+    args: &[Value<B>],
     expected: usize,
     ssa: &SSA<Object, Operation>,
 ) -> Result<(), Box<ApplyError>> {
     if args.len() != expected {
-        type_error(ssa, args.to_vec())?;
+        type_error::<B>(ssa)?;
     }
     Ok(())
 }

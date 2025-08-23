@@ -1,9 +1,10 @@
 use catgrad_core::category::bidirectional::*;
+use catgrad_core::category::core;
 use catgrad_core::check::*;
 use catgrad_core::nn::*;
 use catgrad_core::util::build_typed;
 
-use catgrad_core::interpreter::Interpreter;
+use catgrad_core::interpreter::{Interpreter, backend::NdArrayBackend};
 
 pub mod test_utils;
 
@@ -49,13 +50,18 @@ fn test_run_add() {
 
     // Typecheck
     let _result = check_with(&ops, &env, term.clone(), vec![t_f, t_g]).unwrap();
-    let interpreter = Interpreter::new(ops, env);
+    let backend = NdArrayBackend;
+    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(ops, env);
 
     // Construct input values with shapes (N, 1, A) and (N, A, B)
     // Using N=2, A=3, B=4 for concrete dimensions
     let data: Vec<u32> = vec![1, 2, 3, 4, 5, 6]; // Shape (2, 1, 3)
     let input = catgrad_core::interpreter::Value::NdArray(
-        catgrad_core::interpreter::TaggedNdArray::from_slice(&data, &[2, 1, 3]),
+        catgrad_core::interpreter::TaggedNdArray::from_slice(
+            &backend,
+            &data,
+            core::Shape(vec![2, 1, 3]),
+        ),
     );
 
     let values = vec![input.clone(), input];
@@ -67,7 +73,11 @@ fn test_run_add() {
     // Create expected result (double the input data)
     let expected_data: Vec<u32> = data.iter().map(|&x| x * 2).collect();
     let expected = catgrad_core::interpreter::Value::NdArray(
-        catgrad_core::interpreter::TaggedNdArray::from_slice(&expected_data, &[2, 1, 3]),
+        catgrad_core::interpreter::TaggedNdArray::from_slice(
+            &backend,
+            &expected_data,
+            core::Shape(vec![2, 1, 3]),
+        ),
     );
 
     // Compare the result with expected

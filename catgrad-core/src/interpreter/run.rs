@@ -7,26 +7,35 @@ use std::collections::HashMap;
 
 use crate::category::{bidirectional::*, shape};
 
-use super::ndarray::TaggedNdArray;
+use super::backend::*;
 use super::types::*;
 
-pub struct Interpreter {
+pub struct Interpreter<B: Backend> {
     ops: HashMap<Path, shape::Operation>,
     env: Environment,
+    _phantom: core::marker::PhantomData<B>,
 }
 
-impl Interpreter {
+impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
     pub fn new(ops: HashMap<Path, shape::Operation>, env: Environment) -> Self {
-        Self { ops, env }
+        Self {
+            ops,
+            env,
+            _phantom: core::marker::PhantomData,
+        }
     }
 
     /// Run the interpreter with specified input values
-    pub fn run(&self, term: Term, values: Vec<Value>) -> Result<Vec<Value>, InterpreterError> {
+    pub fn run(
+        &self,
+        term: Term,
+        values: Vec<Value<B>>,
+    ) -> Result<Vec<Value<B>>, InterpreterError> {
         assert_eq!(values.len(), term.sources.len());
 
         // create initial state by moving argument values into state
-        let mut state = HashMap::<NodeId, Value>::new();
+        let mut state = HashMap::<NodeId, Value<B>>::new();
         for (node_id, value) in term.sources.iter().zip(values) {
             state.insert(*node_id, value);
         }
@@ -75,20 +84,18 @@ impl Interpreter {
         &self,
         path: &Path,
         ssa: &SSA<Object, Operation>,
-        args: &[Value],
     ) -> Result<&shape::Operation, InterpreterError> {
         Ok(self.ops.get(path).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingOperation(path.clone()),
             ssa: ssa.clone(),
-            args: args.to_vec(),
         })?)
     }
 
     pub fn apply(
         &self,
         ssa: &SSA<Object, Operation>,
-        args: Vec<Value>,
-    ) -> Result<Vec<Value>, InterpreterError> {
+        args: Vec<Value<B>>,
+    ) -> Result<Vec<Value<B>>, InterpreterError> {
         match &ssa.op {
             Operation::Literal(lit) => {
                 let v = lit_to_value(lit);
@@ -102,10 +109,10 @@ impl Interpreter {
     fn apply_declaration(
         &self,
         ssa: &SSA<Object, Operation>,
-        args: Vec<Value>,
+        args: Vec<Value<B>>,
         path: &Path,
-    ) -> Result<Vec<Value>, InterpreterError> {
-        let op = self.get_op(path, ssa, &args)?;
+    ) -> Result<Vec<Value<B>>, InterpreterError> {
+        let op = self.get_op(path, ssa)?;
         use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
         use super::tensor_op::apply_tensor_op;
         Ok(match op {
@@ -120,14 +127,13 @@ impl Interpreter {
     fn apply_definition(
         &self,
         ssa: &SSA<Object, Operation>,
-        args: Vec<Value>,
+        args: Vec<Value<B>>,
         def: &Path,
-    ) -> Result<Vec<Value>, InterpreterError> {
+    ) -> Result<Vec<Value<B>>, InterpreterError> {
         // PERFORMANCE: does explicit recursion cost us much here?
         let definition = self.env.operations.get(def).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingDefinition(def.clone()),
             ssa: ssa.clone(),
-            args: args.clone(),
         })?;
 
         self.run(definition.term.clone(), args)
@@ -158,7 +164,7 @@ impl From<Box<ApplyError>> for InterpreterError {
     }
 }
 
-pub(crate) fn lit_to_value(lit: &Literal) -> Value {
+pub(crate) fn lit_to_value<B: Backend>(lit: &Literal) -> Value<B> {
     match lit {
         Literal::U32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
         Literal::F32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
@@ -166,10 +172,10 @@ pub(crate) fn lit_to_value(lit: &Literal) -> Value {
     }
 }
 
-fn apply_copy(
-    mut args: Vec<Value>,
+fn apply_copy<B: Backend>(
+    mut args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     use super::shape_op::expect_arity;
     expect_arity(&args, 1, ssa)?;
     let n = ssa.targets.len();

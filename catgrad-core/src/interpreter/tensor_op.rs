@@ -1,18 +1,19 @@
 //! Tensor operation implementations for the interpreter
 
-use super::{ApplyError, ApplyErrorKind, NdArray, TaggedNdArray, Value};
+use super::backend::*;
+use super::{ApplyError, ApplyErrorKind, TaggedNdArray, Value};
 use crate::category::bidirectional::{Object, Operation};
 use crate::category::core::{ScalarOp, TensorOp};
 use crate::ssa::SSA;
 
 /// Apply a Tensor operation
-pub(crate) fn apply_tensor_op(
+pub(crate) fn apply_tensor_op<B: Backend>(
     tensor_op: &TensorOp,
-    args: Vec<Value>,
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
-        TensorOp::Map(ScalarOp::Add) => binop(args, ssa, |x, y| x + y, |x, y| x + y),
+        TensorOp::Map(ScalarOp::Add) => binop(args, ssa, |x, y| x.add(y), |x, y| x.add(y)),
         //TensorOp::Map(ScalarOp::Mul) => binop(args, ssa, |x, y| x * y, |x, y| x * y),
         //TensorOp::Map(ScalarOp::Div) => binop(args, ssa, |x, y| x / y, |x, y| x / y),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
@@ -29,17 +30,16 @@ pub(crate) fn apply_tensor_op(
 }
 
 // helper for handling binop cases
-fn binop(
-    args: Vec<Value>,
+fn binop<B: Backend>(
+    args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-    f32_op: impl Fn(NdArray<f32>, NdArray<f32>) -> NdArray<f32>,
-    u32_op: impl Fn(NdArray<u32>, NdArray<u32>) -> NdArray<u32>,
-) -> Result<Vec<Value>, Box<ApplyError>> {
+    f32_op: impl Fn(B::NdArray<f32>, B::NdArray<f32>) -> B::NdArray<f32>,
+    u32_op: impl Fn(B::NdArray<u32>, B::NdArray<u32>) -> B::NdArray<u32>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 2 {
         return Err(Box::new(ApplyError {
             kind: ApplyErrorKind::TypeError,
             ssa: ssa.clone(),
-            args,
         }));
     }
 
@@ -50,7 +50,6 @@ fn binop(
             return Err(Box::new(ApplyError {
                 kind: ApplyErrorKind::TypeError,
                 ssa: ssa.clone(),
-                args,
             }));
         }
     };
@@ -66,7 +65,6 @@ fn binop(
             return Err(Box::new(ApplyError {
                 kind: ApplyErrorKind::TypeError,
                 ssa: ssa.clone(),
-                args,
             }));
         }
     };
