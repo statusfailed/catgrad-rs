@@ -89,4 +89,14 @@ impl<B: Backend> TaggedNdArray<B> {
             Self::U32(x) => x[0].shape(),
         }
     }
+
+    pub fn scalar<T: IntoTagged<B, 1>>(backend: &B, x: T) -> Self {
+        let arr: B::NdArray<T> = backend.scalar(x);
+        T::into_tagged([arr])
+    }
+
+    pub fn from_slice<T: IntoTagged<B, 1>>(backend: &B, data: &[T], shape: Shape) -> Self {
+        let arr: B::NdArray<T> = backend.ndarray_from_slice(data, shape);
+        T::into_tagged([arr])
+    }
 }

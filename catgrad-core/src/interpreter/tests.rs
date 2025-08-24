@@ -8,7 +8,7 @@ use crate::category::core::Shape;
 #[test]
 fn test_literal_u32_scalar() {
     let literal = Literal::U32(42);
-    let result: Value<NdArrayBackend> = lit_to_value(&literal);
+    let result: Value<NdArrayBackend> = lit_to_value(&NdArrayBackend, &literal);
 
     match result {
         Value::NdArray(arr) => {
@@ -27,7 +27,7 @@ fn test_literal_u32_scalar() {
 #[test]
 fn test_literal_f32_scalar() {
     let literal = Literal::F32(3.15);
-    let result: Value<NdArrayBackend> = lit_to_value(&literal);
+    let result: Value<NdArrayBackend> = lit_to_value(&NdArrayBackend, &literal);
 
     match result {
         Value::NdArray(arr) => {
@@ -48,10 +48,10 @@ fn test_tagged_ndarray_constructors() {
     let backend = NdArrayBackend;
 
     // Test scalar constructor
-    let scalar_f32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(2.5f32);
+    let scalar_f32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(&NdArrayBackend, 2.5f32);
     assert_eq!(scalar_f32.shape().0, vec![] as Vec<usize>);
 
-    let scalar_u32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(100u32);
+    let scalar_u32: TaggedNdArray<NdArrayBackend> = TaggedNdArray::scalar(&NdArrayBackend, 100u32);
     assert_eq!(scalar_u32.shape().0, vec![] as Vec<usize>);
 
     // Test from_slice constructor

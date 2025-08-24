@@ -11,9 +11,9 @@ use super::backend::*;
 use super::types::*;
 
 pub struct Interpreter<B: Backend> {
-    backend: B,
-    ops: HashMap<Path, shape::Operation>,
-    env: Environment,
+    pub backend: B,
+    pub ops: HashMap<Path, shape::Operation>,
+    pub env: Environment,
 }
 
 impl<B: Backend> Interpreter<B> {

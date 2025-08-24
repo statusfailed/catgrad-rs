@@ -54,14 +54,14 @@ fn test_run_add() {
     // Typecheck
     let _result = check_with(&ops, &env, term.clone(), vec![t_f, t_g]).unwrap();
     let backend = NdArrayBackend;
-    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(ops, env);
+    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(backend, ops, env);
 
     // Construct input values with shapes (N, 1, A) and (N, A, B)
     // Using N=2, A=3, B=4 for concrete dimensions
     let data: Vec<u32> = vec![1, 2, 3, 4, 5, 6]; // Shape (2, 1, 3)
     let input = catgrad_core::interpreter::Value::NdArray(
         catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
+            &interpreter.backend,
             &data,
             core::Shape(vec![2, 1, 3]),
         ),
@@ -77,7 +77,7 @@ fn test_run_add() {
     let expected_data: Vec<u32> = data.iter().map(|&x| x * 2).collect();
     let expected = catgrad_core::interpreter::Value::NdArray(
         catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
+            &interpreter.backend,
             &expected_data,
             core::Shape(vec![2, 1, 3]),
         ),
@@ -113,7 +113,7 @@ fn test_run_batch_matmul() {
     // Typecheck
     let _result = check_with(&ops, &env, term.clone(), vec![t_lhs, t_rhs]).unwrap();
     let backend = NdArrayBackend;
-    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(ops, env);
+    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(backend, ops, env);
 
     // Construct batch matmul inputs with shapes [2, 2, 2] × [2, 2, 1] = [2, 2, 1]
     // Batch 0: [[1, 2], [3, 4]] × [[1], [2]] = [[5], [11]]
@@ -124,7 +124,7 @@ fn test_run_batch_matmul() {
     ];
     let lhs = catgrad_core::interpreter::Value::NdArray(
         catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
+            &interpreter.backend,
             &lhs_data,
             core::Shape(vec![2, 2, 2]),
         ),
@@ -136,7 +136,7 @@ fn test_run_batch_matmul() {
     ];
     let rhs = catgrad_core::interpreter::Value::NdArray(
         catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
+            &interpreter.backend,
             &rhs_data,
             core::Shape(vec![2, 2, 1]),
         ),
@@ -155,7 +155,7 @@ fn test_run_batch_matmul() {
     ];
     let expected = catgrad_core::interpreter::Value::NdArray(
         catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
+            &interpreter.backend,
             &expected_data,
             core::Shape(vec![2, 2, 1]),
         ),
