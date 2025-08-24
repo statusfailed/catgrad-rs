@@ -14,7 +14,7 @@ fn test_literal_u32_scalar() {
         Value::NdArray(arr) => {
             assert_eq!(arr.shape().0, vec![] as Vec<usize>);
             match arr {
-                TaggedNdArray::U32(nd_arr) => {
+                TaggedNdArray::U32([nd_arr]) => {
                     assert_eq!(nd_arr[[]], 42);
                 }
                 _ => panic!("Expected U32 TaggedNdArray"),
@@ -33,7 +33,7 @@ fn test_literal_f32_scalar() {
         Value::NdArray(arr) => {
             assert_eq!(arr.shape().0, vec![] as Vec<usize>);
             match arr {
-                TaggedNdArray::F32(nd_arr) => {
+                TaggedNdArray::F32([nd_arr]) => {
                     assert_eq!(nd_arr[[]], 3.15);
                 }
                 _ => panic!("Expected F32 TaggedNdArray"),

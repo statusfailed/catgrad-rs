@@ -1,5 +1,6 @@
+use super::super::types::*;
 use crate::category::core::Shape;
-use crate::interpreter::backend::{Backend, DType, NdArray};
+use crate::interpreter::backend::{Backend, NdArray};
 use ndarray::{ArrayD, IxDyn};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -22,12 +23,23 @@ impl Backend for NdArrayBackend {
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
 
-    fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        Self::batched_matmul(lhs, rhs)
+    fn matmul(args: TaggedNdArrays<Self, 2>) -> TaggedNdArrays<Self, 1> {
+        // TODO: macro this?
+        match args {
+            TaggedNdArrays::F32([lhs, rhs]) => {
+                TaggedNdArrays::F32([NdArrayBackend::batched_matmul::<f32>(lhs, rhs)])
+            }
+            TaggedNdArrays::U32([lhs, rhs]) => {
+                TaggedNdArrays::U32([NdArrayBackend::batched_matmul::<u32>(lhs, rhs)])
+            }
+        }
     }
 
-    fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
-        Self::batched_matmul(lhs, rhs)
+    fn add(args: TaggedNdArrays<Self, 2>) -> TaggedNdArrays<Self, 1> {
+        match args {
+            TaggedNdArrays::F32([lhs, rhs]) => TaggedNdArrays::F32([lhs + rhs]),
+            TaggedNdArrays::U32([lhs, rhs]) => TaggedNdArrays::U32([lhs + rhs]),
+        }
     }
 }
 
@@ -123,10 +135,6 @@ impl<D: DType> NdArray<D> for ArrayD<D> {
 
     fn shape(&self) -> Shape {
         Shape(self.shape().to_vec())
-    }
-
-    fn add(self, rhs: Self) -> Self {
-        self + rhs
     }
 }
 

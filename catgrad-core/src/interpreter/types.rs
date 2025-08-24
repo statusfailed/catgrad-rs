@@ -17,11 +17,12 @@ pub struct ApplyError {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ApplyErrorKind {
     TypeError,
+    ArityError,
     MissingOperation(Path),  // Operation declaration not found in ops
     MissingDefinition(Path), // Operation definition not found in env
 }
 
-// Actual values produced by the interpreter
+// Actual values produced by the interpreter #[derive(PartialEq, Debug, Clone)]
 #[derive(PartialEq, Debug, Clone)]
 pub enum Value<B: Backend> {
     /// A concrete natural number
@@ -40,46 +41,62 @@ pub enum Value<B: Backend> {
     NdArray(TaggedNdArray<B>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-pub enum TaggedNdArray<B: Backend> {
-    F32(<B as Backend>::NdArray<f32>),
-    U32(<B as Backend>::NdArray<u32>),
+////////////////////////////////////////////////////////////////////////////////
+// Multiple tagged ndarrays
+
+// TODO: make this sealed
+pub trait DType: Copy + Send + Sync + std::fmt::Debug + PartialEq {}
+impl DType for f32 {}
+impl DType for u32 {}
+
+/// A collection of N NdArrays of the same dtype
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TaggedNdArrays<B: Backend, const N: usize> {
+    F32([B::NdArray<f32>; N]),
+    U32([B::NdArray<u32>; N]),
 }
 
-impl<B: Backend> TaggedNdArray<B> {
-    pub fn shape(&self) -> Shape {
-        match self {
-            Self::F32(x) => x.shape(),
-            Self::U32(x) => x.shape(),
-        }
-    }
+////////////////////////////////////////////////////////////////////////////////
 
-    pub fn scalar<T: IntoTagged<B>>(x: T) -> Self {
-        let arr: B::NdArray<T> = <B as Backend>::scalar(x);
-        T::into_tagged(arr)
-    }
+pub trait IntoTagged<B: Backend, const N: usize>:
+    Clone + PartialEq + std::fmt::Debug + DType
+{
+    fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N>;
+}
 
-    pub fn from_slice<T: IntoTagged<B>>(backend: &B, data: &[T], shape: Shape) -> Self {
-        let arr: B::NdArray<T> = backend.ndarray_from_slice(data, shape);
-        T::into_tagged(arr)
+impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
+    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N> {
+        TaggedNdArrays::F32(arrs)
+    }
+}
+
+impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
+    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N> {
+        TaggedNdArrays::U32(arrs)
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Reduce some boilerplate for TaggedNdArray
+// Single tagged array
+// TODO: this can easily generalise to N; is that necessary?
 
-pub trait IntoTagged<B: Backend>: Clone + PartialEq + std::fmt::Debug + DType {
-    fn into_tagged(arr: B::NdArray<Self>) -> TaggedNdArray<B>;
-}
+pub type TaggedNdArray<B> = TaggedNdArrays<B, 1>;
 
-impl<B: Backend> IntoTagged<B> for f32 {
-    fn into_tagged(arr: B::NdArray<Self>) -> TaggedNdArray<B> {
-        TaggedNdArray::F32(arr)
+impl<B: Backend> TaggedNdArray<B> {
+    pub fn shape(&self) -> Shape {
+        match self {
+            Self::F32(x) => x[0].shape(),
+            Self::U32(x) => x[0].shape(),
+        }
     }
-}
 
-impl<B: Backend> IntoTagged<B> for u32 {
-    fn into_tagged(arr: B::NdArray<Self>) -> TaggedNdArray<B> {
-        TaggedNdArray::U32(arr)
+    pub fn scalar<T: IntoTagged<B, 1>>(x: T) -> Self {
+        let arr: B::NdArray<T> = <B as Backend>::scalar(x);
+        T::into_tagged([arr])
+    }
+
+    pub fn from_slice<T: IntoTagged<B, 1>>(backend: &B, data: &[T], shape: Shape) -> Self {
+        let arr: B::NdArray<T> = backend.ndarray_from_slice(data, shape);
+        T::into_tagged([arr])
     }
 }
