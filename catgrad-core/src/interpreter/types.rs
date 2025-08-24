@@ -45,9 +45,9 @@ pub enum Value<B: Backend> {
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
-pub trait DType: Copy + Send + Sync + std::fmt::Debug + PartialEq {}
-impl DType for f32 {}
-impl DType for u32 {}
+pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug + PartialEq {}
+impl HasDtype for f32 {}
+impl HasDtype for u32 {}
 
 /// A collection of N NdArrays of the same dtype
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -59,7 +59,7 @@ pub enum TaggedNdArrayTuple<B: Backend, const N: usize> {
 ////////////////////////////////////////////////////////////////////////////////
 
 pub trait IntoTagged<B: Backend, const N: usize>:
-    Clone + PartialEq + std::fmt::Debug + DType
+    Clone + PartialEq + std::fmt::Debug + HasDtype
 {
     fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedNdArrayTuple<B, N>;
 }

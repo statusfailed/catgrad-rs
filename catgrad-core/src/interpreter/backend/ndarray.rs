@@ -7,18 +7,18 @@ use ndarray::{ArrayD, IxDyn};
 pub struct NdArrayBackend;
 
 impl Backend for NdArrayBackend {
-    type NdArray<D: DType> = ArrayD<D>;
+    type NdArray<D: HasDtype> = ArrayD<D>;
 
-    fn scalar<D: DType>(d: D) -> Self::NdArray<D> {
+    fn scalar<D: HasDtype>(d: D) -> Self::NdArray<D> {
         ArrayD::from_elem(IxDyn(&[]), d)
     }
 
-    fn zeros<D: DType + Default>(&self, shape: Shape) -> Self::NdArray<D> {
+    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
         let dims: Vec<usize> = shape.0;
         ArrayD::from_elem(IxDyn(&dims), D::default())
     }
 
-    fn ndarray_from_slice<D: DType>(&self, data: &[D], shape: Shape) -> Self::NdArray<D> {
+    fn ndarray_from_slice<D: HasDtype>(&self, data: &[D], shape: Shape) -> Self::NdArray<D> {
         let dims: Vec<usize> = shape.0;
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
@@ -43,7 +43,7 @@ impl Backend for NdArrayBackend {
 impl NdArrayBackend {
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
-        D: DType + ndarray::LinalgScalar,
+        D: HasDtype + ndarray::LinalgScalar,
     {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
@@ -52,7 +52,7 @@ impl NdArrayBackend {
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
     where
-        D: DType + ndarray::LinalgScalar,
+        D: HasDtype + ndarray::LinalgScalar,
     {
         // For now, only handle rank 2 case
         assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
@@ -70,7 +70,7 @@ impl NdArrayBackend {
 
     pub fn batched_matmul<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
     where
-        D: DType + ndarray::LinalgScalar,
+        D: HasDtype + ndarray::LinalgScalar,
     {
         // PERFORMANCE: Haven't checked fast/slow paths in this code; use rayon to parallelise?
         assert!(
@@ -137,7 +137,7 @@ impl NdArrayBackend {
     }
 }
 
-impl<D: DType> NdArray<D> for ArrayD<D> {
+impl<D: HasDtype> NdArray<D> for ArrayD<D> {
     type Backend = NdArrayBackend;
 
     fn shape(&self) -> Shape {
