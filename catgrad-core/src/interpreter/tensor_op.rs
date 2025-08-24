@@ -1,7 +1,7 @@
 //! Tensor operation implementations for the interpreter
 
 use super::backend::*;
-use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrays, Value};
+use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrayTuple, Value};
 use crate::category::bidirectional::{Object, Operation};
 use crate::category::core::{Dtype, ScalarOp, TensorOp};
 use crate::ssa::SSA;
@@ -13,20 +13,46 @@ pub(crate) fn apply_tensor_op<B: Backend>(
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
-        TensorOp::Map(ScalarOp::Add) => run_op(args, ssa, B::add),
+        TensorOp::Map(ScalarOp::Add) => binop(args, ssa, B::add_f32, B::add_u32),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Reduce(_scalar_op, _axis) => todo!("implement tensor reduce"),
         TensorOp::Constant(_constant) => todo!("implement tensor constant"),
         TensorOp::Stack => todo!("implement tensor stack"),
         TensorOp::Split => todo!("implement tensor split"),
         TensorOp::Reshape => todo!("implement tensor reshape"),
-        TensorOp::MatMul => run_op(args, ssa, B::matmul),
+        TensorOp::MatMul => binop(args, ssa, B::matmul_f32, B::matmul_u32),
         TensorOp::Index => todo!("implement tensor index"),
         TensorOp::Broadcast => todo!("implement tensor broadcast"),
         TensorOp::Copy => todo!("implement tensor copy"),
     }
 }
 
+#[allow(type_alias_bounds)]
+type Binop<B: Backend, T> = fn(B::NdArray<T>, B::NdArray<T>) -> B::NdArray<T>;
+
+fn binop<B: Backend>(
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+    case_f32: Binop<B, f32>,
+    case_u32: Binop<B, u32>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    match try_into_tagged_ndarrays::<B, 2>(args, ssa)? {
+        TaggedNdArrayTuple::F32([x, y]) => {
+            Ok(vec![Value::NdArray(TaggedNdArrayTuple::F32([case_f32(
+                x, y,
+            )]))])
+        }
+        TaggedNdArrayTuple::U32([x, y]) => {
+            Ok(vec![Value::NdArray(TaggedNdArrayTuple::U32([case_u32(
+                x, y,
+            )]))])
+        }
+    }
+}
+
+// TODO: binop has some boilerplate- have to unpack/repack a lot. can we fix that using run_op &
+// into() on taggedndarraytuple?
+#[allow(dead_code)]
 /// Run an M → 1 op taking M NdArray values of the same dtype, producing an NdArray.
 fn run_op<B: Backend, F, const M: usize>(
     args: Vec<Value<B>>,
@@ -34,7 +60,7 @@ fn run_op<B: Backend, F, const M: usize>(
     f: F,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>>
 where
-    F: Fn(TaggedNdArrays<B, M>) -> TaggedNdArrays<B, 1>,
+    F: Fn(TaggedNdArrayTuple<B, M>) -> TaggedNdArrayTuple<B, 1>,
 {
     Ok(vec![Value::NdArray(f(try_into_tagged_ndarrays::<B, M>(
         args, ssa,
@@ -45,7 +71,7 @@ where
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     values: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-) -> Result<TaggedNdArrays<B, N>, Box<ApplyError>> {
+) -> Result<TaggedNdArrayTuple<B, N>, Box<ApplyError>> {
     let n = values.len();
 
     // clippy is WRONG! what if someone changes the type of n, then what, huh!?
@@ -100,8 +126,8 @@ pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     }
 
     let result = match dtype_kind {
-        Some(Dtype::F32) => f32_arrays.try_into().ok().map(TaggedNdArrays::F32),
-        Some(Dtype::U32) => u32_arrays.try_into().ok().map(TaggedNdArrays::U32),
+        Some(Dtype::F32) => f32_arrays.try_into().ok().map(TaggedNdArrayTuple::F32),
+        Some(Dtype::U32) => u32_arrays.try_into().ok().map(TaggedNdArrayTuple::U32),
         _ => None,
     };
 

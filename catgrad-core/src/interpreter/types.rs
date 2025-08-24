@@ -51,7 +51,7 @@ impl DType for u32 {}
 
 /// A collection of N NdArrays of the same dtype
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum TaggedNdArrays<B: Backend, const N: usize> {
+pub enum TaggedNdArrayTuple<B: Backend, const N: usize> {
     F32([B::NdArray<f32>; N]),
     U32([B::NdArray<u32>; N]),
 }
@@ -61,18 +61,18 @@ pub enum TaggedNdArrays<B: Backend, const N: usize> {
 pub trait IntoTagged<B: Backend, const N: usize>:
     Clone + PartialEq + std::fmt::Debug + DType
 {
-    fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N>;
+    fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedNdArrayTuple<B, N>;
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
-    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N> {
-        TaggedNdArrays::F32(arrs)
+    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrayTuple<B, N> {
+        TaggedNdArrayTuple::F32(arrs)
     }
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
-    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrays<B, N> {
-        TaggedNdArrays::U32(arrs)
+    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedNdArrayTuple<B, N> {
+        TaggedNdArrayTuple::U32(arrs)
     }
 }
 
@@ -80,7 +80,7 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
 // Single tagged array
 // TODO: this can easily generalise to N; is that necessary?
 
-pub type TaggedNdArray<B> = TaggedNdArrays<B, 1>;
+pub type TaggedNdArray<B> = TaggedNdArrayTuple<B, 1>;
 
 impl<B: Backend> TaggedNdArray<B> {
     pub fn shape(&self) -> Shape {

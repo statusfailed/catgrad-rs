@@ -23,27 +23,33 @@ impl Backend for NdArrayBackend {
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
 
-    fn matmul(args: TaggedNdArrays<Self, 2>) -> TaggedNdArrays<Self, 1> {
-        // TODO: macro this?
-        match args {
-            TaggedNdArrays::F32([lhs, rhs]) => {
-                TaggedNdArrays::F32([NdArrayBackend::batched_matmul::<f32>(lhs, rhs)])
-            }
-            TaggedNdArrays::U32([lhs, rhs]) => {
-                TaggedNdArrays::U32([NdArrayBackend::batched_matmul::<u32>(lhs, rhs)])
-            }
-        }
+    fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
+        Self::batched_matmul(lhs, rhs)
     }
 
-    fn add(args: TaggedNdArrays<Self, 2>) -> TaggedNdArrays<Self, 1> {
-        match args {
-            TaggedNdArrays::F32([lhs, rhs]) => TaggedNdArrays::F32([lhs + rhs]),
-            TaggedNdArrays::U32([lhs, rhs]) => TaggedNdArrays::U32([lhs + rhs]),
-        }
+    fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+        Self::batched_matmul(lhs, rhs)
+    }
+
+    fn add_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
+        Self::add(lhs, rhs)
+    }
+
+    fn add_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+        Self::add(lhs, rhs)
     }
 }
 
 impl NdArrayBackend {
+    fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
+    where
+        D: DType + ndarray::LinalgScalar,
+    {
+        // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
+        // using in-place updates? That is, use `x += y` if x is contiguous.
+        x + y
+    }
+
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
     where
         D: DType + ndarray::LinalgScalar,
@@ -66,6 +72,7 @@ impl NdArrayBackend {
     where
         D: DType + ndarray::LinalgScalar,
     {
+        // PERFORMANCE: Haven't checked fast/slow paths in this code; use rayon to parallelise?
         assert!(
             lhs.ndim() >= 2,
             "batched_matmul: lhs must be at least rank 2"
