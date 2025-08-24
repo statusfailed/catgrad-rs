@@ -1,10 +1,13 @@
+#![cfg(feature = "ndarray-backend")]
+
 use catgrad_core::category::bidirectional::*;
 use catgrad_core::category::core;
 use catgrad_core::check::*;
 use catgrad_core::nn::*;
 use catgrad_core::util::build_typed;
 
-use catgrad_core::interpreter::{Interpreter, backend::NdArrayBackend};
+use catgrad_core::interpreter::Interpreter;
+use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 
 pub mod test_utils;
 

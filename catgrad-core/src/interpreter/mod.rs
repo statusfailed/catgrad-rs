@@ -9,5 +9,5 @@ pub mod backend;
 pub mod shape_op;
 pub mod tensor_op;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ndarray-backend"))]
 mod tests;

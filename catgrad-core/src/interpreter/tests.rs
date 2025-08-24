@@ -1,6 +1,7 @@
 //! Tests for the catgrad reference interpreter
 
-use super::{TaggedNdArray, Value, backend::NdArrayBackend, lit_to_value};
+use super::backend::ndarray::NdArrayBackend;
+use super::{TaggedNdArray, Value, lit_to_value};
 use crate::category::bidirectional::Literal;
 use crate::category::core::Shape;
 
