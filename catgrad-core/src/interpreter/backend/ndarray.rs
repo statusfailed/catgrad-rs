@@ -9,7 +9,7 @@ pub struct NdArrayBackend;
 impl Backend for NdArrayBackend {
     type NdArray<D: HasDtype> = ArrayD<D>;
 
-    fn scalar<D: HasDtype>(d: D) -> Self::NdArray<D> {
+    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
         ArrayD::from_elem(IxDyn(&[]), d)
     }
 
@@ -23,19 +23,19 @@ impl Backend for NdArrayBackend {
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
 
-    fn matmul_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
+    fn matmul_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
         Self::batched_matmul(lhs, rhs)
     }
 
-    fn matmul_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+    fn matmul_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
         Self::batched_matmul(lhs, rhs)
     }
 
-    fn add_f32(lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
+    fn add_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
         Self::add(lhs, rhs)
     }
 
-    fn add_u32(lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
+    fn add_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
         Self::add(lhs, rhs)
     }
 }

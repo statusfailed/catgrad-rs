@@ -8,19 +8,20 @@ use crate::ssa::SSA;
 
 /// Apply a Tensor operation
 pub(crate) fn apply_tensor_op<B: Backend>(
+    backend: &B,
     tensor_op: &TensorOp,
     args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
-        TensorOp::Map(ScalarOp::Add) => binop(args, ssa, B::add_f32, B::add_u32),
+        TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add_f32, B::add_u32),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Reduce(_scalar_op, _axis) => todo!("implement tensor reduce"),
         TensorOp::Constant(_constant) => todo!("implement tensor constant"),
         TensorOp::Stack => todo!("implement tensor stack"),
         TensorOp::Split => todo!("implement tensor split"),
         TensorOp::Reshape => todo!("implement tensor reshape"),
-        TensorOp::MatMul => binop(args, ssa, B::matmul_f32, B::matmul_u32),
+        TensorOp::MatMul => binop(backend, args, ssa, B::matmul_f32, B::matmul_u32),
         TensorOp::Index => todo!("implement tensor index"),
         TensorOp::Broadcast => todo!("implement tensor broadcast"),
         TensorOp::Copy => todo!("implement tensor copy"),
@@ -28,9 +29,10 @@ pub(crate) fn apply_tensor_op<B: Backend>(
 }
 
 #[allow(type_alias_bounds)]
-type Binop<B: Backend, T> = fn(B::NdArray<T>, B::NdArray<T>) -> B::NdArray<T>;
+type Binop<B: Backend, T> = fn(&B, B::NdArray<T>, B::NdArray<T>) -> B::NdArray<T>;
 
 fn binop<B: Backend>(
+    backend: &B,
     args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
     case_f32: Binop<B, f32>,
@@ -39,12 +41,12 @@ fn binop<B: Backend>(
     match try_into_tagged_ndarrays::<B, 2>(args, ssa)? {
         TaggedNdArrayTuple::F32([x, y]) => {
             Ok(vec![Value::NdArray(TaggedNdArrayTuple::F32([case_f32(
-                x, y,
+                backend, x, y,
             )]))])
         }
         TaggedNdArrayTuple::U32([x, y]) => {
             Ok(vec![Value::NdArray(TaggedNdArrayTuple::U32([case_u32(
-                x, y,
+                backend, x, y,
             )]))])
         }
     }

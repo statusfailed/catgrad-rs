@@ -11,19 +11,15 @@ use super::backend::*;
 use super::types::*;
 
 pub struct Interpreter<B: Backend> {
+    backend: B,
     ops: HashMap<Path, shape::Operation>,
     env: Environment,
-    _phantom: core::marker::PhantomData<B>,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(ops: HashMap<Path, shape::Operation>, env: Environment) -> Self {
-        Self {
-            ops,
-            env,
-            _phantom: core::marker::PhantomData,
-        }
+    pub fn new(backend: B, ops: HashMap<Path, shape::Operation>, env: Environment) -> Self {
+        Self { backend, ops, env }
     }
 
     /// Run the interpreter with specified input values
@@ -98,7 +94,7 @@ impl<B: Backend> Interpreter<B> {
     ) -> Result<Vec<Value<B>>, InterpreterError> {
         match &ssa.op {
             Operation::Literal(lit) => {
-                let v = lit_to_value(lit);
+                let v = lit_to_value(&self.backend, lit);
                 Ok(vec![v])
             }
             Operation::Declaration(path) => self.apply_declaration(ssa, args, path),
@@ -119,7 +115,9 @@ impl<B: Backend> Interpreter<B> {
             shape::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
             shape::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
             shape::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
-            shape::Operation::Tensor(tensor_op) => apply_tensor_op(tensor_op, args, ssa)?,
+            shape::Operation::Tensor(tensor_op) => {
+                apply_tensor_op(&self.backend, tensor_op, args, ssa)?
+            }
             shape::Operation::Copy => apply_copy(args, ssa)?,
         })
     }
@@ -164,10 +162,10 @@ impl From<Box<ApplyError>> for InterpreterError {
     }
 }
 
-pub(crate) fn lit_to_value<B: Backend>(lit: &Literal) -> Value<B> {
+pub(crate) fn lit_to_value<B: Backend>(backend: &B, lit: &Literal) -> Value<B> {
     match lit {
-        Literal::U32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
-        Literal::F32(x) => Value::NdArray(TaggedNdArray::scalar(*x)),
+        Literal::F32(x) => Value::NdArray(TaggedNdArray::F32([B::scalar(backend, *x)])),
+        Literal::U32(x) => Value::NdArray(TaggedNdArray::U32([B::scalar(backend, *x)])),
         Literal::Dtype(d) => Value::Dtype(d.clone()),
     }
 }
