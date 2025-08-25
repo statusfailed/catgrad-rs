@@ -123,21 +123,6 @@ pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
     outputs
 }
 
-pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
-    assert!(x.label.shape.0[dim] % splits == 0);
-
-    let d = x.label.shape.0[dim] / splits;
-
-    let mut outputs = vec![];
-    for i in 0..splits {
-        let indices = range_indices(builder, i * d, (i + 1) * d);
-        let s = index(builder, dim, x.clone(), indices);
-        outputs.push(s);
-    }
-
-    outputs
-}
-
 pub fn squeeze(builder: &Builder, dim: usize, x: Var) -> Var {
     let mut output_shape = x.label.shape.0.clone();
     assert!(output_shape[dim] == 1);
