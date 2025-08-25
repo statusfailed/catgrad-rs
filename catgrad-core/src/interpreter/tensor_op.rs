@@ -14,17 +14,19 @@ pub(crate) fn apply_tensor_op<B: Backend>(
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
+        TensorOp::MatMul => binop(backend, args, ssa, B::matmul_f32, B::matmul_u32),
+        TensorOp::Constant(_constant) => todo!(),
+        TensorOp::Sum => todo!(),
+        TensorOp::Max => todo!(),
+        TensorOp::Argmax => todo!(),
+        TensorOp::Broadcast => todo!(),
+        TensorOp::Reshape => todo!(),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add_f32, B::add_u32),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
-        TensorOp::Reduce(_scalar_op, _axis) => todo!("implement tensor reduce"),
-        TensorOp::Constant(_constant) => todo!("implement tensor constant"),
-        TensorOp::Stack => todo!("implement tensor stack"),
-        TensorOp::Split => todo!("implement tensor split"),
-        TensorOp::Reshape => todo!("implement tensor reshape"),
-        TensorOp::MatMul => binop(backend, args, ssa, B::matmul_f32, B::matmul_u32),
-        TensorOp::Index => todo!("implement tensor index"),
-        TensorOp::Broadcast => todo!("implement tensor broadcast"),
-        TensorOp::Copy => todo!("implement tensor copy"),
+        TensorOp::Stack => todo!(),
+        TensorOp::Split => todo!(),
+        TensorOp::Index => todo!(),
+        TensorOp::Copy => todo!(),
     }
 }
 
