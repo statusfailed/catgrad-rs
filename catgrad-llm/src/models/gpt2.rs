@@ -109,7 +109,7 @@ impl Model {
 
         let c_attn = Model::gpt_linear(builder, dim, 3 * dim, &format!("{name}.c_attn"), x);
 
-        let a = split(builder, 2, 3, c_attn);
+        let a = chunk(builder, 2, 3, c_attn);
         let q = a[0].clone();
         let k = a[1].clone();
         let v = a[2].clone();

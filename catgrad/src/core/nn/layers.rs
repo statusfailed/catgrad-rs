@@ -123,21 +123,6 @@ pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
     outputs
 }
 
-pub fn split(builder: &Builder, dim: usize, splits: usize, x: Var) -> Vec<Var> {
-    assert!(x.label.shape.0[dim] % splits == 0);
-
-    let d = x.label.shape.0[dim] / splits;
-
-    let mut outputs = vec![];
-    for i in 0..splits {
-        let indices = range_indices(builder, i * d, (i + 1) * d);
-        let s = index(builder, dim, x.clone(), indices);
-        outputs.push(s);
-    }
-
-    outputs
-}
-
 pub fn squeeze(builder: &Builder, dim: usize, x: Var) -> Var {
     let mut output_shape = x.label.shape.0.clone();
     assert!(output_shape[dim] == 1);
@@ -173,16 +158,7 @@ pub fn select(builder: &Builder, dim: usize, index: usize, x: Var) -> Var {
 }
 
 pub fn narrow(builder: &Builder, dim: usize, start: usize, length: usize, x: Var) -> Var {
-    assert!(
-        x.label.shape.0[dim] >= start + length,
-        "dim: {dim} {:?} >= {:?} + {:?}",
-        x.label.shape.0[dim],
-        start,
-        length
-    );
-
-    let indices = range_indices(builder, start, start + length);
-    index(builder, dim, x, indices)
+    slice(builder, dim, start, length, x)
 }
 
 pub fn concat(builder: &Builder, dim: usize, a: Var, b: Var) -> Var {
@@ -559,7 +535,7 @@ pub fn rope_tables(builder: &Builder, theta: f32, seq_len: usize, head_dim: usiz
 }
 
 fn rotate_half(builder: &Builder, x: Var) -> Var {
-    let v = split(builder, 3, 2, x);
+    let v = chunk(builder, 3, 2, x);
 
     concat(builder, 3, -v[1].clone(), v[0].clone())
 }
@@ -1217,14 +1193,14 @@ mod tests {
     }
 
     #[test]
-    fn test_split() {
+    fn test_chunk() {
         let mut state = EvalState::build(|builder| {
             let x = arange(builder, 6, Dtype::F32);
             let x = expand(builder, Shape(vec![4, 6]), x);
-            let v = split(builder, 1, 3, x);
+            let v = chunk(builder, 1, 3, x);
             let [y0, y1, y2]: [Var; 3] = v.try_into().unwrap();
 
-            let v = split(builder, 0, 2, y1);
+            let v = chunk(builder, 0, 2, y1);
             let y1 = v[0].clone();
 
             (vec![], vec![y0, y1, y2])

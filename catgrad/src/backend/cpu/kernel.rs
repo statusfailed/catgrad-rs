@@ -514,6 +514,7 @@ impl<T: Numeric> UnaryOp<T> for TransposeOp {
         b.strides = new_strides;
         b.offset = a.offset;
 
+        log::debug!("Transpose shapes from {:?} to {:?}", a.shape, b.shape);
         log::debug!("Transpose strides from {:?} to {:?}", a.strides, b.strides);
         b.data = Rc::clone(&a.data);
     }

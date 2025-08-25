@@ -161,7 +161,7 @@ impl Model {
             x,
         );
 
-        let input_gate = split(builder, 2, 2, x);
+        let input_gate = chunk(builder, 2, 2, x);
         let input = input_gate[0].clone();
         let gate = input_gate[1].clone();
         let x = gelu(builder, input) * gate;

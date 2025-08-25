@@ -141,7 +141,7 @@ impl Model {
             x,
         );
 
-        let gate_up = split(builder, 2, 2, gate_up);
+        let gate_up = chunk(builder, 2, 2, gate_up);
 
         let gate = gate_up[0].clone();
         let up = gate_up[1].clone();
