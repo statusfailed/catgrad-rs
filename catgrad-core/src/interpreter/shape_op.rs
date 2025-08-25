@@ -3,32 +3,32 @@
 use super::backend::Backend;
 use super::{ApplyError, ApplyErrorKind, Value};
 use crate::category::bidirectional::{Object, Operation};
-use crate::category::{core, core::Shape, shape};
+use crate::category::{core, core::Shape};
 use crate::ssa::SSA;
 
 /// Apply a Type operation
 pub(crate) fn apply_type_op<B: Backend>(
-    type_op: &shape::TypeOp,
+    type_op: &core::TypeOp,
     args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match type_op {
-        shape::TypeOp::Pack => apply_pack(args, ssa),
-        shape::TypeOp::Unpack => apply_unpack(args, ssa),
-        shape::TypeOp::Shape => apply_shape(args, ssa),
+        core::TypeOp::Pack => apply_pack(args, ssa),
+        core::TypeOp::Unpack => apply_unpack(args, ssa),
+        core::TypeOp::Shape => apply_shape(args, ssa),
     }
 }
 
 /// Apply a Nat operation
 pub(crate) fn apply_nat_op<B: Backend>(
-    nat_op: &shape::NatOp,
+    nat_op: &core::NatOp,
     args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match nat_op {
-        shape::NatOp::Constant(n) => apply_nat_constant(*n, args, ssa),
-        shape::NatOp::Mul => apply_nat_mul(args, ssa),
-        shape::NatOp::Add => apply_nat_add(args, ssa),
+        core::NatOp::Constant(n) => apply_nat_constant(*n, args, ssa),
+        core::NatOp::Mul => apply_nat_mul(args, ssa),
+        core::NatOp::Add => apply_nat_add(args, ssa),
     }
 }
 

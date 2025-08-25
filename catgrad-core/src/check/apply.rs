@@ -1,5 +1,8 @@
 use super::types::*;
-use crate::category::{bidirectional, shape::*};
+use crate::category::{
+    bidirectional,
+    core::{NatOp, Operation, TensorOp, TypeOp},
+};
 use crate::ssa::SSA;
 
 // Get a value for each resulting NodeId.

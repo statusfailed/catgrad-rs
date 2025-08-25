@@ -1,4 +1,9 @@
-/// Generating objects in Core
+//! Core operations on shapes, natural numbers, and tensors.
+
+////////////////////////////////////////////////////////////////////////////////
+// Basic types.
+// TODO: move these to interpreter?
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NdArrayType {
     pub dtype: Dtype,
@@ -29,6 +34,65 @@ impl Shape {
         strides.reverse();
         strides
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// objects
+
+/// Objects of the category.
+/// Note that Nat and Rank-1 shapes are only isomorphic so we can safely index by naturals.
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum Object {
+    Nat, // natural numbers
+    Dtype,
+    NdArrayType, // tuples of natural numbers (TODO: dtype)
+    Tensor,
+}
+
+impl std::fmt::Display for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Operations
+
+/// Operations are those of core, extended with operations on shapes
+#[derive(Debug, PartialEq, Clone)]
+pub enum Operation {
+    Type(TypeOp),
+    Nat(NatOp),
+    DtypeConstant(Dtype),
+    Tensor(TensorOp),
+    Copy,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum NatOp {
+    Constant(usize),
+
+    // Multiply n naturals
+    Mul,
+
+    // Add n naturals
+    Add,
+}
+
+/// Operations involving shapes
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum TypeOp {
+    /// Pack k Nats into a shape
+    /// Pack : Nat^k → Type
+    Pack,
+
+    /// Split a shape into nat dimensions
+    /// Unpack : Type → Nat^k
+    Unpack,
+
+    /// Get the shape of a tensor (not its dtype!)
+    /// Tensor → Shape
+    Shape,
 }
 
 #[derive(Debug, Clone, PartialEq)]

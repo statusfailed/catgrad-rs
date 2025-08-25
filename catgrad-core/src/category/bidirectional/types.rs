@@ -3,10 +3,10 @@ use open_hypergraphs::lax::*;
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::category::core;
-
-pub use crate::category::core::Dtype;
-pub use crate::category::shape::Object;
+pub use crate::category::{
+    core,
+    core::{Dtype, Object},
+};
 
 use super::path::*;
 

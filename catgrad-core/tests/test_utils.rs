@@ -16,7 +16,7 @@ pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
 pub fn get_forget_op_decls() -> (
     std::collections::HashMap<
         catgrad_core::category::bidirectional::Path,
-        catgrad_core::category::shape::Operation,
+        catgrad_core::category::core::Operation,
     >,
     Environment,
 ) {

@@ -149,10 +149,9 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 //
 
 // basic declarations
-pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::shape::Operation>
+pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::core::Operation>
 {
-    use crate::category::core::{ScalarOp::*, TensorOp::*};
-    use crate::category::shape::{NatOp, Operation, TypeOp};
+    use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
     use std::collections::HashMap;
     HashMap::from([
         (path!["cartesian", "copy"], Operation::Copy),

@@ -1,5 +1,5 @@
 // Catgrad's shape checker is an abstract interpreter for the *shaped* dialect.
-use crate::category::{bidirectional::*, shape};
+use crate::category::{bidirectional::*, core};
 use crate::ssa::*;
 use open_hypergraphs::lax::NodeId;
 
@@ -32,7 +32,7 @@ pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
 /// Assign a shape value to each node in a term (hypergraph).
 #[allow(clippy::result_large_err)]
 pub fn check_with(
-    ops: &HashMap<Path, shape::Operation>,
+    ops: &HashMap<Path, core::Operation>,
     env: &Environment,
     term: Term,
     source_values: Vec<Value>,
@@ -103,7 +103,7 @@ use super::apply::*;
 // Get a value for each resulting NodeId.
 #[allow(clippy::result_large_err)]
 pub fn apply(
-    ops: &HashMap<Path, shape::Operation>,
+    ops: &HashMap<Path, core::Operation>,
     env: &Environment,
     ssa: &SSA<Object, Operation>,
     args: &[Value],
@@ -127,7 +127,7 @@ pub fn apply(
 }
 
 fn apply_declaration(
-    ops: &HashMap<Path, shape::Operation>,
+    ops: &HashMap<Path, core::Operation>,
     op: &Path,
     args: &[Value],
     ssa: &SSA<Object, Operation>,
@@ -139,7 +139,7 @@ fn apply_declaration(
 // TODO: manage recursion explicitly with a stack
 #[allow(clippy::result_large_err)]
 fn apply_definition(
-    ops: &HashMap<Path, shape::Operation>,
+    ops: &HashMap<Path, core::Operation>,
     env: &Environment,
     term: &Term,
     args: &[Value],

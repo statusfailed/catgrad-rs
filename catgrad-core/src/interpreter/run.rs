@@ -5,20 +5,20 @@ use crate::ssa::{SSA, parallel_ssa};
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
-use crate::category::{bidirectional::*, shape};
+use crate::category::{bidirectional::*, core};
 
 use super::backend::*;
 use super::types::*;
 
 pub struct Interpreter<B: Backend> {
     pub backend: B,
-    pub ops: HashMap<Path, shape::Operation>,
+    pub ops: HashMap<Path, core::Operation>,
     pub env: Environment,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, ops: HashMap<Path, shape::Operation>, env: Environment) -> Self {
+    pub fn new(backend: B, ops: HashMap<Path, core::Operation>, env: Environment) -> Self {
         Self { backend, ops, env }
     }
 
@@ -80,7 +80,7 @@ impl<B: Backend> Interpreter<B> {
         &self,
         path: &Path,
         ssa: &SSA<Object, Operation>,
-    ) -> Result<&shape::Operation, InterpreterError> {
+    ) -> Result<&core::Operation, InterpreterError> {
         Ok(self.ops.get(path).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingOperation(path.clone()),
             ssa: ssa.clone(),
@@ -112,13 +112,13 @@ impl<B: Backend> Interpreter<B> {
         use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
         use super::tensor_op::apply_tensor_op;
         Ok(match op {
-            shape::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
-            shape::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
-            shape::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
-            shape::Operation::Tensor(tensor_op) => {
+            core::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
+            core::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
+            core::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
+            core::Operation::Tensor(tensor_op) => {
                 apply_tensor_op(&self.backend, tensor_op, args, ssa)?
             }
-            shape::Operation::Copy => apply_copy(args, ssa)?,
+            core::Operation::Copy => apply_copy(args, ssa)?,
         })
     }
 
