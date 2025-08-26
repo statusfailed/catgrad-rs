@@ -14,13 +14,7 @@ use catgrad::{
     core::{Dtype, NdArrayType, Shape, Var, nn::layers::*},
 };
 
-mod utils;
-use utils::read_safetensors;
-
-#[allow(unused)]
-fn show(name: &str, var: &Var) {
-    println!("{name} label: {:?}", var.label,);
-}
+use catgrad_llm::utils::read_safetensors_file;
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Config {
@@ -167,7 +161,7 @@ impl Model {
     }
 
     pub fn run(&mut self, x: &NdArray<i32>, model_path: &str) -> TaggedNdArray {
-        let tensors = read_safetensors(model_path);
+        let tensors = read_safetensors_file(model_path, false).unwrap();
         println!("Model weights loaded...");
         self.state.set_parameters(std::rc::Rc::new(tensors));
         let [result] = self.state.eval_with(vec![x.clone().into()])[..] else {
