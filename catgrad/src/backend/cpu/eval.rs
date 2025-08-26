@@ -351,7 +351,10 @@ impl EvalState {
                         Some(F32(a)) => {
                             let p = parameters.get(name);
                             if let Some(TaggedNdArray::F32(x)) = p {
-                                assert_eq!(x.shape, a.shape);
+                                assert_eq!(
+                                    x.shape, a.shape,
+                                    "Shape mismatch for parameter '{name}'"
+                                );
                                 a.data = Rc::clone(&x.data);
                             } else {
                                 panic!("Parameters loaded, parameter '{name}'::F32 not found.")
@@ -360,7 +363,10 @@ impl EvalState {
                         Some(F16(a)) => {
                             let p = parameters.get(name);
                             if let Some(TaggedNdArray::F16(x)) = p {
-                                assert_eq!(x.shape, a.shape);
+                                assert_eq!(
+                                    x.shape, a.shape,
+                                    "Shape mismatch for parameter '{name}'"
+                                );
                                 a.data = Rc::clone(&x.data);
                             } else {
                                 panic!("Parameters loaded, parameter '{name}'::F16 not found.")
