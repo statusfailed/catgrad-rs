@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use rayon::prelude::*;
 
-fn read_safetensors_file(
+pub fn read_safetensors_file(
     path: impl AsRef<Path>,
     use_fp16: bool,
 ) -> Result<HashMap<String, TaggedNdArray>> {
