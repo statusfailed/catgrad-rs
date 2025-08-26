@@ -275,6 +275,11 @@ pub fn argmax(builder: &Builder, x: Var) -> Var {
 }
 
 pub fn topk(builder: &Builder, k: usize, x: Var) -> Vec<Var> {
+    let xdtype = x.label.dtype;
+    let mut x = x;
+    if xdtype != Dtype::F32 {
+        x = cast(builder, Dtype::F32, x);
+    }
     let source = x.label.clone();
 
     // keep the last dimension, set it to k
@@ -286,7 +291,11 @@ pub fn topk(builder: &Builder, k: usize, x: Var) -> Vec<Var> {
     let target_i = NdArrayType::new(shape, Dtype::I32);
 
     let op = Operation::TopK(k);
-    open_hypergraphs::lax::var::operation(builder, &[x], vec![target_v, target_i], op)
+    let mut r = open_hypergraphs::lax::var::operation(builder, &[x], vec![target_v, target_i], op);
+    if xdtype != Dtype::F32 {
+        r[0] = cast(builder, xdtype, r[0].clone());
+    }
+    r
 }
 
 pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
