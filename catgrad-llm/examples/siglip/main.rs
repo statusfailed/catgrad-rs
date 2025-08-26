@@ -1,7 +1,7 @@
 use catgrad::backend::cpu::eval::{Builder, EvalState};
 use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-use catgrad::core::nn::layers::*;
 use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad_llm::nn::layers::*;
 use catgrad_llm::utils::{get_model_files, read_safetensors_multiple};
 use clap::Parser;
 use image::imageops::FilterType;

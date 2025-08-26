@@ -2,6 +2,7 @@
 //! the model graph.
 mod error;
 pub mod models;
+pub mod nn;
 pub mod run;
 pub mod serve;
 pub mod utils;

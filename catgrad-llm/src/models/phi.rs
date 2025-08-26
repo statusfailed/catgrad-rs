@@ -1,8 +1,8 @@
 // Phi-3 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
+use crate::nn::layers::*;
 use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::nn::layers::*;
 use catgrad::core::{NdArrayType, Shape, Var};
 
 pub struct Model;
