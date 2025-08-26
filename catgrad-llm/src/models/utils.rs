@@ -1,9 +1,7 @@
+use crate::nn::layers::{concat, rope_tables};
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
-    core::{
-        Dtype, NdArrayType, Shape, Var,
-        nn::layers::{concat, rope_tables},
-    },
+    core::{Dtype, NdArrayType, Shape, Var},
 };
 
 use std::collections::HashMap;

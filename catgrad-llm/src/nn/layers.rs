@@ -1,6 +1,6 @@
-use crate::backend::cpu::eval::Builder;
-use crate::backend::cpu::ndarray::TaggedNdArray;
-use crate::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
+use catgrad::backend::cpu::eval::Builder;
+use catgrad::backend::cpu::ndarray::TaggedNdArray;
+use catgrad::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::fn_operation as operation;
 use std::f32;
 use std::f32::consts::{E, PI};
@@ -583,9 +583,8 @@ pub fn rope(builder: &Builder, theta: f32, pos: usize, seq_len: usize, x: Var) -
 #[allow(clippy::excessive_precision)]
 mod tests {
     use super::*;
-    use crate::backend::cpu::eval::EvalState;
-    use crate::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-    use crate::core::{Dtype, NdArrayType, Shape, Var};
+    use catgrad::backend::cpu::eval::EvalState;
+    use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use std::collections::HashMap;
     use std::rc::Rc;
     use test_log::test;
@@ -795,7 +794,7 @@ mod tests {
         let y = NdArray::new(vec![1., 2., 3., 4., 5., 6.], Shape(vec![2, 3]));
         // result should be a 1×3 result
         let mut expected = NdArray::new(vec![0.; 3], Shape(vec![1, 3]));
-        crate::backend::cpu::kernel::batch_matmul::<f32>(&x, &y, &mut expected);
+        catgrad::backend::cpu::kernel::batch_matmul::<f32>(&x, &y, &mut expected);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")

@@ -11,8 +11,10 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::{Dtype, NdArrayType, Shape, Var, nn::layers::*},
+    core::{Dtype, NdArrayType, Shape, Var},
 };
+
+use catgrad_llm::nn::layers::*;
 
 use catgrad_llm::utils::read_safetensors_file;
 

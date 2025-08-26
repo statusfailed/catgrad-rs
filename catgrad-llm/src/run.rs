@@ -1,6 +1,7 @@
 //! A stripped-down version of ModelRunner from catgrad examples, intended for serving
 use crate::Result;
 use crate::models::utils::{Cache, Config, ModelBuilder, get_model};
+use crate::nn::layers::{argmax, cast, reshape};
 use crate::serve;
 use crate::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 use catgrad::{
@@ -8,7 +9,6 @@ use catgrad::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
     },
-    core::nn::layers::{argmax, cast, reshape},
     core::{Dtype, NdArrayType, Shape, Var},
 };
 use minijinja::{Environment, context};
