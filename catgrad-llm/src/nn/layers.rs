@@ -1,3 +1,4 @@
+use crate::models::utils::Llama3RopeScaling;
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::backend::cpu::ndarray::TaggedNdArray;
 use catgrad::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
@@ -542,6 +543,81 @@ pub fn rope_tables(builder: &Builder, theta: f32, seq_len: usize, head_dim: usiz
     let freq = power(builder, theta, f);
     let inv_freq = inverse(builder, freq);
     let inv_freq = expand(builder, Shape(vec![seq_len, half_dim]), inv_freq);
+
+    let pos = arange(builder, seq_len, Dtype::F32);
+    let pos = reshape(builder, Shape(vec![seq_len, 1]), pos);
+    let pos = expand(builder, inv_freq.label.shape.clone(), pos);
+    let pos = pos * inv_freq;
+    let cos = cos(builder, pos.clone());
+    let sin = sin(builder, pos);
+
+    let cos = concat(builder, 1, cos.clone(), cos);
+    let sin = concat(builder, 1, sin.clone(), sin);
+
+    (cos, sin)
+}
+
+pub fn rope_tables_llama3(
+    builder: &Builder,
+    theta: f32,
+    rope_scaling: &Llama3RopeScaling,
+    seq_len: usize,
+    head_dim: usize,
+) -> (Var, Var) {
+    let half_dim = head_dim / 2;
+
+    let f = arange(builder, half_dim, Dtype::F32);
+    let two = constant(builder, f.label.clone(), 2.0 / (head_dim as f32));
+    let f = f * two;
+    let theta = constant(builder, f.label.clone(), theta);
+    let freq = power(builder, theta, f);
+    let inv_freq = inverse(builder, freq);
+    let inv_freq = expand(builder, Shape(vec![seq_len, half_dim]), inv_freq);
+
+    let low_freq_wavelength =
+        rope_scaling.original_max_position_embeddings as f32 / rope_scaling.low_freq_factor;
+    let high_freq_wavelength =
+        rope_scaling.original_max_position_embeddings as f32 / rope_scaling.high_freq_factor;
+    let low_freq_wavelength = constant(builder, inv_freq.label.clone(), low_freq_wavelength);
+    let high_freq_wavelength = constant(builder, inv_freq.label.clone(), high_freq_wavelength);
+    let factor = constant(builder, inv_freq.label.clone(), rope_scaling.factor);
+    let low_freq_factor = constant(
+        builder,
+        inv_freq.label.clone(),
+        rope_scaling.low_freq_factor,
+    );
+    let high_freq_factor = constant(
+        builder,
+        inv_freq.label.clone(),
+        rope_scaling.high_freq_factor,
+    );
+    let old_context_len = constant(
+        builder,
+        inv_freq.label.clone(),
+        rope_scaling.original_max_position_embeddings as f32,
+    );
+
+    let wavelen = constant(builder, inv_freq.label.clone(), 2. * PI) / inv_freq.clone();
+
+    // if wavelen > low_freq_wavelength scale by factor
+    let low_freqs_mask = gt(builder, wavelen.clone(), low_freq_wavelength);
+    let inv_freq = cond(
+        builder,
+        low_freqs_mask.clone(),
+        inv_freq.clone() / factor.clone(),
+        inv_freq,
+    );
+
+    // if high_freq_wavelength < wavelen < low_freq_wavelength use a smooth interpolation
+    let high_freqs_mask = lt(builder, wavelen.clone(), high_freq_wavelength);
+    // Multiplication of masks is equivalent to logical AND
+    let mid_freqs_mask = !high_freqs_mask * !low_freqs_mask;
+    let one = constant(builder, inv_freq.label.clone(), 1.);
+    let smooth_factor = (old_context_len / wavelen - low_freq_factor.clone())
+        / (high_freq_factor - low_freq_factor);
+    let smoothed_inv_freq = smooth_factor.clone() * inv_freq.clone()
+        + (one - smooth_factor) * inv_freq.clone() / factor;
+    let inv_freq = cond(builder, mid_freqs_mask, smoothed_inv_freq, inv_freq);
 
     let pos = arange(builder, seq_len, Dtype::F32);
     let pos = reshape(builder, Shape(vec![seq_len, 1]), pos);
