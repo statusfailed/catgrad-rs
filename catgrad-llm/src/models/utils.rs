@@ -1,4 +1,4 @@
-use crate::nn::layers::{concat, rope_tables};
+use crate::nn::layers::{concat, rope_tables, rope_tables_llama3};
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
     core::{Dtype, NdArrayType, Shape, Var},
@@ -11,6 +11,34 @@ use std::collections::HashMap;
 pub enum EosTokenId {
     Single(i32),
     Multiple(Vec<i32>),
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct Llama3RopeScaling {
+    pub factor: f32,
+    pub low_freq_factor: f32,
+    pub high_freq_factor: f32,
+    pub original_max_position_embeddings: usize,
+    pub rope_type: String,
+}
+
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct YarnRopeScaling {
+    pub factor: f32,
+    pub beta_fast: f32,
+    pub beta_slow: f32,
+    pub truncate: bool,
+    pub original_max_position_embeddings: usize,
+    pub rope_type: String,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(untagged)]
+pub enum RopeScaling {
+    #[serde(alias = "llama3")]
+    Llama3(Llama3RopeScaling),
+    #[serde(alias = "yarn")]
+    Yarn(YarnRopeScaling),
 }
 
 // This configuration contains the union of relevant fields from all supported models.
@@ -39,6 +67,7 @@ pub struct Config {
     #[serde(alias = "_sliding_window_pattern")]
     pub sliding_window_pattern: usize,
     pub global_attn_every_n_layers: usize,
+    pub rope_scaling: Option<RopeScaling>,
     pub rope_local_base_freq: f32,
     #[serde(alias = "n_positions")]
     pub max_position_embeddings: usize,
@@ -94,7 +123,17 @@ pub struct Cache {
 
 impl Cache {
     pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
-        let (cos, sin) = rope_tables(builder, config.rope_theta, positions, config.get_head_dim());
+        let (cos, sin) = if let Some(RopeScaling::Llama3(params)) = &config.rope_scaling {
+            rope_tables_llama3(
+                builder,
+                config.rope_theta,
+                params,
+                positions,
+                config.get_head_dim(),
+            )
+        } else {
+            rope_tables(builder, config.rope_theta, positions, config.get_head_dim())
+        };
 
         let kv_cache_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
         // Just a placeholder
