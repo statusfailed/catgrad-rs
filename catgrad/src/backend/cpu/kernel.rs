@@ -245,6 +245,13 @@ impl<T: Numeric + PartialOrd> BinOp<T> for LTOp {
     }
 }
 
+pub struct GTOp;
+impl<T: Numeric + PartialOrd> BinOp<T> for GTOp {
+    fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {
+        binop_iterator(a, b, c, |x, y| if x > y { T::one() } else { T::zero() });
+    }
+}
+
 pub struct EQOp;
 impl<T: Numeric + PartialOrd> BinOp<T> for EQOp {
     fn apply(&self, a: &NdArray<T>, b: &NdArray<T>, c: &mut NdArray<T>) {

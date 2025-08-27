@@ -119,9 +119,8 @@ pub enum Operation {
     Not,
 
     /// Comparisons
-    /// Less than
-    /// TODO: find the subset of logical neg, eq, ne, lt, gt, lte, gte which should be core and all others expressed using them
     LT,
+    GT,
     EQ,
 
     Sin,
