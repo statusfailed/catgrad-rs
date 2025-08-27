@@ -183,6 +183,11 @@ pub fn lt(builder: &Builder, a: Var, b: Var) -> Var {
     operation(builder, &[a.clone(), b], a.label, op)
 }
 
+pub fn gt(builder: &Builder, a: Var, b: Var) -> Var {
+    let op = Operation::GT;
+    operation(builder, &[a.clone(), b], a.label, op)
+}
+
 pub fn eq(builder: &Builder, a: Var, b: Var) -> Var {
     let op = Operation::EQ;
     operation(builder, &[a.clone(), b], a.label, op)
@@ -250,6 +255,14 @@ pub fn sqrt(builder: &Builder, x: Var) -> Var {
 pub fn exp(builder: &Builder, x: Var) -> Var {
     let e = constant(builder, x.label.clone(), E);
     power(builder, e, x)
+}
+
+// Return values from x or y for values of 1 and 0 respectively in mask
+pub fn cond(builder: &Builder, mask: Var, x: Var, y: Var) -> Var {
+    let one = constant(builder, mask.label.clone(), 1.0);
+    let x_masked = mask.clone() * x;
+    let y_masked = (one - mask) * y;
+    x_masked + y_masked
 }
 
 pub fn reduceop(builder: &Builder, op: Operation, x: Var) -> Var {
@@ -856,6 +869,41 @@ mod tests {
         } else {
             panic!("Unexpected array types");
         }
+    }
+    #[test]
+    fn test_cond() {
+        let mut state = EvalState::build(|builder| {
+            let i = arange(builder, 6, Dtype::F32);
+            let i = reshape(builder, Shape(vec![2, 3]), i);
+
+            // Create a mask where elements < 3 are 1, else 0
+            let mask = gt(builder, i.clone(), constant(builder, i.label.clone(), 2.0));
+
+            // For values where mask is 1, return 10, else return the original value
+            let ten = constant(builder, i.label.clone(), 10.0);
+            let result = cond(builder, mask.clone(), ten, i.clone());
+
+            (vec![], vec![i, mask, result])
+        });
+
+        let [i, mask, result] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // i = [[0, 1, 2],
+        //      [3, 4, 5]]
+        assert_eq!(i.shape(), Shape(vec![2, 3]));
+        assert_eq!(i.data(), &[0., 1., 2., 3., 4., 5.]);
+
+        // mask = [[0, 0, 0],
+        //         [1, 1, 1]]
+        assert_eq!(mask.shape(), Shape(vec![2, 3]));
+        assert_eq!(mask.data(), &[0., 0., 0., 1., 1., 1.]);
+
+        // result = [[0, 1, 2],
+        //           [10, 10, 10]]
+        assert_eq!(result.shape(), Shape(vec![2, 3]));
+        assert_eq!(result.data(), &[0., 1., 2., 10., 10., 10.]);
     }
 
     #[test]
