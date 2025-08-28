@@ -90,6 +90,7 @@ pub enum Operation {
     Negate,
 
     /// Inputs injected at runtime (model parameters)
+    /// A scalar input will be used to replace "{}" in the name to allow dynamic parameter selection
     Parameter(String),
 
     /// Index operator
@@ -222,7 +223,8 @@ impl Operation {
     // Make an OpenHypergraph for the Parameter operation
     pub fn parameter(x: NdArrayType, name: &str) -> Term {
         let op = Operation::Parameter(name.to_string());
-        Operation::term(op, vec![], vec![x])
+        let in_type = NdArrayType::new(Shape(vec![1]), Dtype::I32);
+        Operation::term(op, vec![in_type], vec![x])
     }
 
     // Make an OpenHypergraph for the Const operation

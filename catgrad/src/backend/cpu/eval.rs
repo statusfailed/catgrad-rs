@@ -351,13 +351,15 @@ impl EvalState {
             }
 
             Parameter(name) => {
-                // TODO:
-                // - The matching here is very ugly and incomplete
-                // - The parameters are being copied instead of referenced.
                 if let Some(parameters) = self.parameters.as_mut() {
-                    match self.data.get_mut(targets[0]) {
-                        Some(F32(a)) => {
-                            let p = parameters.get(name);
+                    match self.data[..].get_disjoint_mut([sources[0], targets[0]]) {
+                        Ok([I32(n), F32(a)]) => {
+                            let n = n.data.borrow()[0];
+                            let mut name = name.to_string();
+                            if n != -1 {
+                                name = name.replace("{}", &n.to_string());
+                            }
+                            let p = parameters.get(&name);
                             if let Some(TaggedNdArray::F32(x)) = p {
                                 assert_eq!(
                                     x.shape, a.shape,
@@ -368,8 +370,13 @@ impl EvalState {
                                 panic!("Parameters loaded, parameter '{name}'::F32 not found.")
                             }
                         }
-                        Some(F16(a)) => {
-                            let p = parameters.get(name);
+                        Ok([I32(n), F16(a)]) => {
+                            let n = n.data.borrow()[0];
+                            let mut name = name.to_string();
+                            if n != -1 {
+                                name = name.replace("{}", &n.to_string());
+                            }
+                            let p = parameters.get(&name);
                             if let Some(TaggedNdArray::F16(x)) = p {
                                 assert_eq!(
                                     x.shape, a.shape,
@@ -947,13 +954,14 @@ mod tests {
         parameters.insert("param_a".to_string(), a.into());
         parameters.insert("param_b".to_string(), b.into());
 
+        let n = NdArray::new(vec![-1], Shape(vec![1]));
         let expected = NdArray::new(vec![0., 4., 0., 8.], Shape(vec![2, 2]));
 
         let f = (&(&param_a | &param_b) >> &add).unwrap();
         let mut state = EvalState::from_lax(f);
         state.set_parameters(Rc::new(parameters));
 
-        let [actual] = state.eval()[..] else {
+        let [actual] = state.eval_with(vec![n.clone().into(), n.into()])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
