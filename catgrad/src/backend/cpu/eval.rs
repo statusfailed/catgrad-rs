@@ -214,6 +214,11 @@ impl EvalState {
                         dim0: *dim0,
                         dim1: *dim1,
                     }),
+                    Slice { dim, start, length } => Box::new(kernel::SliceOp {
+                        dim: *dim,
+                        start: *start,
+                        length: *length,
+                    }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
                     _ => panic!("invalid operation"),

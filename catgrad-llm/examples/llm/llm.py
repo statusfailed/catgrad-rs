@@ -1,3 +1,4 @@
+import torch
 import argparse
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -14,11 +15,15 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--seq-len", type=int, default=10)
     parser.add_argument("-r", "--raw-prompt", action="store_true")
     parser.add_argument("-t", "--thinking", action="store_true")
+    parser.add_argument("-d", "--dtype", type=str, default="float32")
     args = parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model, revision=args.revision)
-    model = AutoModelForCausalLM.from_pretrained(args.model, revision=args.revision)
+    model = AutoModelForCausalLM.from_pretrained(
+        args.model, revision=args.revision, dtype=args.dtype
+    )
 
+    print(f"Loaded model {args.model}, dtype:{model.dtype}")
     prompt = args.prompt
 
     if not args.raw_prompt and tokenizer.chat_template is not None:

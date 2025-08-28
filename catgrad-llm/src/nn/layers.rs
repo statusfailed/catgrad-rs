@@ -179,6 +179,11 @@ pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
     operation(builder, &[], param_type, op)
 }
 
+pub fn scalar(builder: &Builder, dtype: Dtype, k: f32) -> Var {
+    let scalar_type = NdArrayType::new(Shape(vec![1]), dtype);
+    constant(builder, scalar_type.clone(), k)
+}
+
 pub fn lt(builder: &Builder, a: Var, b: Var) -> Var {
     let op = Operation::LT;
     operation(builder, &[a.clone(), b], a.label, op)
