@@ -42,8 +42,13 @@ pub fn mat_mul(builder: &Builder, f: Var, g: Var) -> Var {
 }
 
 pub fn parameter(builder: &Builder, param_type: NdArrayType, name: String) -> Var {
+    let n = scalar(builder, Dtype::I32, -1.);
+    parameter_dynamic(builder, param_type, n, name)
+}
+
+pub fn parameter_dynamic(builder: &Builder, param_type: NdArrayType, n: Var, name: String) -> Var {
     let op = Operation::Parameter(name);
-    operation(builder, &[], param_type, op)
+    operation(builder, &[n], param_type, op)
 }
 
 pub fn side_effect(builder: &Builder, callback: Callback, x: &Var) {
@@ -181,7 +186,7 @@ pub fn constant(builder: &Builder, param_type: NdArrayType, k: f32) -> Var {
 
 pub fn scalar(builder: &Builder, dtype: Dtype, k: f32) -> Var {
     let scalar_type = NdArrayType::new(Shape(vec![1]), dtype);
-    constant(builder, scalar_type.clone(), k)
+    constant(builder, scalar_type, k)
 }
 
 pub fn lt(builder: &Builder, a: Var, b: Var) -> Var {
