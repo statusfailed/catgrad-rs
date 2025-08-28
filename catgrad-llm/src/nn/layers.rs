@@ -334,6 +334,50 @@ pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
     operation(builder, &[x], out_t, op)
 }
 
+pub fn linear_b_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Option<Var>,
+    x: Var,
+) -> Var {
+    let mut w_t = transpose(builder, 0, 1, weight);
+
+    if x.label.shape.0.len() == 3 {
+        let batch_size = x.label.shape.0[0];
+        w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
+    }
+
+    let m = mat_mul(builder, x, w_t);
+    if let Some(b) = bias {
+        let bb = expand(builder, m.label.shape.clone(), b);
+        return m + bb;
+    }
+    m
+}
+
+pub fn linear_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, Some(bias), x)
+}
+
+pub fn linear_no_bias_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, None, x)
+}
+
 pub fn linear_b(
     builder: &Builder,
     in_dim: usize,
@@ -345,21 +389,14 @@ pub fn linear_b(
     let w_type = NdArrayType::new(Shape(vec![out_dim, in_dim]), x.label.dtype);
     let w = parameter(builder, w_type, format!("{name}.weight"));
 
-    let mut w_t = transpose(builder, 0, 1, w);
-
-    if x.label.shape.0.len() == 3 {
-        let batch_size = x.label.shape.0[0];
-        w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
-    }
-
-    let m = mat_mul(builder, x.clone(), w_t);
-    if bias {
+    let b = if bias {
         let b_type = NdArrayType::new(Shape(vec![out_dim]), x.label.dtype);
-        let b = parameter(builder, b_type, format!("{name}.bias"));
-        let bb = expand(builder, m.label.shape.clone(), b);
-        return m + bb;
-    }
-    m
+        Some(parameter(builder, b_type, format!("{name}.bias")))
+    } else {
+        None
+    };
+
+    linear_b_param(builder, in_dim, out_dim, w, b, x)
 }
 
 pub fn linear(builder: &Builder, in_dim: usize, out_dim: usize, name: &str, x: Var) -> Var {
