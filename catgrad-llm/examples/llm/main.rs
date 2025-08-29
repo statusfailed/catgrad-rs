@@ -263,6 +263,7 @@ pub fn main() -> Result<()> {
         ("mistral", "mistralai/Ministral-8B-Instruct-2410"),
         ("gemma", "google/gemma-3-1b-it"),
         ("qwen", "Qwen/Qwen3-0.6B"),
+        ("qwenmoe", "Qwen/Qwen3-30B-A3B-Instruct-2507"),
         ("granitemoe", "ibm-granite/granite-3.1-1b-a400m-instruct"),
         ("granite", "ibm-granite/granite-3.3-2b-instruct"),
         ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),

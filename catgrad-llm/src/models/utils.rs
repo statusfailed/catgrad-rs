@@ -56,7 +56,10 @@ pub struct Config {
     pub num_key_value_heads: usize,
     pub head_dim: usize,
     pub num_experts_per_tok: usize,
+    #[serde(alias = "num_experts")]
     pub num_local_experts: usize,
+    pub moe_intermediate_size: usize,
+    pub norm_topk_prob: bool,
     pub attention_multiplier: f32,
     pub embedding_multiplier: f32,
     pub residual_multiplier: f32,
@@ -191,6 +194,7 @@ use super::modernbert::Model as ModernBertDecoderModel;
 use super::olmo::Model as OlmoModel;
 use super::phi::Model as PhiModel;
 use super::qwen::Model as QwenModel;
+use super::qwen_moe::Model as QwenMoeModel;
 use super::smollm3::Model as SmolLM3Model;
 
 pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
@@ -199,6 +203,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "MistralForCausalLM" => Ok(Box::new(LlamaModel {})),
         "Olmo2ForCausalLM" => Ok(Box::new(OlmoModel {})),
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
+        "Qwen3MoeForCausalLM" => Ok(Box::new(QwenMoeModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
         "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
