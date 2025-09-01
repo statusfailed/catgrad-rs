@@ -217,6 +217,8 @@ impl Model {
             Shape(vec![seq_len, config.num_experts_per_tok]),
             values,
         );
+
+        let values = softmax(builder, values);
         let mut xs = x.label.shape.0.clone();
         xs[1] = 0;
 
@@ -230,24 +232,9 @@ impl Model {
             let idx = get(builder, 0, s, indices.clone());
             let idx = squeeze(builder, 0, idx);
             let val = get(builder, 0, s, values.clone());
-            let val = squeeze(builder, 0, val);
 
             let moe_in = index(builder, 0, moe_input.clone(), idx.clone());
             let moe_out = index(builder, 0, moe_output.clone(), idx);
-
-            let sm = softmax(builder, val);
-
-            let sm = reshape(builder, Shape(vec![config.num_experts_per_tok, 1, 1]), sm);
-            let sm = expand(
-                builder,
-                Shape(vec![
-                    config.num_experts_per_tok,
-                    config.hidden_size,
-                    config.intermediate_size,
-                ]),
-                sm,
-            );
-            let moe_out = moe_out * sm;
 
             for i in 0..config.num_experts_per_tok {
                 let gate_up = narrow(builder, 0, i, 1, moe_in.clone());
@@ -281,11 +268,9 @@ impl Model {
                     x.clone(),
                 );
 
-                if i == 0 {
-                    sumk = x.clone();
-                } else {
-                    sumk = sumk + x.clone();
-                }
+                let v = select(builder, 1, i, val.clone());
+                let v = expand(builder, x.label.shape.clone(), v);
+                sumk = sumk + x * v;
             }
             sumk_all = concat(builder, 1, sumk_all, sumk);
         }

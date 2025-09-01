@@ -243,10 +243,11 @@ impl Model {
         let fullx = x;
         for s in 0..seq_len {
             let x = get(builder, 1, s, fullx.clone());
+            let idx = get(builder, 0, s, indices.clone());
+            let val = get(builder, 0, s, values.clone());
             let mut sumk = constant(builder, x.label.clone(), 0.0);
             for i in 0..config.num_experts_per_tok {
-                let n = select(builder, 1, i, indices.clone());
-                let n = get(builder, 0, s, n);
+                let n = select(builder, 1, i, idx.clone());
                 let x = Model::expert(
                     builder,
                     config,
@@ -254,8 +255,7 @@ impl Model {
                     n,
                     x.clone(),
                 );
-                let v = select(builder, 1, i, values.clone());
-                let v = get(builder, 0, s, v);
+                let v = select(builder, 1, i, val.clone());
                 let v = expand(builder, x.label.shape.clone(), v);
                 sumk = sumk + x * v;
             }
