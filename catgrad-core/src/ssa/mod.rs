@@ -14,21 +14,38 @@ pub struct SSA<O, A> {
     pub targets: Vec<(lax::NodeId, O)>, // target nodes and type labels
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SSAError {
+    Cycle,
+}
+
+/// Parallel SSA decomposition of an *acyclic* open hypergraph.
+/// [`SSAError::Cycle`] returned on cycle detection.
 pub fn parallel_ssa<O: Clone, A: Clone>(
     f: strict::OpenHypergraph<VecKind, O, A>,
-) -> Vec<Vec<SSA<O, A>>> {
+) -> Result<Vec<Vec<SSA<O, A>>>, SSAError> {
+    let (result, unvisited) = parallel_ssa_cyclic(f);
+    // check we got an acyclic input
+    if unvisited.contains(&1) {
+        Err(SSAError::Cycle)
+    } else {
+        Ok(result)
+    }
+}
+
+/// Best-effort SSA decomposition, allowing cycles (returning the "unvisited" nodes from the
+/// layered operations topological sort)
+pub fn parallel_ssa_cyclic<O: Clone, A: Clone>(
+    f: strict::OpenHypergraph<VecKind, O, A>,
+) -> (Vec<Vec<SSA<O, A>>>, Vec<usize>) {
     // partial topological ordering on edges
     let (op_order, unvisited) = strict::layer::layered_operations(&f);
-
-    // check we got an acyclic input
-    // Note: temporarily commented out due to potential issue with layered_operations
-    assert!(!unvisited.0.contains(&1));
 
     // Convert to nonstrict
     let f = lax::OpenHypergraph::from_strict(f);
 
     // Keep as partial ordering - each layer is a Vec<SSA>
-    op_order
+    let result = op_order
         .iter()
         .map(|layer| {
             layer
@@ -53,12 +70,18 @@ pub fn parallel_ssa<O: Clone, A: Clone>(
                 })
                 .collect()
         })
-        .collect()
+        .collect();
+
+    (result, unvisited.0)
 }
 
-pub fn ssa<O: Clone, A: Clone>(f: strict::OpenHypergraph<VecKind, O, A>) -> Vec<SSA<O, A>> {
+/// Totally-ordered SSA decomposition of an *acyclic* open hypergraph.
+/// [`SSAError::Cycle`] returned on cycle detection.
+pub fn ssa<O: Clone, A: Clone>(
+    f: strict::OpenHypergraph<VecKind, O, A>,
+) -> Result<Vec<SSA<O, A>>, SSAError> {
     // Flatten the partial order into a total order
-    parallel_ssa(f).into_iter().flatten().collect()
+    parallel_ssa(f).map(|v| v.into_iter().flatten().collect())
 }
 
 impl<O: Debug, A: Debug> Display for SSA<O, A> {

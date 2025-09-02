@@ -1,11 +1,10 @@
 //! Catgrad reference interpreter
 
-use crate::category::{core, lang::*};
-use crate::ssa::{SSA, parallel_ssa};
-use crate::stdlib::{Declarations, Environment};
-
 use super::backend::*;
 use super::types::*;
+use crate::category::{core, lang::*};
+use crate::ssa::{SSA, SSAError, parallel_ssa};
+use crate::stdlib::{Declarations, Environment};
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
@@ -40,7 +39,7 @@ impl<B: Backend> Interpreter<B> {
         let target_nodes = term.targets.clone();
 
         // Iterate through partially-ordered SSA ops
-        for par in parallel_ssa(term.to_strict()) {
+        for par in parallel_ssa(term.to_strict())? {
             // PERFORMANCE: we can do these ops in parallel. Does it get speedups?
             for op in par {
                 // get args: Vec<Value> by popping each id in op.sources from state - take
@@ -148,6 +147,15 @@ pub enum InterpreterError {
 
     /// An error during application of an operation
     ApplyError(Box<ApplyError>),
+
+    /// SSA Conversion error
+    SSAError(SSAError),
+}
+
+impl From<SSAError> for InterpreterError {
+    fn from(err: SSAError) -> Self {
+        InterpreterError::SSAError(err)
+    }
 }
 
 impl From<ApplyError> for InterpreterError {

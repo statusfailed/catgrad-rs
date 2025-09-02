@@ -14,6 +14,12 @@ pub enum ShapeCheckError {
 
     /// Error trying to apply an operation
     ApplyError(ApplyError, SSA<Object, Operation>, Vec<Value>),
+
+    /// A cycle was detected in the input term
+    CyclicHypergraph,
+
+    /// SSA conversion error
+    SSAError(SSAError),
 }
 
 pub type ShapeCheckResult = Result<Vec<Value>, ShapeCheckError>;
@@ -85,3 +91,9 @@ pub enum ApplyError {
     ShapeMismatch(ShapeExpr, ShapeExpr),
 }
 pub type ApplyResult = Result<Vec<Value>, ApplyError>;
+
+impl From<SSAError> for ShapeCheckError {
+    fn from(error: SSAError) -> Self {
+        ShapeCheckError::SSAError(error)
+    }
+}
