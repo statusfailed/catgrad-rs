@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::category::lang::*;
 use crate::util::build_typed;
 
