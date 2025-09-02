@@ -1,4 +1,5 @@
-use crate::nn::layers::{concat, rope_tables, rope_tables_llama3, rope_tables_yarn};
+use crate::nn::layers::concat;
+use crate::nn::rope::{rope_tables, rope_tables_llama3, rope_tables_yarn};
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
     core::{Dtype, NdArrayType, Shape, Var},

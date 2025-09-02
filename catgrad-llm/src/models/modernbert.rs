@@ -2,6 +2,7 @@
 
 use super::utils::{Cache, Config, ModelBuilder};
 use crate::nn::layers::*;
+use crate::nn::rope::rope;
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::core::{NdArrayType, Shape, Var};
 
