@@ -116,6 +116,12 @@ pub enum Operation {
     /// Arange
     Arange,
 
+    /// Clamp
+    Clamp {
+        min: f32,
+        max: f32,
+    },
+
     /// Logical negation. Turn 0 into 1 and anything else into 0.
     Not,
 

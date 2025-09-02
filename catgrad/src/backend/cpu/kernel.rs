@@ -552,6 +552,27 @@ impl<T: Numeric> UnaryOp<T> for SliceOp {
     }
 }
 
+pub struct ClampOp {
+    pub min: f32,
+    pub max: f32,
+}
+
+impl<T: Numeric + From<f32> + PartialOrd> UnaryOp<T> for ClampOp {
+    fn apply(&self, a: &NdArray<T>, b: &mut NdArray<T>) {
+        let min_val = T::from(self.min);
+        let max_val = T::from(self.max);
+        unaryop_iterator(a, b, |x| {
+            if x < min_val {
+                min_val
+            } else if x > max_val {
+                max_val
+            } else {
+                x
+            }
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
