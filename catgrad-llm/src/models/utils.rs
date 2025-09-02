@@ -1,4 +1,4 @@
-use crate::nn::layers::{concat, rope_tables, rope_tables_llama3};
+use crate::nn::layers::{concat, rope_tables, rope_tables_llama3, rope_tables_yarn};
 use catgrad::{
     backend::cpu::{eval::Builder, ndarray::TaggedNdArray},
     core::{Dtype, NdArrayType, Shape, Var},
@@ -23,12 +23,16 @@ pub struct Llama3RopeScaling {
 }
 
 #[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
 pub struct YarnRopeScaling {
     pub factor: f32,
     pub beta_fast: f32,
     pub beta_slow: f32,
     pub truncate: bool,
+    pub mscale: f32,
+    pub mscale_all_dim: f32,
     pub original_max_position_embeddings: usize,
+    #[serde(alias = "type")]
     pub rope_type: String,
 }
 
@@ -126,16 +130,22 @@ pub struct Cache {
 
 impl Cache {
     pub fn init(builder: &Builder, config: &Config, positions: usize, use_kv_cache: bool) -> Self {
-        let (cos, sin) = if let Some(RopeScaling::Llama3(params)) = &config.rope_scaling {
-            rope_tables_llama3(
+        let (cos, sin) = match &config.rope_scaling {
+            Some(RopeScaling::Llama3(params)) => rope_tables_llama3(
                 builder,
                 config.rope_theta,
                 params,
                 positions,
                 config.get_head_dim(),
-            )
-        } else {
-            rope_tables(builder, config.rope_theta, positions, config.get_head_dim())
+            ),
+            Some(RopeScaling::Yarn(params)) => rope_tables_yarn(
+                builder,
+                config.rope_theta,
+                params,
+                positions,
+                config.get_head_dim(),
+            ),
+            _ => rope_tables(builder, config.rope_theta, positions, config.get_head_dim()),
         };
 
         let kv_cache_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
