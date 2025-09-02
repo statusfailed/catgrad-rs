@@ -1,4 +1,4 @@
-use crate::models::utils::Llama3RopeScaling;
+use crate::models::utils::{Llama3RopeScaling, YarnRopeScaling};
 use catgrad::backend::cpu::eval::Builder;
 use catgrad::backend::cpu::ndarray::TaggedNdArray;
 use catgrad::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
@@ -678,6 +678,102 @@ pub fn rope_tables_llama3(
     let pos = pos * inv_freq;
     let cos = cos(builder, pos.clone());
     let sin = sin(builder, pos);
+
+    let cos = concat(builder, 1, cos.clone(), cos);
+    let sin = concat(builder, 1, sin.clone(), sin);
+
+    (cos, sin)
+}
+
+fn rope_yarn_get_mscale(scale: f32) -> f32 {
+    if scale <= 1.0 {
+        return 1.0;
+    }
+    0.1 * scale.ln() + 1.0
+}
+
+fn find_correction_dim(
+    num_rotations: f32,
+    dim: usize,
+    base: f32,
+    max_position_embeddings: usize,
+) -> f32 {
+    (dim as f32 * (max_position_embeddings as f32 / (num_rotations * 2.0 * PI)).ln())
+        / (2. * base.ln())
+}
+
+fn find_correction_range(
+    low: f32,
+    high: f32,
+    dim: usize,
+    base: f32,
+    max_position_embeddings: usize,
+) -> (f32, f32) {
+    let low = find_correction_dim(low, dim, base, max_position_embeddings);
+    let high = find_correction_dim(high, dim, base, max_position_embeddings);
+    (low, high)
+}
+
+fn linear_ramp_factor(builder: &Builder, min: f32, max: f32, dim: usize) -> Var {
+    let r = arange(builder, dim, Dtype::F32);
+    let d = constant(builder, r.label.clone(), max - min);
+    let min = constant(builder, r.label.clone(), min);
+    let r = r - min;
+    let r = r / d;
+    clamp(builder, r, 0.0, 1.0)
+}
+
+pub fn rope_tables_yarn(
+    builder: &Builder,
+    theta: f32,
+    rope_scaling: &YarnRopeScaling,
+    seq_len: usize,
+    head_dim: usize,
+) -> (Var, Var) {
+    let half_dim = head_dim / 2;
+
+    let (low, high) = find_correction_range(
+        rope_scaling.beta_fast,
+        rope_scaling.beta_slow,
+        head_dim,
+        theta,
+        rope_scaling.original_max_position_embeddings,
+    );
+
+    let f = arange(builder, half_dim, Dtype::F32);
+    let two = constant(builder, f.label.clone(), 2.0 / (head_dim as f32));
+    let f = f * two;
+    let theta = constant(builder, f.label.clone(), theta);
+    let freq = power(builder, theta, f);
+
+    let inv_freq_extrapolation = inverse(builder, freq);
+    let inv_freq_extrapolation_factor = linear_ramp_factor(builder, low, high, half_dim);
+    let one = constant(builder, inv_freq_extrapolation_factor.label.clone(), 1.);
+    let inv_freq_extrapolation_factor = one.clone() - inv_freq_extrapolation_factor;
+
+    let factor = constant(
+        builder,
+        inv_freq_extrapolation.label.clone(),
+        rope_scaling.factor,
+    );
+    let inv_freq_interpolation = inv_freq_extrapolation.clone() / factor;
+
+    let inv_freq = inv_freq_interpolation * (one - inv_freq_extrapolation_factor.clone())
+        + inv_freq_extrapolation * inv_freq_extrapolation_factor;
+    let inv_freq = expand(builder, Shape(vec![seq_len, half_dim]), inv_freq);
+
+    let scale = rope_yarn_get_mscale(rope_scaling.factor);
+    let scale = scalar(builder, Dtype::F32, scale);
+
+    let pos = arange(builder, seq_len, Dtype::F32);
+    let pos = reshape(builder, Shape(vec![seq_len, 1]), pos);
+    let pos = expand(builder, inv_freq.label.shape.clone(), pos);
+    let pos = pos * inv_freq;
+    let scale = expand(builder, pos.label.shape.clone(), scale);
+    let cos = cos(builder, pos.clone());
+    let cos = cos * scale.clone();
+    let sin = sin(builder, pos);
+    let sin = sin * scale;
 
     let cos = concat(builder, 1, cos.clone(), cos);
     let sin = concat(builder, 1, sin.clone(), sin);
