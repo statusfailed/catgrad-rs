@@ -1,12 +1,6 @@
 use super::types::*;
 use open_hypergraphs::lax::var;
 
-//macro_rules! op {
-//[$($x:expr),* $(,)?] => {
-//Operation::Declaration(vec!["op", $($x),*].try_into().expect("invalid operation name"))
-//};
-//}
-
 macro_rules! path{
     [$($x:expr),* $(,)?] => {
         vec![$($x),*].try_into().expect("invalid operation name")
@@ -18,8 +12,6 @@ macro_rules! op {
         Operation::Declaration(path![$($x),*])
     };
 }
-
-//Operation::Declaration(vec![$($x),*].try_into().expect("invalid operation name"))
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -145,8 +137,7 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// S-interpretations of operations
-//
+// Interpretations of declared operations in Core
 
 // basic declarations
 pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::core::Operation>

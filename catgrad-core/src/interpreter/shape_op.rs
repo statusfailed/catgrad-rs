@@ -2,7 +2,7 @@
 
 use super::backend::Backend;
 use super::{ApplyError, ApplyErrorKind, Value};
-use crate::category::bidirectional::{Object, Operation};
+use crate::category::lang::{Object, Operation};
 use crate::category::{core, core::Shape};
 use crate::ssa::SSA;
 

@@ -1,7 +1,7 @@
 use super::types::*;
 use crate::category::{
-    bidirectional,
     core::{NatOp, Operation, TensorOp, TypeOp},
+    lang,
 };
 use crate::ssa::SSA;
 
@@ -9,7 +9,7 @@ use crate::ssa::SSA;
 pub fn s_apply(
     op: &Operation,
     args: &[Value],
-    ssa: &SSA<bidirectional::Object, bidirectional::Operation>,
+    ssa: &SSA<lang::Object, lang::Operation>,
 ) -> ApplyResult {
     // Unwrap each optional value-
     match &op {
@@ -21,10 +21,7 @@ pub fn s_apply(
     }
 }
 
-fn apply_copy(
-    args: &[Value],
-    ssa: &SSA<bidirectional::Object, bidirectional::Operation>,
-) -> ApplyResult {
+fn apply_copy(args: &[Value], ssa: &SSA<lang::Object, lang::Operation>) -> ApplyResult {
     if args.len() != 1 {
         return Err(ApplyError::ArityError);
     }

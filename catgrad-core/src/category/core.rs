@@ -1,8 +1,8 @@
 //! Core operations on shapes, natural numbers, and tensors.
+//! A simple, portable IR.
 
 ////////////////////////////////////////////////////////////////////////////////
 // Basic types.
-// TODO: move these to interpreter?
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NdArrayType {

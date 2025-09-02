@@ -1,5 +1,5 @@
 // Catgrad's shape checker is an abstract interpreter for the *shaped* dialect.
-use crate::category::{bidirectional::*, core};
+use crate::category::{core, lang::*};
 use crate::ssa::*;
 use open_hypergraphs::lax::NodeId;
 

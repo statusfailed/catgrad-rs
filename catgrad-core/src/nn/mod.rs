@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::category::bidirectional::*;
+use crate::category::lang::*;
 use crate::util::build_typed;
 
 use open_hypergraphs::lax::var;

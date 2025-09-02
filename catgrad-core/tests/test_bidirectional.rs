@@ -1,4 +1,4 @@
-use catgrad_core::category::bidirectional::*;
+use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::nn::*;
 use catgrad_core::svg::to_svg;
@@ -103,7 +103,7 @@ fn test_check_exp() {
 
 #[allow(clippy::result_large_err)]
 pub fn run_check_test(
-    term: catgrad_core::category::bidirectional::Term,
+    term: catgrad_core::category::lang::Term,
     input_types: Vec<Value>,
     svg_filename: &str,
 ) -> Result<(), ShapeCheckError> {

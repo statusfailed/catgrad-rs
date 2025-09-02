@@ -1,5 +1,5 @@
-use crate::category::bidirectional::*;
 use crate::category::core::Dtype;
+use crate::category::lang::*;
 use crate::ssa::*;
 use open_hypergraphs::lax::{EdgeId, NodeId};
 

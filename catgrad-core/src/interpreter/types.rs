@@ -3,7 +3,7 @@
 use crate::category::core::{NdArrayType, Shape};
 use crate::ssa::SSA;
 
-use crate::category::bidirectional::*;
+use crate::category::lang::*;
 
 //use super::ndarray::TaggedNdArray;
 use super::backend::*;

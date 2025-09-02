@@ -5,7 +5,7 @@ use crate::ssa::{SSA, parallel_ssa};
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
-use crate::category::{bidirectional::*, core};
+use crate::category::{core, lang::*};
 
 use super::backend::*;
 use super::types::*;

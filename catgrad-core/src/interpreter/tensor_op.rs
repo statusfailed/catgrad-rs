@@ -2,8 +2,8 @@
 
 use super::backend::*;
 use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrayTuple, Value};
-use crate::category::bidirectional::{Object, Operation};
 use crate::category::core::{Dtype, ScalarOp, TensorOp};
+use crate::category::lang::{Object, Operation};
 use crate::ssa::SSA;
 
 /// Apply a Tensor operation

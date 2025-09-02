@@ -1,7 +1,7 @@
 #![cfg(feature = "ndarray-backend")]
 
-use catgrad_core::category::bidirectional::*;
 use catgrad_core::category::core;
+use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::nn::*;
 use catgrad_core::util::build_typed;
@@ -48,7 +48,7 @@ fn test_run_add() {
         shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
     }));
 
-    let ops = catgrad_core::category::bidirectional::op_decls();
+    let ops = catgrad_core::category::lang::op_decls();
     let env = catgrad_core::nn::stdlib();
 
     // Typecheck
@@ -107,7 +107,7 @@ fn test_run_batch_matmul() {
         shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(2), NatExpr::Var(3)]),
     }));
 
-    let ops = catgrad_core::category::bidirectional::op_decls();
+    let ops = catgrad_core::category::lang::op_decls();
     let env = catgrad_core::nn::stdlib();
 
     // Typecheck

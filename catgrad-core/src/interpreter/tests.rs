@@ -2,8 +2,8 @@
 
 use super::backend::ndarray::NdArrayBackend;
 use super::{TaggedNdArray, Value, lit_to_value};
-use crate::category::bidirectional::Literal;
 use crate::category::core::Shape;
+use crate::category::lang::Literal;
 
 #[test]
 fn test_literal_u32_scalar() {

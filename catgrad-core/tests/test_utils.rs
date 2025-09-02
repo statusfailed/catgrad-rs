@@ -1,4 +1,4 @@
-use catgrad_core::category::bidirectional::{Environment, op_decls};
+use catgrad_core::category::lang::{Environment, op_decls};
 use catgrad_core::check::Value;
 use catgrad_core::nn::stdlib;
 use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
@@ -15,7 +15,7 @@ pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
 
 pub fn get_forget_op_decls() -> (
     std::collections::HashMap<
-        catgrad_core::category::bidirectional::Path,
+        catgrad_core::category::lang::Path,
         catgrad_core::category::core::Operation,
     >,
     Environment,
