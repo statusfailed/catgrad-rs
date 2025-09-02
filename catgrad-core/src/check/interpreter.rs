@@ -1,11 +1,10 @@
 // Catgrad's shape checker is an abstract interpreter for the *core* dialect.
 // It uses the core declarations in [`crate::stdlib`].
-use crate::category::{core, lang::*};
+use crate::category::lang::*;
 use crate::ssa::*;
-use crate::stdlib::{Environment, core_declarations, stdlib};
+use crate::stdlib::{Declarations, Environment, core_declarations, stdlib};
 
 use open_hypergraphs::lax::NodeId;
-use std::collections::HashMap;
 
 use super::types::*;
 
@@ -34,7 +33,7 @@ pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
 /// Assign a shape value to each node in a term (hypergraph).
 #[allow(clippy::result_large_err)]
 pub fn check_with(
-    ops: &HashMap<Path, core::Operation>,
+    ops: &Declarations,
     env: &Environment,
     term: Term,
     source_values: Vec<Value>,
@@ -105,7 +104,7 @@ use super::apply::*;
 // Get a value for each resulting NodeId.
 #[allow(clippy::result_large_err)]
 pub fn apply(
-    ops: &HashMap<Path, core::Operation>,
+    ops: &Declarations,
     env: &Environment,
     ssa: &SSA<Object, Operation>,
     args: &[Value],
@@ -129,19 +128,22 @@ pub fn apply(
 }
 
 fn apply_declaration(
-    ops: &HashMap<Path, core::Operation>,
+    ops: &Declarations,
     op: &Path,
     args: &[Value],
     ssa: &SSA<Object, Operation>,
 ) -> ApplyResult {
-    let shape_op = ops.get(op).ok_or(ApplyError::UnknownOp(op.clone()))?;
+    let shape_op = ops
+        .operations
+        .get(op)
+        .ok_or(ApplyError::UnknownOp(op.clone()))?;
     s_apply(shape_op, args, ssa)
 }
 
 // TODO: manage recursion explicitly with a stack
 #[allow(clippy::result_large_err)]
 fn apply_definition(
-    ops: &HashMap<Path, core::Operation>,
+    ops: &Declarations,
     env: &Environment,
     term: &Term,
     args: &[Value],

@@ -2,7 +2,7 @@
 
 use crate::category::{core, lang::*};
 use crate::ssa::{SSA, parallel_ssa};
-use crate::stdlib::Environment;
+use crate::stdlib::{Declarations, Environment};
 
 use super::backend::*;
 use super::types::*;
@@ -12,13 +12,13 @@ use std::collections::HashMap;
 
 pub struct Interpreter<B: Backend> {
     pub backend: B,
-    pub ops: HashMap<Path, core::Operation>,
+    pub ops: Declarations,
     pub env: Environment,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, ops: HashMap<Path, core::Operation>, env: Environment) -> Self {
+    pub fn new(backend: B, ops: Declarations, env: Environment) -> Self {
         Self { backend, ops, env }
     }
 
@@ -81,7 +81,7 @@ impl<B: Backend> Interpreter<B> {
         path: &Path,
         ssa: &SSA<Object, Operation>,
     ) -> Result<&core::Operation, InterpreterError> {
-        Ok(self.ops.get(path).ok_or(ApplyError {
+        Ok(self.ops.operations.get(path).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingOperation(path.clone()),
             ssa: ssa.clone(),
         })?)

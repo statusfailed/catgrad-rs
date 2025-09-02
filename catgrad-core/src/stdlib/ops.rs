@@ -11,16 +11,22 @@ macro_rules! path{
     };
 }
 
-// The set of operations in the category
+/// The set of operations in the category
 pub struct Environment {
     pub operations: HashMap<lang::Path, lang::TypedTerm>,
 }
 
-// Interpretations of declared operations
-pub fn core_declarations() -> std::collections::HashMap<lang::Path, core::Operation> {
+/// Declared operations that map directly to a core op
+/// NOTE: this interface is likely to change in future
+pub struct Declarations {
+    pub operations: HashMap<lang::Path, core::Operation>,
+}
+
+/// Interpretations of declared operations
+pub fn core_declarations() -> Declarations {
     use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
     use std::collections::HashMap;
-    HashMap::from([
+    let operations = HashMap::from([
         (path!["cartesian", "copy"], Operation::Copy),
         // tensor ops
         (path!["tensor", "add"], Operation::Tensor(Map(Add))),
@@ -36,9 +42,11 @@ pub fn core_declarations() -> std::collections::HashMap<lang::Path, core::Operat
         (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
         (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
-    ])
+    ]);
+    Declarations { operations }
 }
 
+/// Standard library of definitions
 pub fn stdlib() -> Environment {
     let operations = HashMap::from([
         (
