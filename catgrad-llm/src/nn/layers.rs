@@ -113,6 +113,24 @@ pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
     index(builder, dim, input, k)
 }
 
+pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var> {
+    let mut dim = dim;
+    if dim < 0 {
+        dim += x.label.shape.0.len() as isize;
+    }
+    assert!(sizes.iter().sum::<usize>() == x.label.shape.0[dim as usize]);
+
+    let mut outputs = vec![];
+    let mut offset = 0;
+    for size in sizes {
+        let s = slice(builder, dim as usize, offset, *size, x.clone());
+        outputs.push(s);
+        offset += size;
+    }
+
+    outputs
+}
+
 pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
     assert!(x.label.shape.0[dim] % chunks == 0);
 
