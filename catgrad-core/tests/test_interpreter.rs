@@ -3,7 +3,7 @@
 use catgrad_core::category::core;
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
-use catgrad_core::nn::*;
+use catgrad_core::stdlib::nn::*;
 use catgrad_core::util::build_typed;
 
 use catgrad_core::interpreter::Interpreter;
@@ -48,8 +48,8 @@ fn test_run_add() {
         shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
     }));
 
-    let ops = catgrad_core::category::lang::op_decls();
-    let env = catgrad_core::nn::stdlib();
+    let ops = catgrad_core::stdlib::core_declarations();
+    let env = catgrad_core::stdlib::stdlib();
 
     // Typecheck
     let _result = check_with(&ops, &env, term.clone(), vec![t_f, t_g]).unwrap();
@@ -107,8 +107,8 @@ fn test_run_batch_matmul() {
         shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(2), NatExpr::Var(3)]),
     }));
 
-    let ops = catgrad_core::category::lang::op_decls();
-    let env = catgrad_core::nn::stdlib();
+    let ops = catgrad_core::stdlib::core_declarations();
+    let env = catgrad_core::stdlib::stdlib();
 
     // Typecheck
     let _result = check_with(&ops, &env, term.clone(), vec![t_lhs, t_rhs]).unwrap();
