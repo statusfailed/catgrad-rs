@@ -59,26 +59,3 @@ pub fn exp(builder: &Builder, x: Var) -> Var {
         Operation::Definition(path(vec!["nn", "exp"])),
     )
 }
-
-pub fn stdlib() -> Environment {
-    let operations = HashMap::from([
-        (
-            path(vec!["nn", "sigmoid"]),
-            OperationDefinition {
-                term: sigmoid_term(),
-                source_type: sigmoid_source(),
-                target_type: sigmoid_target(),
-            },
-        ),
-        (
-            path(vec!["nn", "exp"]),
-            OperationDefinition {
-                term: exp_term(),
-                source_type: exp_source(),
-                target_type: exp_target(),
-            },
-        ),
-    ]);
-
-    Environment { operations }
-}

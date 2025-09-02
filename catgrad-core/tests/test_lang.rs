@@ -1,11 +1,13 @@
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
-use catgrad_core::nn::*;
+use catgrad_core::stdlib::nn::*;
 use catgrad_core::svg::to_svg;
 use catgrad_core::util::build_typed;
 
 pub mod test_utils;
-use test_utils::{get_forget_op_decls, replace_nodes_in_hypergraph, save_diagram_if_enabled};
+use test_utils::{
+    get_forget_core_declarations, replace_nodes_in_hypergraph, save_diagram_if_enabled,
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 // Example program
@@ -110,7 +112,7 @@ pub fn run_check_test(
     use open_hypergraphs::lax::functor::*;
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-    let (ops, env) = get_forget_op_decls();
+    let (ops, env) = get_forget_core_declarations();
 
     let result = check_with(&ops, &env, term.clone(), input_types)?;
     println!("result: {result:?}");

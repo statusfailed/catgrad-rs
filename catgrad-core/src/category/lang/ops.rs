@@ -135,30 +135,3 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 
     var::fn_operation(builder, &[f, g], Object::Tensor, op!["tensor", "matmul"])
 }
-
-////////////////////////////////////////////////////////////////////////////////
-// Interpretations of declared operations in Core
-
-// basic declarations
-pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::core::Operation>
-{
-    use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
-    use std::collections::HashMap;
-    HashMap::from([
-        (path!["cartesian", "copy"], Operation::Copy),
-        // tensor ops
-        (path!["tensor", "add"], Operation::Tensor(Map(Add))),
-        (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),
-        (path!["tensor", "mul"], Operation::Tensor(Map(Mul))),
-        (path!["tensor", "div"], Operation::Tensor(Map(Div))),
-        (path!["tensor", "pow"], Operation::Tensor(Map(Pow))),
-        (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
-        (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
-        (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
-        (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
-        // shape ops
-        (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
-        (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
-        (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
-    ])
-}

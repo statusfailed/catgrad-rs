@@ -1,6 +1,6 @@
-use catgrad_core::category::lang::{Environment, op_decls};
 use catgrad_core::check::Value;
-use catgrad_core::nn::stdlib;
+use catgrad_core::stdlib::stdlib;
+use catgrad_core::stdlib::{Environment, core_declarations};
 use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
 
 pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
@@ -13,7 +13,7 @@ pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
     }
 }
 
-pub fn get_forget_op_decls() -> (
+pub fn get_forget_core_declarations() -> (
     std::collections::HashMap<
         catgrad_core::category::lang::Path,
         catgrad_core::category::core::Operation,
@@ -21,7 +21,7 @@ pub fn get_forget_op_decls() -> (
     Environment,
 ) {
     use open_hypergraphs::lax::functor::*;
-    let ops = op_decls();
+    let ops = core_declarations();
     let mut env = stdlib();
     for def in env.operations.values_mut() {
         def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);

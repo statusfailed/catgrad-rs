@@ -1,8 +1,10 @@
-// Catgrad's shape checker is an abstract interpreter for the *shaped* dialect.
+// Catgrad's shape checker is an abstract interpreter for the *core* dialect.
+// It uses the core declarations in [`crate::stdlib`].
 use crate::category::{core, lang::*};
 use crate::ssa::*;
-use open_hypergraphs::lax::NodeId;
+use crate::stdlib::{Environment, core_declarations, stdlib};
 
+use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
 use super::types::*;
@@ -23,8 +25,8 @@ pub fn check(term: Term, ty: Term) -> ShapeCheckResult {
 
 #[allow(clippy::result_large_err)]
 pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
-    let ops = op_decls();
-    let env = crate::nn::stdlib();
+    let ops = core_declarations();
+    let env = stdlib();
 
     check_with(&ops, &env, term, source_values)
 }
@@ -111,7 +113,7 @@ pub fn apply(
     match &ssa.op {
         Operation::Definition(op) => {
             // look up term
-            let OperationDefinition { term, .. } =
+            let TypedTerm { term, .. } =
                 env.operations.get(op).ok_or(ShapeCheckError::ApplyError(
                     ApplyError::UnknownOp(op.clone()),
                     ssa.clone(),

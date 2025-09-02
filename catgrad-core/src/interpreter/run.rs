@@ -1,14 +1,14 @@
 //! Catgrad reference interpreter
 
-use crate::ssa::{SSA, parallel_ssa};
-
-use open_hypergraphs::lax::NodeId;
-use std::collections::HashMap;
-
 use crate::category::{core, lang::*};
+use crate::ssa::{SSA, parallel_ssa};
+use crate::stdlib::Environment;
 
 use super::backend::*;
 use super::types::*;
+
+use open_hypergraphs::lax::NodeId;
+use std::collections::HashMap;
 
 pub struct Interpreter<B: Backend> {
     pub backend: B,
