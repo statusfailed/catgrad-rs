@@ -204,6 +204,12 @@ pub fn eq(builder: &Builder, a: Var, b: Var) -> Var {
     operation(builder, &[a.clone(), b], a.label, op)
 }
 
+pub fn clamp(builder: &Builder, a: Var, min: f32, max: f32) -> Var {
+    let op = Operation::Clamp { min, max };
+    let output_type = a.label.clone();
+    operation(builder, &[a], output_type, op)
+}
+
 pub fn arange(builder: &Builder, count: usize, dtype: Dtype) -> Var {
     let param_type = NdArrayType::new(Shape(vec![count]), dtype);
     let op = Operation::Arange;
@@ -1562,5 +1568,24 @@ mod tests {
         assert_eq!(&tagged, c);
         let tagged: TaggedNdArray = expd.into();
         assert_eq!(&tagged, d);
+    }
+
+    #[test]
+    fn test_clamp() {
+        let mut state = EvalState::build(|builder| {
+            let x = arange(builder, 6, Dtype::F32);
+            let x = x.clone() - constant(builder, x.label, 2.0); // [-2, -1, 0, 1, 2, 3]
+            let clamped = clamp(builder, x, -1.0, 2.0);
+            (vec![], vec![clamped])
+        });
+
+        let [clamped] = state.eval_with(vec![])[..] else {
+            panic!("unexpected coarity at eval time")
+        };
+
+        // Input: [-2, -1, 0, 1, 2, 3]
+        // Clamped to [-1, 2]: [-1, -1, 0, 1, 2, 2]
+        assert_eq!(clamped.shape(), Shape(vec![6]));
+        assert_eq!(clamped.data(), &[-1., -1., 0., 1., 2., 2.]);
     }
 }

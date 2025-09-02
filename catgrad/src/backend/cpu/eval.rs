@@ -194,6 +194,10 @@ impl EvalState {
                         start: *start,
                         length: *length,
                     }),
+                    Clamp { min, max } => Box::new(kernel::ClampOp {
+                        min: *min,
+                        max: *max,
+                    }),
                     Max => Box::new(kernel::MaxOp),
                     Sum => Box::new(kernel::SumOp),
                     Argmax => Box::new(kernel::ArgmaxOp),
@@ -243,6 +247,7 @@ impl EvalState {
             | Cos
             | Negate
             | Not
+            | Clamp { .. }
             | Reshape
             | Broadcast { .. }
             | Slice { .. }
