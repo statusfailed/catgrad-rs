@@ -3,3 +3,6 @@ pub mod ops;
 pub use ops::*;
 
 pub mod nn;
+
+mod types;
+pub use types::*;
