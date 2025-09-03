@@ -1,6 +1,6 @@
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
-use catgrad_core::stdlib::nn::*;
+use catgrad_core::stdlib::{nn::*, *};
 use catgrad_core::svg::to_svg;
 use catgrad_core::util::build_typed;
 
@@ -17,7 +17,7 @@ use test_utils::{
 pub fn linear_sigmoid() -> Term {
     let term = build_typed([Object::Tensor, Object::Tensor], |graph, [x, p]| {
         let x = matmul(graph, x, p);
-        let x = sigmoid(graph, x);
+        let x = Sigmoid.call(graph, [x]);
 
         // flatten result shape
         let [a, c] = unpack::<2>(graph, shape(graph, x.clone()));
@@ -26,14 +26,12 @@ pub fn linear_sigmoid() -> Term {
         vec![reshape(graph, t, x)]
     });
 
-    // TODO: construct *type* maps
-
     term.expect("invalid term")
 }
 
 #[test]
 fn test_construct_linear_sigmoid() {
-    let sigmoid = sigmoid_term();
+    let sigmoid = Sigmoid.term();
     println!("{sigmoid:?}");
 
     let term = linear_sigmoid();
@@ -42,7 +40,7 @@ fn test_construct_linear_sigmoid() {
 
 #[test]
 fn test_graph_sigmoid() {
-    let term = sigmoid_term();
+    let term = Sigmoid.term().term;
     use open_hypergraphs::lax::functor::*;
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
@@ -83,24 +81,19 @@ fn test_check_linear_sigmoid() {
 
 #[test]
 fn test_check_sigmoid() {
-    let term = sigmoid_term();
-    let t = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: ShapeExpr::Var(0),
-    }));
+    let TypedTerm {
+        term, source_type, ..
+    } = Sigmoid.term();
 
-    run_check_test(term, vec![t], "test_check_sigmoid.svg").expect("valid");
+    run_check_test(term, source_type, "test_check_sigmoid.svg").expect("valid");
 }
 
 #[test]
 fn test_check_exp() {
-    let term = exp_term();
-    let t = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: ShapeExpr::Var(0),
-    }));
-
-    run_check_test(term, vec![t], "test_check_exp.svg").expect("valid");
+    let TypedTerm {
+        term, source_type, ..
+    } = Exp.term();
+    run_check_test(term, source_type, "test_check_exp.svg").expect("valid");
 }
 
 #[allow(clippy::result_large_err)]

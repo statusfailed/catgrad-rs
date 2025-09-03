@@ -74,8 +74,16 @@ pub trait Def<const A: usize, const B: usize> {
 }
 
 /// Get the corresponding [`Object`] (sort) for a given [`Type`]
+// TODO: move?
 fn to_sort(value: Type) -> Object {
-    todo!()
+    use crate::check::Value;
+    match value {
+        Value::Type(_) => Object::NdArrayType,
+        Value::Shape(_) => Object::Shape,
+        Value::Nat(_) => Object::Nat,
+        Value::Dtype(_) => Object::Dtype,
+        Value::Tensor(_) => Object::Tensor,
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

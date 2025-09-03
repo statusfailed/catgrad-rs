@@ -3,7 +3,9 @@
 use catgrad_core::category::core;
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
-use catgrad_core::stdlib::nn::*;
+
+use catgrad_core::stdlib::{nn::*, *};
+
 use catgrad_core::util::build_typed;
 
 use catgrad_core::interpreter::Interpreter;
@@ -19,7 +21,7 @@ pub mod test_utils;
 pub fn linear_sigmoid() -> Term {
     let term = build_typed([Object::Tensor, Object::Tensor], |graph, [x, p]| {
         let x = matmul(graph, x, p);
-        let x = sigmoid(graph, x);
+        let x = Sigmoid.call(graph, [x]);
 
         // flatten result shape
         let [a, c] = unpack::<2>(graph, shape(graph, x.clone()));
