@@ -105,11 +105,7 @@ pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
 }
 
 pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
-    let output_type = NdArrayType {
-        shape: Shape(vec![1]),
-        dtype: Dtype::I32,
-    };
-    let k = constant(builder, output_type, k as f32);
+    let k = scalar(builder, Dtype::F32, k as f32);
     index(builder, dim, input, k)
 }
 
@@ -174,8 +170,8 @@ pub fn slice(builder: &Builder, dim: usize, start: usize, length: usize, x: Var)
     operation(builder, &[x], output_type, op)
 }
 
-pub fn select(builder: &Builder, dim: usize, index: usize, x: Var) -> Var {
-    let x = slice(builder, dim, index, 1, x);
+pub fn select(builder: &Builder, dim: usize, idx: usize, x: Var) -> Var {
+    let x = slice(builder, dim, idx, 1, x);
     squeeze(builder, dim, x)
 }
 
