@@ -344,8 +344,22 @@ pub fn topk(builder: &Builder, k: usize, x: Var) -> Vec<Var> {
     r
 }
 
-pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
+pub fn transpose(builder: &Builder, dim0: isize, dim1: isize, x: Var) -> Var {
     let in_t = x.label.clone();
+
+    let dims = in_t.shape.0.len() as isize;
+
+    let dim0 = if dim0 < 0 {
+        (dim0 + dims) as usize
+    } else {
+        dim0 as usize
+    };
+
+    let dim1 = if dim1 < 0 {
+        (dim1 + dims) as usize
+    } else {
+        dim1 as usize
+    };
 
     // Create new shape with swapped dimensions
     let mut new_shape = in_t.shape.0.clone();
@@ -364,7 +378,7 @@ pub fn linear_b_param(
     bias: Option<Var>,
     x: Var,
 ) -> Var {
-    let mut w_t = transpose(builder, 0, 1, weight);
+    let mut w_t = transpose(builder, -1, -2, weight);
 
     if x.label.shape.0.len() == 3 {
         let batch_size = x.label.shape.0[0];
