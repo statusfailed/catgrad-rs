@@ -105,12 +105,26 @@ pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
 }
 
 pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
-    let output_type = NdArrayType {
-        shape: Shape(vec![1]),
-        dtype: Dtype::I32,
-    };
-    let k = constant(builder, output_type, k as f32);
+    let k = scalar(builder, Dtype::F32, k as f32);
     index(builder, dim, input, k)
+}
+
+pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var> {
+    let mut dim = dim;
+    if dim < 0 {
+        dim += x.label.shape.0.len() as isize;
+    }
+    assert!(sizes.iter().sum::<usize>() == x.label.shape.0[dim as usize]);
+
+    let mut outputs = vec![];
+    let mut offset = 0;
+    for size in sizes {
+        let s = slice(builder, dim as usize, offset, *size, x.clone());
+        outputs.push(s);
+        offset += size;
+    }
+
+    outputs
 }
 
 pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
@@ -156,8 +170,8 @@ pub fn slice(builder: &Builder, dim: usize, start: usize, length: usize, x: Var)
     operation(builder, &[x], output_type, op)
 }
 
-pub fn select(builder: &Builder, dim: usize, index: usize, x: Var) -> Var {
-    let x = slice(builder, dim, index, 1, x);
+pub fn select(builder: &Builder, dim: usize, idx: usize, x: Var) -> Var {
+    let x = slice(builder, dim, idx, 1, x);
     squeeze(builder, dim, x)
 }
 
@@ -326,8 +340,22 @@ pub fn topk(builder: &Builder, k: usize, x: Var) -> Vec<Var> {
     r
 }
 
-pub fn transpose(builder: &Builder, dim0: usize, dim1: usize, x: Var) -> Var {
+pub fn transpose(builder: &Builder, dim0: isize, dim1: isize, x: Var) -> Var {
     let in_t = x.label.clone();
+
+    let dims = in_t.shape.0.len() as isize;
+
+    let dim0 = if dim0 < 0 {
+        (dim0 + dims) as usize
+    } else {
+        dim0 as usize
+    };
+
+    let dim1 = if dim1 < 0 {
+        (dim1 + dims) as usize
+    } else {
+        dim1 as usize
+    };
 
     // Create new shape with swapped dimensions
     let mut new_shape = in_t.shape.0.clone();
@@ -346,7 +374,7 @@ pub fn linear_b_param(
     bias: Option<Var>,
     x: Var,
 ) -> Var {
-    let mut w_t = transpose(builder, 0, 1, weight);
+    let mut w_t = transpose(builder, -1, -2, weight);
 
     if x.label.shape.0.len() == 3 {
         let batch_size = x.label.shape.0[0];
