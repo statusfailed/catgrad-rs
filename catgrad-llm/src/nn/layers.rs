@@ -105,7 +105,7 @@ pub fn index(builder: &Builder, dim: usize, input: Var, indices: Var) -> Var {
 }
 
 pub fn get(builder: &Builder, dim: usize, k: usize, input: Var) -> Var {
-    let k = scalar(builder, Dtype::F32, k as f32);
+    let k = scalar(builder, Dtype::I32, k as f32);
     index(builder, dim, input, k)
 }
 

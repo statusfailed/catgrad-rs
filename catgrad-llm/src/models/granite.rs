@@ -234,12 +234,12 @@ impl Model {
             let idx = squeeze(builder, 0, idx);
             let val = get(builder, 0, s, values.clone());
 
-            let moe_in = index(builder, 0, moe_input.clone(), idx.clone());
-            let moe_out = index(builder, 0, moe_output.clone(), idx);
-
             for i in 0..config.num_experts_per_tok {
-                let gate_up = narrow(builder, 0, i, 1, moe_in.clone());
-                let out = narrow(builder, 0, i, 1, moe_out.clone());
+                let n = get(builder, 0, i, idx.clone());
+
+                let gate_up = index(builder, 0, moe_input.clone(), n.clone());
+                let out = index(builder, 0, moe_output.clone(), n.clone());
+
                 let gate_up = chunk(builder, 1, 2, gate_up);
                 let gate = gate_up[0].clone();
                 let up = gate_up[1].clone();
