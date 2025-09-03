@@ -78,6 +78,11 @@ fn to_sort(value: Type) -> Object {
     todo!()
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// "Function" definitions just return a single Var- this makes it easier to call them.
+
+/// A FnDef is a "Function Definition": a `Def` with a single output var.
+/// The `call` method is a helper for getting the single output of self.op.
 pub trait FnDef<const N: usize>: Def<N, 1> {
     fn call(
         &self,

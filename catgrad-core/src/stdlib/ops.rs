@@ -1,7 +1,7 @@
 use crate::category::core;
 use crate::category::lang;
 
-use super::nn::*;
+use super::types::*;
 
 use std::collections::HashMap;
 
@@ -46,25 +46,19 @@ pub fn core_declarations() -> Declarations {
     Declarations { operations }
 }
 
+fn to_pair<const A: usize, const B: usize, T: Def<A, B>>(def: T) -> (lang::Path, lang::TypedTerm) {
+    (def.path(), def.term())
+}
+
 /// Standard library of definitions
 pub fn stdlib() -> Environment {
+    use super::nn::*;
+
+    // NOTE: can't just map this since each invocation of to_pair is differently typed
     let operations = HashMap::from([
-        (
-            path!["nn", "sigmoid"],
-            lang::TypedTerm {
-                term: sigmoid_term(),
-                source_type: sigmoid_source(),
-                target_type: sigmoid_target(),
-            },
-        ),
-        (
-            path!["nn", "exp"],
-            lang::TypedTerm {
-                term: exp_term(),
-                source_type: exp_source(),
-                target_type: exp_target(),
-            },
-        ),
+        to_pair(Sigmoid),
+        to_pair(Exp),
+        //
     ]);
 
     Environment { operations }
