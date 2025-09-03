@@ -230,7 +230,12 @@ impl EvalState {
 
                 op.apply(&*a, b);
             }
-            t => panic!("invalid type: {t:?}"),
+            Ok([a, b]) => panic!(
+                "invalid type for unary operation {operation:?}: {:?}-> {:?}",
+                a.dtype(),
+                b.dtype(),
+            ),
+            Err(err) => panic!("Error in unary operation {operation:?}: {}", err),
         }
     }
 
@@ -493,7 +498,13 @@ impl EvalState {
                             output.set(output_indices, input.get(&input_indices));
                         });
                     }
-                    _ => panic!("invalid type for Index operation"),
+                    Ok([a, b, c]) => panic!(
+                        "invalid type for Index operation: [{:?}, {:?}] -> {:?}",
+                        a.dtype(),
+                        b.dtype(),
+                        c.dtype()
+                    ),
+                    Err(err) => panic!("Error in Index operation: {:?}", err),
                 }
             }
         }
