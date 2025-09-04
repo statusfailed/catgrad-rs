@@ -198,6 +198,7 @@ pub trait ModelBuilder {
 }
 
 use super::gemma::Model as GemmaModel;
+use super::gpt_oss::Model as GPTOssModel;
 use super::gpt2::Model as GPT2Model;
 use super::granite::Model as GraniteModel;
 use super::llama::Model as LlamaModel;
@@ -218,6 +219,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
         "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
+        "GptOssForCausalLM" => Ok(Box::new(GPTOssModel {})),
         "ModernBertDecoderForCausalLM" => Ok(Box::new(ModernBertDecoderModel {})),
         "Phi3ForCausalLM" => Ok(Box::new(PhiModel {})),
         "SmolLM3ForCausalLM" => Ok(Box::new(SmolLM3Model {})),

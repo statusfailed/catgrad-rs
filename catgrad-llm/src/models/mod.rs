@@ -1,5 +1,6 @@
 pub mod gemma;
 pub mod gpt2;
+pub mod gpt_oss;
 pub mod granite;
 pub mod llama;
 pub mod modernbert;
