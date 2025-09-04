@@ -12,21 +12,47 @@ use test_utils::{
 ////////////////////////////////////////////////////////////////////////////////
 // Example program
 
-// (N, 1, A) × (N, A, B) → (N, B)
-// matmul ; sigmoid ; reshape
-pub fn linear_sigmoid() -> Term {
-    let term = build_typed([Object::Tensor, Object::Tensor], |graph, [x, p]| {
-        let x = matmul(graph, x, p);
-        let x = Sigmoid.call(graph, [x]);
+struct LinearSigmoid;
+impl Def<2, 1> for LinearSigmoid {
+    fn ty(&self) -> ([Type; 2], [Type; 1]) {
+        let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
+        }));
+
+        let t_p = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(1), NatExpr::Var(2)]),
+        }));
+
+        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Mul(vec![NatExpr::Var(1), NatExpr::Var(2)])]),
+        }));
+
+        ([t_x, t_p], [t_y])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["test", "linear_sigmoid"])
+    }
+
+    fn inline(
+        &self,
+        builder: &std::rc::Rc<
+            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
+        >,
+        [x, p]: [Var; 2],
+    ) -> [Var; 1] {
+        let x = matmul(builder, x, p);
+        let x = Sigmoid.call(builder, [x]);
 
         // flatten result shape
-        let [a, c] = unpack::<2>(graph, shape(graph, x.clone()));
-        let t = pack::<1>(graph, [a * c]);
+        let [a, c] = unpack::<2>(builder, shape(builder, x.clone()));
+        let t = pack::<1>(builder, [a * c]);
 
-        vec![reshape(graph, t, x)]
-    });
-
-    term.expect("invalid term")
+        [reshape(builder, t, x)]
+    }
 }
 
 #[test]
@@ -34,7 +60,7 @@ fn test_construct_linear_sigmoid() {
     let sigmoid = Sigmoid.term();
     println!("{sigmoid:?}");
 
-    let term = linear_sigmoid();
+    let term = LinearSigmoid.term();
     println!("{term:?}");
 }
 
@@ -50,7 +76,7 @@ fn test_graph_sigmoid() {
 
 #[test]
 fn test_graph_linear_sigmoid() {
-    let term = linear_sigmoid();
+    let term = LinearSigmoid.term().term;
 
     use open_hypergraphs::lax::functor::*;
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
@@ -64,19 +90,11 @@ fn test_graph_linear_sigmoid() {
 // but where objects are "symbolic shapes".
 #[test]
 fn test_check_linear_sigmoid() {
-    let term = linear_sigmoid();
+    let TypedTerm {
+        term, source_type, ..
+    } = LinearSigmoid.term();
 
-    let t_f = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
-    }));
-
-    let t_g = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::F32),
-        shape: ShapeExpr::Shape(vec![NatExpr::Var(1), NatExpr::Var(2)]),
-    }));
-
-    run_check_test(term, vec![t_f, t_g], "test_check_linear_sigmoid.svg").expect("valid");
+    run_check_test(term, source_type, "test_check_linear_sigmoid.svg").expect("valid");
 }
 
 #[test]
