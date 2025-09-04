@@ -85,9 +85,13 @@ pub fn embedding(builder: &Builder, indices: Var, weights: Var) -> Var {
 }
 
 // Create range indices for indexing
-pub fn range_indices(builder: &Builder, start: usize, end: usize) -> Var {
-    let count = end - start;
-    let range = arange(builder, count, Dtype::I32);
+pub fn range_indices(builder: &Builder, start: usize, end: usize, step: usize) -> Var {
+    let count = (end - start) / step;
+    let mut range = arange(builder, count, Dtype::I32);
+    if step > 1 {
+        let step = constant(builder, range.label.clone(), step as f32);
+        range = range * step;
+    }
     if start > 0 {
         let offset = constant(builder, range.label.clone(), start as f32);
         range + offset
@@ -1214,13 +1218,15 @@ mod tests {
             let y0 = index(builder, 0, x.clone(), i.clone());
             let y1 = index(builder, 1, x.clone(), i);
 
-            let ri = range_indices(builder, 2, 5);
+            let ri = range_indices(builder, 2, 5, 1);
             let y2 = index(builder, 1, x.clone(), ri);
 
-            (vec![], vec![x, y0, y1, y2])
+            let ri = range_indices(builder, 1, 6, 2);
+            let y3 = index(builder, 1, x.clone(), ri);
+            (vec![], vec![x, y0, y1, y2, y3])
         });
 
-        let [x, y0, y1, y2] = state.eval_with(vec![])[..] else {
+        let [x, y0, y1, y2, y3] = state.eval_with(vec![])[..] else {
             panic!("unexpected coarity at eval time")
         };
 
@@ -1265,6 +1271,17 @@ mod tests {
         assert_eq!(y2.get(&[0, 0]), 2.);
         assert_eq!(y2.get(&[1, 1]), 3.);
         assert_eq!(y2.get(&[2, 2]), 4.);
+
+        // y3 = x[:, 1:5:2]
+        // [[1, 3]
+        // [1, 3]
+        // [1, 3]]
+        //
+        assert_eq!(y3.shape(), Shape(vec![4, 2]));
+        assert_eq!(y3.get(&[0, 0]), 1.);
+        assert_eq!(y3.get(&[1, 1]), 3.);
+        assert_eq!(y3.get(&[2, 0]), 1.);
+        assert_eq!(y3.get(&[3, 1]), 3.);
     }
 
     #[test]

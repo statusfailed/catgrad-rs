@@ -84,7 +84,7 @@ impl Model {
             Shape(vec![config.max_position_embeddings, config.hidden_size]),
             Dtype::F32,
         );
-        let pos = range_indices(builder, pos, pos + x.label.size());
+        let pos = range_indices(builder, pos, pos + x.label.size(), 1);
         let pos = expand(builder, x.label.shape, pos);
         let weights = parameter(builder, t, "wpe.weight".to_string());
         let pe = embedding(builder, pos, weights);
