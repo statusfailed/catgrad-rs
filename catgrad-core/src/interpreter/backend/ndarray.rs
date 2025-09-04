@@ -1,5 +1,5 @@
 use super::super::types::*;
-use crate::category::core::Shape;
+use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, NdArray};
 use ndarray::{ArrayD, IxDyn};
 
@@ -23,24 +23,59 @@ impl Backend for NdArrayBackend {
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
     }
 
-    fn matmul_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        Self::batched_matmul(lhs, rhs)
+    fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self> {
+        match (&x, target_dtype) {
+            (TaggedNdArray::F32(arr), Dtype::U32) => {
+                let data: Vec<u32> = arr[0].iter().map(|&val| val as u32).collect();
+                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
+                TaggedNdArray::U32([result])
+            }
+            (TaggedNdArray::U32(arr), Dtype::F32) => {
+                let data: Vec<f32> = arr[0].iter().map(|&val| val as f32).collect();
+                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
+                TaggedNdArray::F32([result])
+            }
+            (TaggedNdArray::F32(_), Dtype::F32) => x,
+            (TaggedNdArray::U32(_), Dtype::U32) => x,
+        }
     }
 
-    fn matmul_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
-        Self::batched_matmul(lhs, rhs)
+    fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::batched_matmul(x, y)]),
+            U32([x, y]) => U32([Self::batched_matmul(x, y)]),
+        }
     }
 
-    fn add_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        Self::add(lhs, rhs)
+    fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::add(x, y)]),
+            U32([x, y]) => U32([Self::add(x, y)]),
+        }
     }
 
-    fn add_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
-        Self::add(lhs, rhs)
+    fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::broadcast_ndarray(arr, shape_prefix)]),
+            U32([arr]) => U32([Self::broadcast_ndarray(arr, shape_prefix)]),
+        }
     }
 }
 
 impl NdArrayBackend {
+    fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape_prefix: Shape) -> ArrayD<D> {
+        let current_shape = arr.shape().to_vec();
+        let mut new_shape = shape_prefix.0;
+        new_shape.extend_from_slice(&current_shape);
+
+        // Use ndarray's broadcast to expand dimensions
+        let broadcasted = arr.broadcast(ndarray::IxDyn(&new_shape)).unwrap();
+        broadcasted.to_owned()
+    }
+
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
         D: HasDtype + ndarray::LinalgScalar,
