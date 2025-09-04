@@ -45,34 +45,24 @@ fn test_graph_linear_sigmoid() {
 // but where objects are "symbolic shapes".
 #[test]
 fn test_check_linear_sigmoid() {
-    let TypedTerm {
-        term, source_type, ..
-    } = LinearSigmoid.term();
-
-    run_check_test(term, source_type, "test_check_linear_sigmoid.svg").expect("valid");
+    run_check_test(LinearSigmoid.term(), "test_check_linear_sigmoid.svg").expect("valid");
 }
 
 #[test]
 fn test_check_sigmoid() {
-    let TypedTerm {
-        term, source_type, ..
-    } = Sigmoid.term();
-
-    run_check_test(term, source_type, "test_check_sigmoid.svg").expect("valid");
+    run_check_test(Sigmoid.term(), "test_check_sigmoid.svg").expect("valid");
 }
 
 #[test]
 fn test_check_exp() {
-    let TypedTerm {
-        term, source_type, ..
-    } = Exp.term();
-    run_check_test(term, source_type, "test_check_exp.svg").expect("valid");
+    run_check_test(Exp.term(), "test_check_exp.svg").expect("valid");
 }
 
 #[allow(clippy::result_large_err)]
 pub fn run_check_test(
-    term: catgrad_core::category::lang::Term,
-    input_types: Vec<Value>,
+    TypedTerm {
+        term, source_type, ..
+    }: catgrad_core::category::lang::TypedTerm,
     svg_filename: &str,
 ) -> Result<(), ShapeCheckError> {
     use open_hypergraphs::lax::functor::*;
@@ -80,7 +70,7 @@ pub fn run_check_test(
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
     let (ops, env) = get_forget_core_declarations();
 
-    let result = check_with(&ops, &env, term.clone(), input_types)?;
+    let result = check_with(&ops, &env, term.clone(), source_type)?;
     println!("result: {result:?}");
 
     let typed_term = replace_nodes_in_hypergraph(term, result);
