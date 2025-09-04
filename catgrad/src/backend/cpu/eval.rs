@@ -1,6 +1,6 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
-use crate::core::{Operation, StrictTerm, Term, Var};
+use crate::core::{Operation, Shape, StrictTerm, Term, Var};
 use Operation::*;
 use TaggedNdArray::*;
 use half::f16;
@@ -405,15 +405,21 @@ impl EvalState {
             }
 
             Index { dim } => {
-                // The first source is the indices and second source is the tensor
-                let i = sources[0]; // indices
-                let j = sources[1]; // tensor
+                let i = sources[0]; // input
+                let j = sources[1]; // indices
                 let k = targets[0]; // output
 
                 match self.data[..].get_disjoint_mut([i, j, k]) {
                     Ok([F32(input), I32(indices), F32(output)]) => {
                         let input_dim_size = input.shape.0[*dim];
-
+                        // Create a view when there is a single index
+                        if indices.shape == Shape(vec![1]) {
+                            let start = indices.get(&[0]) as usize;
+                            output.data = Rc::clone(&input.data);
+                            output.strides = input.strides.clone();
+                            output.offset = input.offset + start * (input.strides[*dim] as usize);
+                            return;
+                        }
                         // Optimized path for when the largest blocks can be copied.
                         if *dim == 0 {
                             let size: usize = input.shape.0[1..].iter().product();
@@ -448,6 +454,14 @@ impl EvalState {
                     Ok([F16(input), I32(indices), F16(output)]) => {
                         let input_dim_size = input.shape.0[*dim];
 
+                        // Create a view when there is a single index
+                        if indices.shape == Shape(vec![1]) {
+                            let start = indices.get(&[0]) as usize;
+                            output.data = Rc::clone(&input.data);
+                            output.strides = input.strides.clone();
+                            output.offset = input.offset + start * (input.strides[*dim] as usize);
+                            return;
+                        }
                         // Optimized path for when the largest blocks can be copied.
                         if *dim == 0 {
                             let size: usize = input.shape.0[1..].iter().product();
