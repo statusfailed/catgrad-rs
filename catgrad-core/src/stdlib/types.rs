@@ -1,3 +1,4 @@
+//! Trait helpers for creating the stdlib and defining models/layers/etc.
 use crate::category::lang::*;
 use crate::util::build_typed;
 
@@ -9,32 +10,46 @@ use open_hypergraphs::lax::{var, *};
 ////////////////////////////////////////////////////////////////////////////////
 // Generic interface
 
-// A Definition of arity A and coarity B
-// TODO: do we want to just have a struct with a closure in it instead?
-// TODO: Can we read a Def like this from disk? (probably not: has rust code in it!)
-// TODO: can we write a function which *writes a dyn Def to disk* for all A, B?
+/// A type implementing [`Def`] defines a *typed term* with additional metadata.
+/// Analogous to a `nn.Module` in PyTorch.
+/// In total, a `T: Def` defines:
+///
+/// 1. A *unique global name* (`path`)
+/// 2. A *type* (`ty`)
+/// 3. A *definition* (`inline`) - an open hypergraph representing
+///
+/// Note that definitions have fixed arity/coarity, but types can vary.
 pub trait Def<const A: usize, const B: usize> {
-    ////////////////////////////////////////
-    // User-provided
-
-    /// TODO: make this return [`Value`] instead, figure out sort from that.
+    /// The *type* of this definition, used to construct a [`TypedTerm`]
     fn ty(&self) -> ([Type; A], [Type; B]);
-    fn path(&self) -> Path; // unique global name of this op
 
-    /// Construct this definition by mutably *inlining it* into the provided OpenHypergraph
-    fn inline(
+    /// Unique global name in the stdlib/environment
+    fn path(&self) -> Path;
+
+    /// The *definition* of this term, as a function which mutably inlines it into the provided
+    /// Builder.
+    fn def(
         &self,
         builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
         args: [Var; A],
     ) -> [Var; B];
 
     ////////////////////////////////////////
-    // Derived functions (TODO: move outside trait?)
+    // Derived functions
 
-    // Sort, derived from ty.
+    /// The *sort* of this type are the *object labels* of the sources/targets of its definition.
     fn sort(&self) -> ([Object; A], [Object; B]) {
         let (v1, v2) = self.ty();
         (v1.map(to_sort), v2.map(to_sort))
+    }
+
+    /// alias for `def` which is clearer to use in context, e.g. Sigmoid::inline();
+    fn inline(
+        &self,
+        builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
+        args: [Var; A],
+    ) -> [Var; B] {
+        self.def(builder, args)
     }
 
     /// Create a single `Definition` operation in the graph with name `self.path()`.
@@ -54,7 +69,7 @@ pub trait Def<const A: usize, const B: usize> {
         .unwrap() // guaranteed to work: size fixed by result_types
     }
 
-    /// Construct a "standalone" OpenHypergraph for this definition
+    /// Construct a standalone OpenHypergraph for this definition
     fn term(&self) -> TypedTerm {
         let (source_type, target_type) = self.ty();
         let source_object = source_type.clone().map(to_sort);
@@ -92,6 +107,7 @@ fn to_sort(value: Type) -> Object {
 /// A FnDef is a "Function Definition": a `Def` with a single output var.
 /// The `call` method is a helper for getting the single output of self.op.
 pub trait FnDef<const N: usize>: Def<N, 1> {
+    /// Like [`Def::op`] for coarity 1.
     fn call(
         &self,
         builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
@@ -100,6 +116,8 @@ pub trait FnDef<const N: usize>: Def<N, 1> {
         let [r] = self.op(builder, args);
         r
     }
+
+    // TODO: call_inline?
 }
 
 impl<const N: usize, T: Def<N, 1>> FnDef<N> for T {}

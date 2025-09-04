@@ -31,7 +31,7 @@ impl Def<2, 1> for LinearSigmoid {
         path(vec!["test", "linear_sigmoid"])
     }
 
-    fn inline(
+    fn def(
         &self,
         builder: &std::rc::Rc<
             std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
@@ -75,7 +75,7 @@ impl Def<2, 1> for Add {
         path(vec!["test", "add"])
     }
 
-    fn inline(
+    fn def(
         &self,
         _builder: &std::rc::Rc<
             std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
@@ -111,7 +111,7 @@ impl Def<2, 1> for BatchMatMul {
         path(vec!["test", "batch_matmul"])
     }
 
-    fn inline(
+    fn def(
         &self,
         builder: &std::rc::Rc<
             std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,

@@ -29,7 +29,7 @@ impl Def<1, 1> for Sigmoid {
     }
 
     // def
-    fn inline(
+    fn def(
         &self,
         graph: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
         [x]: [Var; 1],
@@ -65,7 +65,7 @@ impl Def<1, 1> for Exp {
     }
 
     // def
-    fn inline(
+    fn def(
         &self,
         graph: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
         [x]: [Var; 1],
