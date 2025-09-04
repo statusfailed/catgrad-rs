@@ -1,5 +1,5 @@
 use crate::category::lang::*;
-use crate::stdlib::types::*;
+use crate::stdlib::def::*;
 
 ////////////////////////////////////////
 // Sigmoid

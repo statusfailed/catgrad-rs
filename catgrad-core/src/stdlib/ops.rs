@@ -1,7 +1,7 @@
 use crate::category::core;
 use crate::category::lang;
 
-use super::types::*;
+use super::def::*;
 
 use std::collections::HashMap;
 

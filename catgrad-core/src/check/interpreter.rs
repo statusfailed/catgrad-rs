@@ -8,20 +8,6 @@ use open_hypergraphs::lax::NodeId;
 
 use super::types::*;
 
-/*
-pub fn check(term: Term, ty: Term) -> ShapeCheckResult {
-    // Set a "Var" (symbolic) value for each input node
-    let source_values = ty
-        .sources
-        .iter()
-        .enumerate()
-        .map(|(i, id)| var(i, term.hypergraph.nodes[id.0].clone()))
-        .collect();
-
-    check_with(term, source_values)
-}
-*/
-
 #[allow(clippy::result_large_err)]
 pub fn check(term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
     let ops = core_declarations();
