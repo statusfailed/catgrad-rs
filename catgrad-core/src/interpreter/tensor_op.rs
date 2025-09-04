@@ -23,11 +23,20 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Reshape => todo!(),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add_f32, B::add_u32),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
+        TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Stack => todo!(),
         TensorOp::Split => todo!(),
         TensorOp::Index => todo!(),
         TensorOp::Copy => todo!(),
     }
+}
+
+fn tensor_cast<B: Backend>(
+    _backend: &B,
+    _args: Vec<Value<B>>,
+    _ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    todo!("cast is unimplemented!")
 }
 
 #[allow(type_alias_bounds)]

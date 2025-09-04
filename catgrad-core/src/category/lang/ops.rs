@@ -135,3 +135,14 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
 
     var::fn_operation(builder, &[f, g], Object::Tensor, op!["tensor", "matmul"])
 }
+
+pub fn cast(builder: &Builder, x: Var, dtype: Var) -> Var {
+    assert_eq!(x.label, Object::Tensor);
+    assert_eq!(dtype.label, Object::Dtype);
+    var::fn_operation(builder, &[x, dtype], Object::Tensor, op!["tensor", "cast"])
+}
+
+pub fn dtype(builder: &Builder, x: Var) -> Var {
+    assert_eq!(x.label, Object::Tensor);
+    var::fn_operation(builder, &[x], Object::Dtype, op!["tensor", "dtype"])
+}

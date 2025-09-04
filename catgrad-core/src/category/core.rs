@@ -94,6 +94,10 @@ pub enum TypeOp {
     /// Get the shape of a tensor (not its dtype!)
     /// Tensor → Shape
     Shape,
+
+    /// Get the dtype of a tensor (not its dtype!)
+    /// Tensor → Shape
+    Dtype,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -105,6 +109,14 @@ pub enum Constant {
 /// Generating tensor operations
 #[derive(Debug, Clone, PartialEq)]
 pub enum TensorOp {
+    /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
+    /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
+    Map(ScalarOp),
+
+    /// Cast a tensor to a dtype
+    /// `Tensor × Dtype → Tensor`
+    Cast,
+
     /// Batch matrix multiplication
     /// `MatMul : (N, A, B) ● (N, B, C) → (N, A, C)`
     MatMul,
@@ -130,17 +142,12 @@ pub enum TensorOp {
     /// Reshape a tensor into an isomorphic shape
     Reshape,
 
-    /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
-    /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
-    Map(ScalarOp),
-
     // TODO:
     // Parameters
     //Parameter(String)
     //Index
     //Slice
     //Concat
-    //Cast
     //Arange
     /// S ● ... ● S → N×S
     Stack,

@@ -90,6 +90,13 @@ impl<B: Backend> TaggedNdArray<B> {
         }
     }
 
+    pub fn dtype(&self) -> Dtype {
+        match self {
+            Self::F32(_) => Dtype::F32,
+            Self::U32(_) => Dtype::U32,
+        }
+    }
+
     pub fn scalar<T: IntoTagged<B, 1>>(backend: &B, x: T) -> Self {
         let arr: B::NdArray<T> = backend.scalar(x);
         T::into_tagged([arr])

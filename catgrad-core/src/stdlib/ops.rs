@@ -30,7 +30,7 @@ pub fn core_declarations() -> Declarations {
     use std::collections::HashMap;
     let operations = HashMap::from([
         (path!["cartesian", "copy"], Operation::Copy),
-        // tensor ops
+        // tensor ops (which actually affect tensor data)
         (path!["tensor", "add"], Operation::Tensor(Map(Add))),
         (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),
         (path!["tensor", "mul"], Operation::Tensor(Map(Mul))),
@@ -39,8 +39,11 @@ pub fn core_declarations() -> Declarations {
         (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
         (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
         (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
+        (path!["tensor", "cast"], Operation::Tensor(Cast)),
+        // Mixed Tensor/Type ops
         (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
-        // shape ops
+        (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),
+        // Shape ops
         (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
         (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),

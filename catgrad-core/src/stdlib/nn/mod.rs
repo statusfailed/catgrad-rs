@@ -44,8 +44,8 @@ impl Def<1, 1> for Exp {
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
         use crate::check::*;
         let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::F32),
-            shape: ShapeExpr::Var(0),
+            dtype: DtypeExpr::Var(0),
+            shape: ShapeExpr::Var(1),
         }));
         ([ty.clone()], [ty])
     }
@@ -57,7 +57,9 @@ impl Def<1, 1> for Exp {
 
     // def
     fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        // we'll cast e to whatever dtype x has.
         let e = constant_f32(graph, std::f32::consts::E);
+        let e = cast(graph, e, dtype(graph, x.clone()));
         let s = shape(graph, x.clone());
         let e = broadcast(graph, e, s);
         [pow(graph, e, x)]

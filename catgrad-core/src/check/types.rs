@@ -77,9 +77,12 @@ pub enum NatExpr {
     Add(Vec<NatExpr>),
 }
 
+// DtypeExpr::Var is allowed, but not as a top-level free variable in the program;
+// it must resolve to a concrete value during shapechecking.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DtypeExpr {
     Var(usize),
+    OfType(usize), // dtype of a *type* variable
     Constant(Dtype),
 }
 

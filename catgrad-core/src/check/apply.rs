@@ -1,6 +1,6 @@
 use super::types::*;
 use crate::category::{
-    core::{NatOp, Operation, TensorOp, TypeOp},
+    core::{NatOp, Operation, ScalarOp, TensorOp, TypeOp},
     lang,
 };
 use crate::ssa::SSA;
@@ -37,6 +37,7 @@ fn type_op(op: &TypeOp, args: &[Value]) -> ApplyResult {
         TypeOp::Pack => type_pack(args),
         TypeOp::Unpack => type_unpack(args),
         TypeOp::Shape => type_shape(args),
+        TypeOp::Dtype => type_dtype(args),
     }
 }
 
@@ -48,6 +49,18 @@ fn type_shape(args: &[Value]) -> ApplyResult {
     match &args[0] {
         Value::Tensor(TypeExpr::Var(v)) => Ok(vec![Value::Shape(ShapeExpr::OfType(*v))]),
         Value::Tensor(TypeExpr::NdArrayType(s)) => Ok(vec![Value::Shape(s.shape.clone())]),
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn type_dtype(args: &[Value]) -> ApplyResult {
+    if args.len() != 1 {
+        return Err(ApplyError::ArityError);
+    }
+
+    match &args[0] {
+        Value::Tensor(TypeExpr::Var(v)) => Ok(vec![Value::Dtype(DtypeExpr::OfType(*v))]),
+        Value::Tensor(TypeExpr::NdArrayType(s)) => Ok(vec![Value::Dtype(s.dtype.clone())]),
         _ => Err(ApplyError::TypeError),
     }
 }
@@ -170,11 +183,42 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Split => tensor_split(args),
         TensorOp::Reshape => tensor_reshape(args),
         TensorOp::MatMul => tensor_matmul(args),
-        TensorOp::Map(_) => Ok(vec![args[0].clone()]), // TODO: need to know op type, assert all args have same type!
-        //TensorOp::Copy => // TODO: need to know op type!
+        TensorOp::Map(scalar_op) => tensor_map(&scalar_op, args),
+        TensorOp::Cast => tensor_cast(args),
         TensorOp::Broadcast => tensor_broadcast(args),
         op => todo!("operation {op:?}"),
     }
+}
+
+// TODO! FIXME!
+fn tensor_map(_scalar_op: &ScalarOp, args: &[Value]) -> ApplyResult {
+    Ok(vec![args[0].clone()]) // TODO: need to know op type, assert all args have same type!
+}
+
+fn tensor_cast(args: &[Value]) -> ApplyResult {
+    if args.len() != 2 {
+        return Err(ApplyError::ArityError);
+    };
+
+    let [Value::Tensor(tensor), Value::Dtype(dtype)] = args else {
+        return Err(ApplyError::TypeError);
+    };
+
+    let type_expr = match tensor {
+        // Shape of v, but dtype
+        TypeExpr::Var(v) => TypeExpr::NdArrayType(NdArrayType {
+            dtype: dtype.clone(),
+            shape: ShapeExpr::OfType(*v),
+        }),
+
+        // Replace dtype of existing NdArrayType
+        TypeExpr::NdArrayType(s) => TypeExpr::NdArrayType(NdArrayType {
+            dtype: dtype.clone(),
+            shape: s.shape.clone(),
+        }),
+    };
+
+    Ok(vec![Value::Tensor(type_expr)])
 }
 
 fn tensor_broadcast(args: &[Value]) -> ApplyResult {

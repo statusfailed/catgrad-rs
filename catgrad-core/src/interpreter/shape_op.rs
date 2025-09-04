@@ -16,6 +16,7 @@ pub(crate) fn apply_type_op<B: Backend>(
         core::TypeOp::Pack => apply_pack(args, ssa),
         core::TypeOp::Unpack => apply_unpack(args, ssa),
         core::TypeOp::Shape => apply_shape(args, ssa),
+        core::TypeOp::Dtype => apply_dtype(args, ssa),
     }
 }
 
@@ -81,6 +82,17 @@ pub(crate) fn apply_shape<B: Backend>(
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
         Value::NdArray(tensor) => Ok(vec![Value::Shape(tensor.shape())]),
+        _ => type_error(ssa),
+    }
+}
+
+pub(crate) fn apply_dtype<B: Backend>(
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    expect_arity(&args, 1, ssa)?;
+    match &args[0] {
+        Value::NdArray(tensor) => Ok(vec![Value::Dtype(tensor.dtype())]),
         _ => type_error(ssa),
     }
 }

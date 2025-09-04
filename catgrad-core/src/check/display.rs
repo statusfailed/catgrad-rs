@@ -107,6 +107,7 @@ impl Display for DtypeExpr {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             DtypeExpr::Var(n) => write!(f, "v{n}"),
+            DtypeExpr::OfType(n) => write!(f, "dtype(v{n})"),
             DtypeExpr::Constant(dtype) => write!(f, "{dtype}"),
         }
     }
