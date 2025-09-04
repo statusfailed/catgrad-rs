@@ -1,11 +1,6 @@
 use crate::category::lang::*;
 use crate::stdlib::types::*;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use open_hypergraphs::lax::*;
-
 ////////////////////////////////////////
 // Sigmoid
 
@@ -29,11 +24,7 @@ impl Def<1, 1> for Sigmoid {
     }
 
     // def
-    fn def(
-        &self,
-        graph: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        [x]: [Var; 1],
-    ) -> [Var; 1] {
+    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
         let c1 = constant_f32(graph, 1.0);
         let s = shape(graph, x.clone());
         let c1 = broadcast(graph, c1, s);
@@ -65,11 +56,7 @@ impl Def<1, 1> for Exp {
     }
 
     // def
-    fn def(
-        &self,
-        graph: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        [x]: [Var; 1],
-    ) -> [Var; 1] {
+    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
         let e = constant_f32(graph, std::f32::consts::E);
         let s = shape(graph, x.clone());
         let e = broadcast(graph, e, s);

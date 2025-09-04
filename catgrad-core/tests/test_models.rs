@@ -31,13 +31,7 @@ impl Def<2, 1> for LinearSigmoid {
         path(vec!["test", "linear_sigmoid"])
     }
 
-    fn def(
-        &self,
-        builder: &std::rc::Rc<
-            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
-        >,
-        [x, p]: [Var; 2],
-    ) -> [Var; 1] {
+    fn def(&self, builder: &Builder, [x, p]: [Var; 2]) -> [Var; 1] {
         let x = matmul(builder, x, p);
         let x = Sigmoid.call(builder, [x]);
 
@@ -75,13 +69,7 @@ impl Def<2, 1> for Add {
         path(vec!["test", "add"])
     }
 
-    fn def(
-        &self,
-        _builder: &std::rc::Rc<
-            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
-        >,
-        [x, y]: [Var; 2],
-    ) -> [Var; 1] {
+    fn def(&self, _builder: &Builder, [x, y]: [Var; 2]) -> [Var; 1] {
         [x + y]
     }
 }
@@ -111,13 +99,7 @@ impl Def<2, 1> for BatchMatMul {
         path(vec!["test", "batch_matmul"])
     }
 
-    fn def(
-        &self,
-        builder: &std::rc::Rc<
-            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
-        >,
-        [x, y]: [Var; 2],
-    ) -> [Var; 1] {
+    fn def(&self, builder: &Builder, [x, y]: [Var; 2]) -> [Var; 1] {
         [matmul(builder, x, y)]
     }
 }

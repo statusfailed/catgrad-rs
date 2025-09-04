@@ -2,10 +2,7 @@
 use crate::category::lang::*;
 use crate::util::build_typed;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use open_hypergraphs::lax::{var, *};
+use open_hypergraphs::lax::var;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Generic interface
@@ -28,11 +25,7 @@ pub trait Def<const A: usize, const B: usize> {
 
     /// The *definition* of this term, as a function which mutably inlines it into the provided
     /// Builder.
-    fn def(
-        &self,
-        builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        args: [Var; A],
-    ) -> [Var; B];
+    fn def(&self, builder: &Builder, args: [Var; A]) -> [Var; B];
 
     ////////////////////////////////////////
     // Derived functions
@@ -44,20 +37,12 @@ pub trait Def<const A: usize, const B: usize> {
     }
 
     /// alias for `def` which is clearer to use in context, e.g. Sigmoid::inline();
-    fn inline(
-        &self,
-        builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        args: [Var; A],
-    ) -> [Var; B] {
+    fn inline(&self, builder: &Builder, args: [Var; A]) -> [Var; B] {
         self.def(builder, args)
     }
 
     /// Create a single `Definition` operation in the graph with name `self.path()`.
-    fn op(
-        &self,
-        builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        args: [Var; A],
-    ) -> [Var; B] {
+    fn op(&self, builder: &Builder, args: [Var; A]) -> [Var; B] {
         let result_types = self.sort().1.to_vec();
         var::operation(
             builder,
@@ -108,11 +93,7 @@ fn to_sort(value: Type) -> Object {
 /// The `call` method is a helper for getting the single output of self.op.
 pub trait FnDef<const N: usize>: Def<N, 1> {
     /// Like [`Def::op`] for coarity 1.
-    fn call(
-        &self,
-        builder: &Rc<RefCell<OpenHypergraph<Object, Operation>>>,
-        args: [Var; N],
-    ) -> Var {
+    fn call(&self, builder: &Builder, args: [Var; N]) -> Var {
         let [r] = self.op(builder, args);
         r
     }
