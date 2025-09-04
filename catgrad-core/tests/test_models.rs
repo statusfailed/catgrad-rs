@@ -48,3 +48,76 @@ impl Def<2, 1> for LinearSigmoid {
         [reshape(builder, t, x)]
     }
 }
+
+// You wouldn't normally do this- just for testing!
+pub struct Add;
+impl Def<2, 1> for Add {
+    fn ty(&self) -> ([Type; 2], [Type; 1]) {
+        let t_x0 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
+        }));
+
+        let t_x1 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
+        }));
+
+        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1)]),
+        }));
+
+        ([t_x0, t_x1], [t_y])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["test", "add"])
+    }
+
+    fn inline(
+        &self,
+        _builder: &std::rc::Rc<
+            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
+        >,
+        [x, y]: [Var; 2],
+    ) -> [Var; 1] {
+        [x + y]
+    }
+}
+
+pub struct BatchMatMul;
+impl Def<2, 1> for BatchMatMul {
+    fn ty(&self) -> ([Type; 2], [Type; 1]) {
+        let t_x0 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1), NatExpr::Var(2)]),
+        }));
+
+        let t_x1 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(2), NatExpr::Var(3)]),
+        }));
+
+        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Var(0), NatExpr::Var(1), NatExpr::Var(3)]),
+        }));
+
+        ([t_x0, t_x1], [t_y])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["test", "batch_matmul"])
+    }
+
+    fn inline(
+        &self,
+        builder: &std::rc::Rc<
+            std::cell::RefCell<open_hypergraphs::lax::OpenHypergraph<Object, Operation>>,
+        >,
+        [x, y]: [Var; 2],
+    ) -> [Var; 1] {
+        [matmul(builder, x, y)]
+    }
+}
