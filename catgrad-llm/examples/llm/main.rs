@@ -257,6 +257,7 @@ pub fn main() -> Result<()> {
     let args = Args::parse();
     let models = HashMap::from([
         ("gpt", "openai-community/gpt2"),
+        ("gptoss", "unsloth/gpt-oss-20b-BF16"),
         ("smollm2", "HuggingFaceTB/SmolLM2-135M-Instruct"),
         ("smollm3", "HuggingFaceTB/SmolLM3-3B"),
         ("llama", "meta-llama/Llama-3.2-1B-Instruct"),
