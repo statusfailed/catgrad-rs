@@ -12,6 +12,7 @@ use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 pub mod test_models;
 pub mod test_utils;
 use test_models::{Add, BatchMatMul};
+use catgrad_core::stdlib::nn::Exp;
 
 fn run_test_with_inputs<F>(
     TypedTerm {
@@ -123,5 +124,38 @@ fn test_run_batch_matmul() {
     assert_eq!(
         result[0], expected,
         "Batch matmul result should match expected output"
+    );
+}
+
+#[test]
+fn test_run_exp() {
+    let data: Vec<f32> = vec![0.0, 1.0, 2.0, -1.0]; // Shape (2, 2)
+    let result = run_test_with_inputs(Exp.term().unwrap(), |backend| {
+        let input = catgrad_core::interpreter::Value::NdArray(
+            catgrad_core::interpreter::TaggedNdArray::from_slice(
+                backend,
+                &data,
+                core::Shape(vec![2, 2]),
+            ),
+        );
+        vec![input]
+    });
+
+    println!("Exp result: {result:?}");
+
+    // Create expected result (e^x for each element)
+    let expected_data: Vec<f32> = data.iter().map(|&x| x.exp()).collect();
+    let backend = NdArrayBackend;
+    let expected = catgrad_core::interpreter::Value::NdArray(
+        catgrad_core::interpreter::TaggedNdArray::from_slice(
+            &backend,
+            &expected_data,
+            core::Shape(vec![2, 2]),
+        ),
+    );
+
+    assert_eq!(
+        result[0], expected,
+        "Exp result should be e^x for each input element"
     );
 }
