@@ -1,6 +1,6 @@
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
-use catgrad_core::stdlib::{nn::*, *};
+use catgrad_core::stdlib::*;
 use catgrad_core::svg::to_svg;
 
 pub mod test_utils;
@@ -12,7 +12,7 @@ use test_models::LinearSigmoid;
 
 #[test]
 fn test_construct_linear_sigmoid() {
-    let sigmoid = Sigmoid.term();
+    let sigmoid = nn::Sigmoid.term();
     println!("{sigmoid:?}");
 
     let term = LinearSigmoid.term();
@@ -21,7 +21,7 @@ fn test_construct_linear_sigmoid() {
 
 #[test]
 fn test_graph_sigmoid() {
-    let term = Sigmoid.term().term;
+    let term = nn::Sigmoid.term().term;
     use open_hypergraphs::lax::functor::*;
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
@@ -50,12 +50,12 @@ fn test_check_linear_sigmoid() {
 
 #[test]
 fn test_check_sigmoid() {
-    run_check_test(Sigmoid.term(), "test_check_sigmoid.svg").expect("valid");
+    run_check_test(nn::Sigmoid.term(), "test_check_sigmoid.svg").expect("valid");
 }
 
 #[test]
 fn test_check_exp() {
-    run_check_test(Exp.term(), "test_check_exp.svg").expect("valid");
+    run_check_test(nn::Exp.term(), "test_check_exp.svg").expect("valid");
 }
 
 #[allow(clippy::result_large_err)]

@@ -12,12 +12,14 @@ macro_rules! path{
 }
 
 /// The set of operations in the category
+#[derive(Debug, Clone)]
 pub struct Environment {
     pub operations: HashMap<lang::Path, lang::TypedTerm>,
 }
 
 /// Declared operations that map directly to a core op
 /// NOTE: this interface is likely to change in future
+#[derive(Debug, Clone)]
 pub struct Declarations {
     pub operations: HashMap<lang::Path, core::Operation>,
 }
