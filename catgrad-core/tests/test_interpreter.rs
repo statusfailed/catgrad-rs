@@ -40,7 +40,7 @@ where
 #[test]
 fn test_run_add() {
     let data: Vec<u32> = vec![1, 2, 3, 4, 5, 6]; // Shape (2, 1, 3)
-    let result = run_test_with_inputs(Add.term(), |backend| {
+    let result = run_test_with_inputs(Add.term().unwrap(), |backend| {
         let input = catgrad_core::interpreter::Value::NdArray(
             catgrad_core::interpreter::TaggedNdArray::from_slice(
                 backend,
@@ -84,7 +84,7 @@ fn test_run_batch_matmul() {
         3.0, 4.0, // batch 1
     ];
 
-    let result = run_test_with_inputs(BatchMatMul.term(), |backend| {
+    let result = run_test_with_inputs(BatchMatMul.term().unwrap(), |backend| {
         let x0 = catgrad_core::interpreter::Value::NdArray(
             catgrad_core::interpreter::TaggedNdArray::from_slice(
                 backend,

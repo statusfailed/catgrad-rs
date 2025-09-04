@@ -55,7 +55,9 @@ pub trait Def<const A: usize, const B: usize> {
     }
 
     /// Construct a standalone OpenHypergraph for this definition
-    fn term(&self) -> TypedTerm {
+    /// Returns None when `self.inline` returned vars with sorts different to those declared in
+    /// `self.ty`.
+    fn term(&self) -> Option<TypedTerm> {
         let (source_type, target_type) = self.ty();
         let source_object = source_type.clone().map(to_sort);
 
@@ -65,10 +67,15 @@ pub trait Def<const A: usize, const B: usize> {
         })
         .unwrap();
 
-        TypedTerm {
-            term,
-            source_type: source_type.to_vec(),
-            target_type: target_type.to_vec(),
+        use open_hypergraphs::category::*; // TODO: remove this trait import when it's auto-exported by OpenHypergraph
+        if term.target() != target_type.clone().map(to_sort) {
+            None
+        } else {
+            Some(TypedTerm {
+                term,
+                source_type: source_type.to_vec(),
+                target_type: target_type.to_vec(),
+            })
         }
     }
 }

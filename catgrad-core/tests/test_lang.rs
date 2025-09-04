@@ -12,16 +12,16 @@ use test_models::LinearSigmoid;
 
 #[test]
 fn test_construct_linear_sigmoid() {
-    let sigmoid = nn::Sigmoid.term();
+    let sigmoid = nn::Sigmoid.term().unwrap();
     println!("{sigmoid:?}");
 
-    let term = LinearSigmoid.term();
+    let term = LinearSigmoid.term().unwrap();
     println!("{term:?}");
 }
 
 #[test]
 fn test_graph_sigmoid() {
-    let term = nn::Sigmoid.term().term;
+    let term = nn::Sigmoid.term().unwrap().term;
     use open_hypergraphs::lax::functor::*;
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
@@ -31,7 +31,7 @@ fn test_graph_sigmoid() {
 
 #[test]
 fn test_graph_linear_sigmoid() {
-    let term = LinearSigmoid.term().term;
+    let term = LinearSigmoid.term().unwrap().term;
 
     use open_hypergraphs::lax::functor::*;
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
@@ -60,12 +60,13 @@ fn test_check_exp() {
 
 #[allow(clippy::result_large_err)]
 pub fn run_check_test(
-    TypedTerm {
-        term, source_type, ..
-    }: catgrad_core::category::lang::TypedTerm,
+    term: Option<catgrad_core::category::lang::TypedTerm>,
     svg_filename: &str,
 ) -> Result<(), ShapeCheckError> {
     use open_hypergraphs::lax::functor::*;
+    let TypedTerm {
+        term, source_type, ..
+    } = term.unwrap();
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
     let (ops, env) = get_forget_core_declarations();

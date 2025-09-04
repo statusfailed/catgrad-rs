@@ -49,7 +49,7 @@ pub fn core_declarations() -> Declarations {
 }
 
 fn to_pair<const A: usize, const B: usize, T: Def<A, B>>(def: T) -> (lang::Path, lang::TypedTerm) {
-    (def.path(), def.term())
+    (def.path(), def.term().unwrap())
 }
 
 /// Standard library of definitions
