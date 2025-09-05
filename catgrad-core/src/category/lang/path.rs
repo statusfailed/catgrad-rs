@@ -1,4 +1,5 @@
 use std::fmt;
+use std::slice;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Path(Vec<PathComponent>);
@@ -9,6 +10,22 @@ pub struct PathComponent(String); // only [a-zA-Z_]
 
 pub fn path(components: Vec<&str>) -> Path {
     components.try_into().expect("invalid path")
+}
+
+impl Path {
+    pub fn iter(&self) -> slice::Iter<'_, PathComponent> {
+        self.0.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    pub fn concat(&self, other: &Path) -> Path {
+        let mut components = self.0.clone();
+        components.extend(other.0.clone());
+        Path(components)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -59,6 +59,8 @@ impl std::fmt::Display for Object {
 ////////////////////////////////////////////////////////////////////////////////
 // Operations
 
+use crate::category::lang;
+
 /// Operations are those of core, extended with operations on shapes
 #[derive(Debug, PartialEq, Clone)]
 pub enum Operation {
@@ -67,6 +69,10 @@ pub enum Operation {
     DtypeConstant(Dtype),
     Tensor(TensorOp),
     Copy,
+
+    /// Load a tensor from the environment.
+    // TODO: remove!
+    Load(lang::Path),
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
@@ -143,12 +149,8 @@ pub enum TensorOp {
     Reshape,
 
     // TODO:
-    // Parameters
-    //Parameter(String)
-    //Index
-    //Slice
-    //Concat
-    //Arange
+    //Slice,
+    //Arange,
     /// S ● ... ● S → N×S
     Stack,
 

@@ -1,7 +1,17 @@
-use crate::category::core::Dtype;
 use crate::category::lang::*;
+use crate::category::{core, core::Dtype};
 use crate::ssa::*;
 use open_hypergraphs::lax::{EdgeId, NodeId};
+
+use std::collections::HashMap;
+
+// Environment used by the interpreter
+#[derive(Debug, Clone)]
+pub struct Environment {
+    pub definitions: HashMap<Path, TypedTerm>,
+    pub declarations: HashMap<Path, core::Operation>,
+    pub parameters: HashMap<Path, core::NdArrayType>,
+}
 
 #[derive(Debug)]
 pub enum ShapeCheckError {
@@ -100,3 +110,48 @@ impl From<SSAError> for ShapeCheckError {
         ShapeCheckError::SSAError(error)
     }
 }
+
+impl From<core::NdArrayType> for NdArrayType {
+    fn from(core_type: core::NdArrayType) -> Self {
+        NdArrayType {
+            dtype: DtypeExpr::Constant(core_type.dtype),
+            shape: ShapeExpr::Shape(
+                core_type
+                    .shape
+                    .0
+                    .into_iter()
+                    .map(|dim| NatExpr::Constant(dim))
+                    .collect(),
+            ),
+        }
+    }
+}
+
+/*
+pub fn param_declaration(
+    name: &Path,
+    dtype: Dtype,
+    shape: Vec<usize>,
+) -> (Path, (core::Operation, Type)) {
+    let ty = tensor_type(dtype, shape);
+    let path = path(vec!["param"]).concat(name);
+    (path, core::Operation::Parameter(name.clone()), ty)
+}
+
+/// Helper to create a Value::Tensor with constant dtype and shape
+fn tensor_type(dtype: Dtype, shape: Vec<usize>) -> Value {
+    let shape_expr = ShapeExpr::Shape(
+        shape
+            .into_iter()
+            .map(|dim| NatExpr::Constant(dim))
+            .collect(),
+    );
+
+    let ndarray_type = NdArrayType {
+        dtype: DtypeExpr::Constant(dtype),
+        shape: shape_expr,
+    };
+
+    Value::Tensor(TypeExpr::NdArrayType(ndarray_type))
+}
+*/

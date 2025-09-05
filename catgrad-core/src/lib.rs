@@ -10,3 +10,6 @@ pub mod ssa;
 // Utilities
 pub mod svg;
 pub mod util;
+
+// entry point
+pub mod prelude;

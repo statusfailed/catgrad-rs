@@ -13,7 +13,7 @@ macro_rules! path{
 
 /// The set of operations in the category
 #[derive(Debug, Clone)]
-pub struct Environment {
+pub struct Definitions {
     pub operations: HashMap<lang::Path, lang::TypedTerm>,
 }
 
@@ -56,7 +56,7 @@ fn to_pair<const A: usize, const B: usize, T: Def<A, B>>(def: T) -> (lang::Path,
 }
 
 /// Standard library of definitions
-pub fn stdlib() -> Environment {
+pub fn stdlib() -> Definitions {
     use super::nn::*;
 
     // NOTE: can't just map this since each invocation of to_pair is differently typed
@@ -66,5 +66,5 @@ pub fn stdlib() -> Environment {
         //
     ]);
 
-    Environment { operations }
+    Definitions { operations }
 }

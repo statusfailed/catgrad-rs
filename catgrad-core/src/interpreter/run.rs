@@ -4,21 +4,27 @@ use super::backend::*;
 use super::types::*;
 use crate::category::{core, lang::*};
 use crate::ssa::{SSA, SSAError, parallel_ssa};
-use crate::stdlib::{Declarations, Environment};
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
+// Environment used by the interpreter
+#[derive(Debug, Clone)]
+pub struct Environment<B: Backend> {
+    pub definitions: HashMap<Path, TypedTerm>,
+    pub declarations: HashMap<Path, core::Operation>,
+    pub parameters: HashMap<Path, TaggedNdArray<B>>,
+}
+
 pub struct Interpreter<B: Backend> {
     pub backend: B,
-    pub ops: Declarations,
-    pub env: Environment,
+    pub env: Environment<B>,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, ops: Declarations, env: Environment) -> Self {
-        Self { backend, ops, env }
+    pub fn new(backend: B, env: Environment<B>) -> Self {
+        Self { backend, env }
     }
 
     /// Run the interpreter with specified input values
@@ -80,7 +86,7 @@ impl<B: Backend> Interpreter<B> {
         path: &Path,
         ssa: &SSA<Object, Operation>,
     ) -> Result<&core::Operation, InterpreterError> {
-        Ok(self.ops.operations.get(path).ok_or(ApplyError {
+        Ok(self.env.declarations.get(path).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingOperation(path.clone()),
             ssa: ssa.clone(),
         })?)
@@ -111,6 +117,7 @@ impl<B: Backend> Interpreter<B> {
         use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
         use super::tensor_op::apply_tensor_op;
         Ok(match op {
+            core::Operation::Load(path) => self.load(path)?,
             core::Operation::Type(type_op) => apply_type_op(type_op, args, ssa)?,
             core::Operation::Nat(nat_op) => apply_nat_op(nat_op, args, ssa)?,
             core::Operation::DtypeConstant(dtype) => apply_dtype_constant(dtype, args, ssa)?,
@@ -128,12 +135,22 @@ impl<B: Backend> Interpreter<B> {
         def: &Path,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
         // PERFORMANCE: does explicit recursion cost us much here?
-        let definition = self.env.operations.get(def).ok_or(ApplyError {
+        let definition = self.env.definitions.get(def).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingDefinition(def.clone()),
             ssa: ssa.clone(),
         })?;
 
         self.run(definition.term.clone(), args)
+    }
+
+    fn load(&self, path: &Path) -> Result<Vec<Value<B>>, InterpreterError> {
+        let value = self
+            .env
+            .parameters
+            .get(path)
+            .ok_or(InterpreterError::LoadError(path.clone()))?;
+        // TODO: fix unnecessary clone (or ensure backend deals with this!)
+        Ok(vec![Value::NdArray(value.clone())])
     }
 }
 
@@ -150,6 +167,9 @@ pub enum InterpreterError {
 
     /// SSA Conversion error
     SSAError(SSAError),
+
+    /// No such parameter
+    LoadError(Path),
 }
 
 impl From<SSAError> for InterpreterError {
