@@ -172,7 +172,21 @@ pub enum ScalarOp {
     Div, // 2 → 1
     Neg, // 1 → 1
     Pow, // 2 → 1
-    LT,
-    EQ,
-    Not,
+    LT,  // 2 → 1
+    EQ,  // 2 → 1
+}
+
+impl ScalarOp {
+    /// The *profile* of an operation is the pair of its arity and coarity.
+    pub fn profile(&self) -> (usize, usize) {
+        match self {
+            ScalarOp::Add => (2, 1),
+            ScalarOp::Mul => (2, 1),
+            ScalarOp::Div => (2, 1),
+            ScalarOp::Neg => (1, 1),
+            ScalarOp::Pow => (2, 1),
+            ScalarOp::LT => (2, 1),
+            ScalarOp::EQ => (2, 1),
+        }
+    }
 }

@@ -190,9 +190,37 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
     }
 }
 
-// TODO! FIXME!
-fn tensor_map(_scalar_op: &ScalarOp, args: &[Value]) -> ApplyResult {
-    Ok(vec![args[0].clone()]) // TODO: need to know op type, assert all args have same type!
+fn tensor_map(scalar_op: &ScalarOp, args: &[Value]) -> ApplyResult {
+    let (arity, coarity) = scalar_op.profile();
+
+    // Check argument count matches arity
+    if args.len() != arity {
+        return Err(ApplyError::ArityError);
+    }
+
+    // Check all arguments are tensors with the same type
+    let mut tensor_type: Option<&TypeExpr> = None;
+    for arg in args {
+        match arg {
+            Value::Tensor(type_expr) => {
+                if let Some(existing_type) = tensor_type {
+                    if existing_type != type_expr {
+                        return Err(ApplyError::TypeError);
+                    }
+                } else {
+                    tensor_type = Some(type_expr);
+                }
+            }
+            _ => return Err(ApplyError::TypeError),
+        }
+    }
+
+    let tensor_type = tensor_type.unwrap(); // Safe because we checked arity > 0
+
+    // Return coarity copies of the same tensor type
+    Ok((0..coarity)
+        .map(|_| Value::Tensor(tensor_type.clone()))
+        .collect())
 }
 
 fn tensor_cast(args: &[Value]) -> ApplyResult {
