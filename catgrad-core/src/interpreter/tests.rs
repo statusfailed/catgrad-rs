@@ -55,9 +55,10 @@ fn test_tagged_ndarray_constructors() {
     assert_eq!(scalar_u32.shape().0, vec![] as Vec<usize>);
 
     // Test from_slice constructor
-    let matrix = TaggedNdArray::from_slice(&backend, &[1.0f32, 2.0, 3.0, 4.0], Shape(vec![2, 2]));
+    let matrix =
+        TaggedNdArray::from_slice(&backend, &[1.0f32, 2.0, 3.0, 4.0], Shape(vec![2, 2])).unwrap();
     assert_eq!(matrix.shape().0, vec![2, 2]);
 
-    let vector = TaggedNdArray::from_slice(&backend, &[10u32, 20, 30], Shape(vec![3]));
+    let vector = TaggedNdArray::from_slice(&backend, &[10u32, 20, 30], Shape(vec![3])).unwrap();
     assert_eq!(vector.shape().0, vec![3]);
 }

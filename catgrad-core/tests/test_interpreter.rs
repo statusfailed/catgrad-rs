@@ -1,13 +1,13 @@
 #![cfg(feature = "ndarray-backend")]
 
-use catgrad_core::category::core;
+use catgrad_core::category::core::Shape;
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 
 use catgrad_core::stdlib::*;
 
-use catgrad_core::interpreter::Interpreter;
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
+use catgrad_core::interpreter::{Interpreter, tensor};
 
 pub mod test_models;
 pub mod test_utils;
@@ -42,13 +42,7 @@ where
 fn test_run_add() {
     let data: Vec<u32> = vec![1, 2, 3, 4, 5, 6]; // Shape (2, 1, 3)
     let result = run_test_with_inputs(Add.term().unwrap(), |backend| {
-        let input = catgrad_core::interpreter::Value::NdArray(
-            catgrad_core::interpreter::TaggedNdArray::from_slice(
-                backend,
-                &data,
-                core::Shape(vec![2, 1, 3]),
-            ),
-        );
+        let input = tensor(backend, Shape(vec![2, 1, 3]), &data).unwrap();
         vec![input.clone(), input]
     });
 
@@ -57,13 +51,7 @@ fn test_run_add() {
     // Create expected result (double the input data)
     let expected_data: Vec<u32> = data.iter().map(|&x| x * 2).collect();
     let backend = NdArrayBackend;
-    let expected = catgrad_core::interpreter::Value::NdArray(
-        catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
-            &expected_data,
-            core::Shape(vec![2, 1, 3]),
-        ),
-    );
+    let expected = tensor(&backend, Shape(vec![2, 1, 3]), &expected_data).unwrap();
 
     assert_eq!(
         result[0], expected,
@@ -86,40 +74,18 @@ fn test_run_batch_matmul() {
     ];
 
     let result = run_test_with_inputs(BatchMatMul.term().unwrap(), |backend| {
-        let x0 = catgrad_core::interpreter::Value::NdArray(
-            catgrad_core::interpreter::TaggedNdArray::from_slice(
-                backend,
-                &x0_data,
-                core::Shape(vec![2, 2, 2]),
-            ),
-        );
-
-        let x1 = catgrad_core::interpreter::Value::NdArray(
-            catgrad_core::interpreter::TaggedNdArray::from_slice(
-                backend,
-                &x1_data,
-                core::Shape(vec![2, 2, 1]),
-            ),
-        );
-
+        let x0 = tensor(backend, Shape(vec![2, 2, 2]), &x0_data).unwrap();
+        let x1 = tensor(backend, Shape(vec![2, 2, 1]), &x1_data).unwrap();
         vec![x0, x1]
     });
 
-    println!("Batch matmul result: {result:?}");
-
+    let backend = NdArrayBackend;
     // Create expected result
     let expected_data: Vec<f32> = vec![
         5.0, 11.0, // batch 0: [1*1+2*2, 3*1+4*2]
         39.0, 53.0, // batch 1: [5*3+6*4, 7*3+8*4]
     ];
-    let backend = NdArrayBackend;
-    let expected = catgrad_core::interpreter::Value::NdArray(
-        catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
-            &expected_data,
-            core::Shape(vec![2, 2, 1]),
-        ),
-    );
+    let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
 
     assert_eq!(
         result[0], expected,
@@ -141,14 +107,7 @@ fn allclose_f32(a: &[f32], b: &[f32], rtol: f32, atol: f32) -> bool {
 fn test_run_exp() {
     let data: Vec<f32> = vec![0.0, 1.0, 2.0, -1.0]; // Shape (2, 2)
     let result = run_test_with_inputs(Exp.term().unwrap(), |backend| {
-        let input = catgrad_core::interpreter::Value::NdArray(
-            catgrad_core::interpreter::TaggedNdArray::from_slice(
-                backend,
-                &data,
-                core::Shape(vec![2, 2]),
-            ),
-        );
-        vec![input]
+        vec![tensor(backend, Shape(vec![2, 2]), &data).unwrap()]
     });
 
     // make sure actual result is a single F32 array

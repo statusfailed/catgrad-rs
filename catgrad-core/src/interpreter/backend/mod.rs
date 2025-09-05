@@ -19,7 +19,12 @@ pub trait Backend: Send + Sync + Clone + Debug {
     // Generic helper functions to create ndarrays.
     fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D>;
     fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D>;
-    fn ndarray_from_slice<D: HasDtype>(&self, data: &[D], shape: Shape) -> Self::NdArray<D>;
+
+    fn ndarray_from_slice<D: HasDtype>(
+        &self,
+        data: &[D],
+        shape: Shape,
+    ) -> Result<Self::NdArray<D>, BackendError>;
 
     fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self>;
     fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
@@ -31,4 +36,10 @@ pub trait Backend: Send + Sync + Clone + Debug {
 pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug + PartialEq {
     type Backend: Backend;
     fn shape(&self) -> Shape;
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum BackendError {
+    /// The size of a shape did not match the number of elements in a Tensor
+    ShapeError,
 }

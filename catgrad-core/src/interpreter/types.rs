@@ -1,12 +1,10 @@
 //! Catgrad reference interpreter
 
-use crate::category::core::{NdArrayType, Shape};
+use crate::category::lang::*;
 use crate::ssa::SSA;
 
-use crate::category::lang::*;
-
-//use super::ndarray::TaggedNdArray;
 use super::backend::*;
+use crate::category::core::{NdArrayType, Shape};
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct ApplyError {
@@ -102,8 +100,12 @@ impl<B: Backend> TaggedNdArray<B> {
         T::into_tagged([arr])
     }
 
-    pub fn from_slice<T: IntoTagged<B, 1>>(backend: &B, data: &[T], shape: Shape) -> Self {
-        let arr: B::NdArray<T> = backend.ndarray_from_slice(data, shape);
-        T::into_tagged([arr])
+    pub fn from_slice<T: IntoTagged<B, 1>>(
+        backend: &B,
+        data: &[T],
+        shape: Shape,
+    ) -> Result<Self, BackendError> {
+        let arr = backend.ndarray_from_slice(data, shape)?;
+        Ok(T::into_tagged([arr]))
     }
 }

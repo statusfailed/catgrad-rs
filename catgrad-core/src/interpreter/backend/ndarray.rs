@@ -1,6 +1,6 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
-use crate::interpreter::backend::{Backend, NdArray};
+use crate::interpreter::backend::{Backend, BackendError, NdArray};
 use ndarray::{ArrayD, IxDyn};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,9 +18,13 @@ impl Backend for NdArrayBackend {
         ArrayD::from_elem(IxDyn(&dims), D::default())
     }
 
-    fn ndarray_from_slice<D: HasDtype>(&self, data: &[D], shape: Shape) -> Self::NdArray<D> {
+    fn ndarray_from_slice<D: HasDtype>(
+        &self,
+        data: &[D],
+        shape: Shape,
+    ) -> Result<Self::NdArray<D>, BackendError> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
+        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).map_err(|_| BackendError::ShapeError)
     }
 
     fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self> {
@@ -94,11 +98,15 @@ impl NdArrayBackend {
     }
 
     fn pow_f32(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {
-        ndarray::Zip::from(&x).and(&y).map_collect(|&a, &b| a.powf(b))
+        ndarray::Zip::from(&x)
+            .and(&y)
+            .map_collect(|&a, &b| a.powf(b))
     }
 
     fn pow_u32(x: ArrayD<u32>, y: ArrayD<u32>) -> ArrayD<u32> {
-        ndarray::Zip::from(&x).and(&y).map_collect(|&a, &b| a.pow(b))
+        ndarray::Zip::from(&x)
+            .and(&y)
+            .map_collect(|&a, &b| a.pow(b))
     }
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
