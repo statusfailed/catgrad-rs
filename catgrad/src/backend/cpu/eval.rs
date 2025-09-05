@@ -1,6 +1,6 @@
 use super::ndarray::*;
 use crate::backend::cpu::kernel;
-use crate::core::{Operation, Shape, StrictTerm, Term, Var};
+use crate::core::{Dtype, Operation, Shape, StrictTerm, Term, Var};
 use Operation::*;
 use TaggedNdArray::*;
 use half::f16;
@@ -541,7 +541,15 @@ impl EvalState {
         self.eval()
     }
 
-    fn needs_alloc(&self, op: &Operation) -> bool {
+    fn needs_alloc(&self, op: &Operation, sources: &[usize]) -> bool {
+        // No need to allocate memory for special case 1-length Index op
+        if matches!(op, Operation::Index { .. }) {
+            let inputs = &self.data[sources[0]];
+            let indices = &self.data[sources[1]];
+            if indices.shape() == Shape(vec![1]) && inputs.dtype() != Dtype::I32 {
+                return false;
+            }
+        }
         // Operations that reuse existing data do not need to allocate new memory.
         !matches!(
             op,
@@ -580,7 +588,7 @@ impl EvalState {
                 let op = self.term.h.x.0[*i].clone();
                 log::debug!("{l} OP: {:?}", &op);
                 for t in &targets[*i] {
-                    if self.needs_alloc(&op) {
+                    if self.needs_alloc(&op, &sources[*i]) {
                         self.data[*t].allocate();
                     }
                 }
