@@ -1,24 +1,23 @@
 //! Catgrad reference interpreter
 
-use crate::ssa::{SSA, parallel_ssa};
+use super::backend::*;
+use super::types::*;
+use crate::category::{core, lang::*};
+use crate::ssa::{SSA, SSAError, parallel_ssa};
+use crate::stdlib::{Declarations, Environment};
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
-use crate::category::{bidirectional::*, core};
-
-use super::backend::*;
-use super::types::*;
-
 pub struct Interpreter<B: Backend> {
     pub backend: B,
-    pub ops: HashMap<Path, core::Operation>,
+    pub ops: Declarations,
     pub env: Environment,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, ops: HashMap<Path, core::Operation>, env: Environment) -> Self {
+    pub fn new(backend: B, ops: Declarations, env: Environment) -> Self {
         Self { backend, ops, env }
     }
 
@@ -40,7 +39,7 @@ impl<B: Backend> Interpreter<B> {
         let target_nodes = term.targets.clone();
 
         // Iterate through partially-ordered SSA ops
-        for par in parallel_ssa(term.to_strict()) {
+        for par in parallel_ssa(term.to_strict())? {
             // PERFORMANCE: we can do these ops in parallel. Does it get speedups?
             for op in par {
                 // get args: Vec<Value> by popping each id in op.sources from state - take
@@ -81,7 +80,7 @@ impl<B: Backend> Interpreter<B> {
         path: &Path,
         ssa: &SSA<Object, Operation>,
     ) -> Result<&core::Operation, InterpreterError> {
-        Ok(self.ops.get(path).ok_or(ApplyError {
+        Ok(self.ops.operations.get(path).ok_or(ApplyError {
             kind: ApplyErrorKind::MissingOperation(path.clone()),
             ssa: ssa.clone(),
         })?)
@@ -148,6 +147,15 @@ pub enum InterpreterError {
 
     /// An error during application of an operation
     ApplyError(Box<ApplyError>),
+
+    /// SSA Conversion error
+    SSAError(SSAError),
+}
+
+impl From<SSAError> for InterpreterError {
+    fn from(err: SSAError) -> Self {
+        InterpreterError::SSAError(err)
+    }
 }
 
 impl From<ApplyError> for InterpreterError {

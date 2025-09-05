@@ -1,6 +1,6 @@
 use super::super::types::*;
-use crate::category::core::Shape;
-use crate::interpreter::backend::{Backend, NdArray};
+use crate::category::core::{Dtype, Shape};
+use crate::interpreter::backend::{Backend, BackendError, NdArray};
 use ndarray::{ArrayD, IxDyn};
 
 #[derive(Clone, Debug, PartialEq)]
@@ -18,29 +18,76 @@ impl Backend for NdArrayBackend {
         ArrayD::from_elem(IxDyn(&dims), D::default())
     }
 
-    fn ndarray_from_slice<D: HasDtype>(&self, data: &[D], shape: Shape) -> Self::NdArray<D> {
+    fn ndarray_from_slice<D: HasDtype>(
+        &self,
+        data: &[D],
+        shape: Shape,
+    ) -> Result<Self::NdArray<D>, BackendError> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).unwrap()
+        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).map_err(|_| BackendError::ShapeError)
     }
 
-    fn matmul_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        Self::batched_matmul(lhs, rhs)
+    fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self> {
+        match (&x, target_dtype) {
+            (TaggedNdArray::F32(arr), Dtype::U32) => {
+                let data: Vec<u32> = arr[0].iter().map(|&val| val as u32).collect();
+                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
+                TaggedNdArray::U32([result])
+            }
+            (TaggedNdArray::U32(arr), Dtype::F32) => {
+                let data: Vec<f32> = arr[0].iter().map(|&val| val as f32).collect();
+                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
+                TaggedNdArray::F32([result])
+            }
+            (TaggedNdArray::F32(_), Dtype::F32) => x,
+            (TaggedNdArray::U32(_), Dtype::U32) => x,
+        }
     }
 
-    fn matmul_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
-        Self::batched_matmul(lhs, rhs)
+    fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::batched_matmul(x, y)]),
+            U32([x, y]) => U32([Self::batched_matmul(x, y)]),
+        }
     }
 
-    fn add_f32(&self, lhs: Self::NdArray<f32>, rhs: Self::NdArray<f32>) -> Self::NdArray<f32> {
-        Self::add(lhs, rhs)
+    fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::add(x, y)]),
+            U32([x, y]) => U32([Self::add(x, y)]),
+        }
     }
 
-    fn add_u32(&self, lhs: Self::NdArray<u32>, rhs: Self::NdArray<u32>) -> Self::NdArray<u32> {
-        Self::add(lhs, rhs)
+    fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::pow_f32(x, y)]),
+            U32([x, y]) => U32([Self::pow_u32(x, y)]),
+        }
+    }
+
+    fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::broadcast_ndarray(arr, shape_prefix)]),
+            U32([arr]) => U32([Self::broadcast_ndarray(arr, shape_prefix)]),
+        }
     }
 }
 
 impl NdArrayBackend {
+    fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape_prefix: Shape) -> ArrayD<D> {
+        let current_shape = arr.shape().to_vec();
+        let mut new_shape = shape_prefix.0;
+        new_shape.extend_from_slice(&current_shape);
+
+        // Use ndarray's broadcast to expand dimensions
+        let broadcasted = arr.broadcast(ndarray::IxDyn(&new_shape)).unwrap();
+        broadcasted.to_owned()
+    }
+
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
         D: HasDtype + ndarray::LinalgScalar,
@@ -48,6 +95,18 @@ impl NdArrayBackend {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
         x + y
+    }
+
+    fn pow_f32(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {
+        ndarray::Zip::from(&x)
+            .and(&y)
+            .map_collect(|&a, &b| a.powf(b))
+    }
+
+    fn pow_u32(x: ArrayD<u32>, y: ArrayD<u32>) -> ArrayD<u32> {
+        ndarray::Zip::from(&x)
+            .and(&y)
+            .map_collect(|&a, &b| a.pow(b))
     }
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>

@@ -1,12 +1,9 @@
-//! This is the primary interface for users to construct programs.
+//! Abstract syntax for catgrad's surface language.
+
 use open_hypergraphs::lax::*;
-use std::collections::HashMap;
 use std::fmt;
 
-pub use crate::category::{
-    core,
-    core::{Dtype, Object},
-};
+pub use crate::category::core::{Dtype, Object};
 
 use super::path::*;
 
@@ -14,7 +11,7 @@ use super::path::*;
 pub enum Literal {
     F32(f32),
     U32(u32),
-    Dtype(core::Dtype),
+    Dtype(Dtype),
 }
 
 // Operations are the core shape operations (and operation schemas like 'Constant') extended
@@ -31,20 +28,20 @@ pub enum Operation {
     Literal(Literal),
 }
 
-// The actual data of a definition: a term, its type, and ...?
-pub struct OperationDefinition {
-    pub term: Term,
-    pub source_type: Term,
-    pub target_type: Term,
-}
-
-// The set of operations in the category
-pub struct Environment {
-    pub operations: HashMap<Path, OperationDefinition>,
-}
-
 pub type Term = OpenHypergraph<Object, Operation>;
 pub type Var = open_hypergraphs::lax::var::Var<Object, Operation>;
+
+// TODO! This is essentially just a placeholder that will work; we need to change this to proper
+// terms later.
+pub type Type = crate::check::types::Value;
+
+/// A TypedTerm is one with source and target type specified as 'type maps' (TODO!)
+#[derive(Debug, Clone)]
+pub struct TypedTerm {
+    pub term: Term,
+    pub source_type: Vec<Type>,
+    pub target_type: Vec<Type>,
+}
 
 use std::cell::RefCell;
 use std::rc::Rc;

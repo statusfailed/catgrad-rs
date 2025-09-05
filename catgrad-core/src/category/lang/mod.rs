@@ -1,3 +1,4 @@
+//! Abstract representation of catgrad's surface syntax
 mod ops;
 mod path;
 mod types;

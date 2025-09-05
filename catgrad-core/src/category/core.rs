@@ -1,8 +1,8 @@
 //! Core operations on shapes, natural numbers, and tensors.
+//! A simple, portable IR.
 
 ////////////////////////////////////////////////////////////////////////////////
 // Basic types.
-// TODO: move these to interpreter?
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NdArrayType {
@@ -46,6 +46,7 @@ pub enum Object {
     Nat, // natural numbers
     Dtype,
     NdArrayType, // tuples of natural numbers (TODO: dtype)
+    Shape,
     Tensor,
 }
 
@@ -93,6 +94,10 @@ pub enum TypeOp {
     /// Get the shape of a tensor (not its dtype!)
     /// Tensor → Shape
     Shape,
+
+    /// Get the dtype of a tensor (not its dtype!)
+    /// Tensor → Shape
+    Dtype,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +109,14 @@ pub enum Constant {
 /// Generating tensor operations
 #[derive(Debug, Clone, PartialEq)]
 pub enum TensorOp {
+    /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
+    /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
+    Map(ScalarOp),
+
+    /// Cast a tensor to a dtype
+    /// `Tensor × Dtype → Tensor`
+    Cast,
+
     /// Batch matrix multiplication
     /// `MatMul : (N, A, B) ● (N, B, C) → (N, A, C)`
     MatMul,
@@ -129,17 +142,12 @@ pub enum TensorOp {
     /// Reshape a tensor into an isomorphic shape
     Reshape,
 
-    /// Lift a scalar operation `f : m → n` to `m` input and `n` output arrays.
-    /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
-    Map(ScalarOp),
-
     // TODO:
     // Parameters
     //Parameter(String)
     //Index
     //Slice
     //Concat
-    //Cast
     //Arange
     /// S ● ... ● S → N×S
     Stack,
@@ -164,7 +172,21 @@ pub enum ScalarOp {
     Div, // 2 → 1
     Neg, // 1 → 1
     Pow, // 2 → 1
-    LT,
-    EQ,
-    Not,
+    LT,  // 2 → 1
+    EQ,  // 2 → 1
+}
+
+impl ScalarOp {
+    /// The *profile* of an operation is the pair of its arity and coarity.
+    pub fn profile(&self) -> (usize, usize) {
+        match self {
+            ScalarOp::Add => (2, 1),
+            ScalarOp::Mul => (2, 1),
+            ScalarOp::Div => (2, 1),
+            ScalarOp::Neg => (1, 1),
+            ScalarOp::Pow => (2, 1),
+            ScalarOp::LT => (2, 1),
+            ScalarOp::EQ => (2, 1),
+        }
+    }
 }

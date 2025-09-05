@@ -1,5 +1,5 @@
-use crate::category::bidirectional::*;
 use crate::category::core::Dtype;
+use crate::category::lang::*;
 use crate::ssa::*;
 use open_hypergraphs::lax::{EdgeId, NodeId};
 
@@ -14,6 +14,12 @@ pub enum ShapeCheckError {
 
     /// Error trying to apply an operation
     ApplyError(ApplyError, SSA<Object, Operation>, Vec<Value>),
+
+    /// A cycle was detected in the input term
+    CyclicHypergraph,
+
+    /// SSA conversion error
+    SSAError(SSAError),
 }
 
 pub type ShapeCheckResult = Result<Vec<Value>, ShapeCheckError>;
@@ -71,9 +77,12 @@ pub enum NatExpr {
     Add(Vec<NatExpr>),
 }
 
+// DtypeExpr::Var is allowed, but not as a top-level free variable in the program;
+// it must resolve to a concrete value during shapechecking.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DtypeExpr {
     Var(usize),
+    OfType(usize), // dtype of a *type* variable
     Constant(Dtype),
 }
 
@@ -85,3 +94,9 @@ pub enum ApplyError {
     ShapeMismatch(ShapeExpr, ShapeExpr),
 }
 pub type ApplyResult = Result<Vec<Value>, ApplyError>;
+
+impl From<SSAError> for ShapeCheckError {
+    fn from(error: SSAError) -> Self {
+        ShapeCheckError::SSAError(error)
+    }
+}

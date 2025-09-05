@@ -48,7 +48,7 @@ fn test_simple_operation_ssa() {
     let strict_graph = graph.to_strict();
 
     // Decompose to SSA
-    let ssa_form = ssa(strict_graph);
+    let ssa_form = ssa(strict_graph).expect("cycle found");
 
     // Print the SSA
     println!("SSA Decomposition:");
@@ -122,7 +122,7 @@ fn test_matmul_and_pointwise_sum_ssa() {
     let strict_graph = graph.to_strict();
 
     // Decompose to SSA
-    let ssa_form = ssa(strict_graph);
+    let ssa_form = ssa(strict_graph).expect("cycle found");
 
     // Print the SSA
     println!("SSA Decomposition:");

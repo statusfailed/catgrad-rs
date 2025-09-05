@@ -1,12 +1,6 @@
 use super::types::*;
 use open_hypergraphs::lax::var;
 
-//macro_rules! op {
-//[$($x:expr),* $(,)?] => {
-//Operation::Declaration(vec!["op", $($x),*].try_into().expect("invalid operation name"))
-//};
-//}
-
 macro_rules! path{
     [$($x:expr),* $(,)?] => {
         vec![$($x),*].try_into().expect("invalid operation name")
@@ -18,8 +12,6 @@ macro_rules! op {
         Operation::Declaration(path![$($x),*])
     };
 }
-
-//Operation::Declaration(vec![$($x),*].try_into().expect("invalid operation name"))
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types
@@ -144,30 +136,13 @@ pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
     var::fn_operation(builder, &[f, g], Object::Tensor, op!["tensor", "matmul"])
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// S-interpretations of operations
-//
+pub fn cast(builder: &Builder, x: Var, dtype: Var) -> Var {
+    assert_eq!(x.label, Object::Tensor);
+    assert_eq!(dtype.label, Object::Dtype);
+    var::fn_operation(builder, &[x, dtype], Object::Tensor, op!["tensor", "cast"])
+}
 
-// basic declarations
-pub fn op_decls() -> std::collections::HashMap<super::path::Path, crate::category::core::Operation>
-{
-    use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
-    use std::collections::HashMap;
-    HashMap::from([
-        (path!["cartesian", "copy"], Operation::Copy),
-        // tensor ops
-        (path!["tensor", "add"], Operation::Tensor(Map(Add))),
-        (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),
-        (path!["tensor", "mul"], Operation::Tensor(Map(Mul))),
-        (path!["tensor", "div"], Operation::Tensor(Map(Div))),
-        (path!["tensor", "pow"], Operation::Tensor(Map(Pow))),
-        (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
-        (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
-        (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
-        (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
-        // shape ops
-        (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
-        (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
-        (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
-    ])
+pub fn dtype(builder: &Builder, x: Var) -> Var {
+    assert_eq!(x.label, Object::Tensor);
+    var::fn_operation(builder, &[x], Object::Dtype, op!["tensor", "dtype"])
 }

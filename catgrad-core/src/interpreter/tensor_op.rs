@@ -2,8 +2,8 @@
 
 use super::backend::*;
 use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrayTuple, Value};
-use crate::category::bidirectional::{Object, Operation};
 use crate::category::core::{Dtype, ScalarOp, TensorOp};
+use crate::category::lang::{Object, Operation};
 use crate::ssa::SSA;
 
 /// Apply a Tensor operation
@@ -14,44 +14,92 @@ pub(crate) fn apply_tensor_op<B: Backend>(
     ssa: &SSA<Object, Operation>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
-        TensorOp::MatMul => binop(backend, args, ssa, B::matmul_f32, B::matmul_u32),
-        TensorOp::Constant(_constant) => todo!(),
-        TensorOp::Sum => todo!(),
-        TensorOp::Max => todo!(),
-        TensorOp::Argmax => todo!(),
-        TensorOp::Broadcast => todo!(),
-        TensorOp::Reshape => todo!(),
-        TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add_f32, B::add_u32),
+        TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
+        TensorOp::Constant(_constant) => todo!("constant"),
+        TensorOp::Sum => todo!("sum"),
+        TensorOp::Max => todo!("max"),
+        TensorOp::Argmax => todo!("argmax"),
+        TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
+        TensorOp::Reshape => todo!("reshape"),
+        TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add),
+        TensorOp::Map(ScalarOp::Pow) => binop(backend, args, ssa, B::pow),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
-        TensorOp::Stack => todo!(),
-        TensorOp::Split => todo!(),
-        TensorOp::Index => todo!(),
-        TensorOp::Copy => todo!(),
+        TensorOp::Cast => tensor_cast(backend, args, ssa),
+        TensorOp::Stack => todo!("stack"),
+        TensorOp::Split => todo!("split"),
+        TensorOp::Index => todo!("index"),
+        TensorOp::Copy => todo!("copy"),
+    }
+}
+
+fn tensor_cast<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 2 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let tensor = &args[0];
+    let target_dtype = &args[1];
+
+    let Value::Dtype(target_dtype) = target_dtype else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let Value::NdArray(x) = tensor else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = backend.cast(x.clone(), target_dtype.clone());
+    Ok(vec![Value::NdArray(result)])
+}
+
+fn tensor_broadcast<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 2 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    if let (Value::Shape(shape_prefix), Value::NdArray(x)) = (args.remove(1), args.remove(0)) {
+        let result = backend.broadcast(x, shape_prefix);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
     }
 }
 
 #[allow(type_alias_bounds)]
-type Binop<B: Backend, T> = fn(&B, B::NdArray<T>, B::NdArray<T>) -> B::NdArray<T>;
+type Binop<B: Backend> = fn(&B, TaggedNdArrayTuple<B, 2>) -> TaggedNdArrayTuple<B, 1>;
 
 fn binop<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
     ssa: &SSA<Object, Operation>,
-    case_f32: Binop<B, f32>,
-    case_u32: Binop<B, u32>,
+    callback: Binop<B>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    match try_into_tagged_ndarrays::<B, 2>(args, ssa)? {
-        TaggedNdArrayTuple::F32([x, y]) => {
-            Ok(vec![Value::NdArray(TaggedNdArrayTuple::F32([case_f32(
-                backend, x, y,
-            )]))])
-        }
-        TaggedNdArrayTuple::U32([x, y]) => {
-            Ok(vec![Value::NdArray(TaggedNdArrayTuple::U32([case_u32(
-                backend, x, y,
-            )]))])
-        }
-    }
+    let args = try_into_tagged_ndarrays::<B, 2>(args, ssa)?;
+    let result = callback(backend, args);
+    Ok(vec![Value::NdArray(result)])
 }
 
 // TODO: binop has some boilerplate- have to unpack/repack a lot. can we fix that using run_op &
