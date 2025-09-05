@@ -56,6 +56,14 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::pow_f32(x, y)]),
+            U32([x, y]) => U32([Self::pow_u32(x, y)]),
+        }
+    }
+
     fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -83,6 +91,14 @@ impl NdArrayBackend {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
         x + y
+    }
+
+    fn pow_f32(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {
+        ndarray::Zip::from(&x).and(&y).map_collect(|&a, &b| a.powf(b))
+    }
+
+    fn pow_u32(x: ArrayD<u32>, y: ArrayD<u32>) -> ArrayD<u32> {
+        ndarray::Zip::from(&x).and(&y).map_collect(|&a, &b| a.pow(b))
     }
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>

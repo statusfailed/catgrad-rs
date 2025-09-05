@@ -11,8 +11,8 @@ use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 
 pub mod test_models;
 pub mod test_utils;
-use test_models::{Add, BatchMatMul};
 use catgrad_core::stdlib::nn::Exp;
+use test_models::{Add, BatchMatMul};
 
 fn run_test_with_inputs<F>(
     TypedTerm {
@@ -127,6 +127,16 @@ fn test_run_batch_matmul() {
     );
 }
 
+fn allclose_f32(a: &[f32], b: &[f32], rtol: f32, atol: f32) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    a.iter().zip(b.iter()).all(|(&x, &y)| {
+        let diff = (x - y).abs();
+        diff <= atol + rtol * y.abs()
+    })
+}
+
 #[test]
 fn test_run_exp() {
     let data: Vec<f32> = vec![0.0, 1.0, 2.0, -1.0]; // Shape (2, 2)
@@ -141,21 +151,18 @@ fn test_run_exp() {
         vec![input]
     });
 
-    println!("Exp result: {result:?}");
+    // make sure actual result is a single F32 array
+    use catgrad_core::interpreter::{TaggedNdArray, Value};
+    let actual = match &result[..] {
+        [Value::NdArray(TaggedNdArray::F32([actual]))] => actual,
+        xs => panic!("wrong output type: {xs:?}"),
+    };
 
     // Create expected result (e^x for each element)
-    let expected_data: Vec<f32> = data.iter().map(|&x| x.exp()).collect();
-    let backend = NdArrayBackend;
-    let expected = catgrad_core::interpreter::Value::NdArray(
-        catgrad_core::interpreter::TaggedNdArray::from_slice(
-            &backend,
-            &expected_data,
-            core::Shape(vec![2, 2]),
-        ),
-    );
+    let expected: Vec<f32> = data.iter().map(|&x| x.exp()).collect();
 
-    assert_eq!(
-        result[0], expected,
-        "Exp result should be e^x for each input element"
+    assert!(
+        allclose_f32(actual.as_slice().unwrap(), &expected, 1e-5, 1e-8),
+        "actual should be close to expected!"
     );
 }

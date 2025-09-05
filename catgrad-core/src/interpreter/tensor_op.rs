@@ -22,6 +22,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
         TensorOp::Reshape => todo!("reshape"),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add),
+        TensorOp::Map(ScalarOp::Pow) => binop(backend, args, ssa, B::pow),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Stack => todo!("stack"),
