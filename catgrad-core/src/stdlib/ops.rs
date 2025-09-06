@@ -19,16 +19,6 @@ pub struct Environment {
     pub declarations: HashMap<lang::Path, core::Operation>,
 }
 
-impl Environment {
-    /// Extend the environment's declarations with additional parameter declarations
-    pub fn extend_declarations<I>(mut self, additional_declarations: I) -> Self
-    where
-        I: IntoIterator<Item = (lang::Path, core::Operation)>,
-    {
-        self.declarations.extend(additional_declarations);
-        self
-    }
-}
 
 /// Interpretations of declared operations
 fn core_declarations() -> HashMap<lang::Path, core::Operation> {

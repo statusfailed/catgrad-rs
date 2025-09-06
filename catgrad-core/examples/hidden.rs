@@ -19,7 +19,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let parameters = load_param_types();
 
     // Get stdlib environment and extend with parameter declarations
-    let env = stdlib().extend_declarations(param_declarations(&parameters));
+    let mut env = stdlib();
+    env.declarations.extend(param_declarations(&parameters));
 
     // Shapecheck the model
     let check_result = check::check_with(
