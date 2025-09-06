@@ -75,7 +75,7 @@ pub fn pow(builder: &Builder, value: Var, exponent: Var) -> Var {
 
 /// For a param named a.b.c, create an op named param.a.b.c.
 pub fn param(builder: &Builder, name: &Path) -> Var {
-    let path = path(vec!["param"]).concat(name);
+    let path = path(vec!["param"]).unwrap().concat(name);
     var::fn_operation(builder, &[], Object::Tensor, Operation::Declaration(path))
 }
 

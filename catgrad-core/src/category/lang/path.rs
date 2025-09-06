@@ -8,8 +8,8 @@ pub struct Path(Vec<PathComponent>);
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct PathComponent(String); // only [a-zA-Z_]
 
-pub fn path(components: Vec<&str>) -> Path {
-    components.try_into().expect("invalid path")
+pub fn path(components: Vec<&str>) -> Result<Path, InvalidPathComponent> {
+    components.try_into()
 }
 
 impl Path {
@@ -31,29 +31,30 @@ impl Path {
 ////////////////////////////////////////////////////////////////////////////////
 // Display/TryFrom instances
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct InvalidPathComponent(pub String);
+
 impl TryFrom<String> for PathComponent {
-    type Error = String;
+    type Error = InvalidPathComponent;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.chars().all(|c| c.is_alphanumeric() || c == '_') {
             Ok(PathComponent(value))
         } else {
-            Err(format!(
-                "PathComponent must only contain alphanumeric characters and underscores, got: {value}"
-            ))
+            Err(InvalidPathComponent(value))
         }
     }
 }
 
 impl TryFrom<Vec<&str>> for Path {
-    type Error = String;
+    type Error = InvalidPathComponent;
 
     fn try_from(value: Vec<&str>) -> Result<Self, Self::Error> {
-        let components: Result<Vec<PathComponent>, String> = value
+        let components: Result<Vec<PathComponent>, InvalidPathComponent> = value
             .into_iter()
             .map(|s| s.to_string().try_into())
             .collect();
-        components.map(Path)
+        Ok(Path(components?))
     }
 }
 

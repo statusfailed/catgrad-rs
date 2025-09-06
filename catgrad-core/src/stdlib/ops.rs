@@ -19,7 +19,6 @@ pub struct Environment {
     pub declarations: HashMap<lang::Path, core::Operation>,
 }
 
-
 /// Interpretations of declared operations
 fn core_declarations() -> HashMap<lang::Path, core::Operation> {
     use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};

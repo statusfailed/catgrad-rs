@@ -103,7 +103,7 @@ where
     I: IntoIterator<Item = &'a Path>,
 {
     paths.into_iter().map(|key| {
-        let param_path = path(vec!["param"]).concat(key);
+        let param_path = path(vec!["param"]).expect("invalid param path").concat(key);
         (
             param_path,
             catgrad_core::category::core::Operation::Load(key.clone()),
@@ -121,7 +121,7 @@ impl Def<1, 1> for SimpleMNISTModel {
     // Model name
     // TODO: NOTE: it's not clear how user is supposed to know how to choose this name!
     fn path(&self) -> Path {
-        path(vec!["model", "hidden"])
+        path(vec!["model", "hidden"]).expect("invalid model path")
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
@@ -131,14 +131,20 @@ impl Def<1, 1> for SimpleMNISTModel {
         let flat_shape = pack::<2>(builder, [batch_size, flat_size]);
         let x = reshape(builder, flat_shape, x);
 
-        let p = param(builder, &path(vec!["0", "weights"]));
+        let p = param(
+            builder,
+            &path(vec!["0", "weights"]).expect("invalid param path"),
+        );
 
         // layer 1: B×784 @ 784×100 = B×100
         let x = matmul(builder, x, p);
         let x = nn::Sigmoid.call(builder, [x]);
 
         // layer 2: B×100 @ 100×10 = B×10
-        let p = param(builder, &path(vec!["1", "weights"]));
+        let p = param(
+            builder,
+            &path(vec!["1", "weights"]).expect("invalid param path"),
+        );
         let x = matmul(builder, x, p);
         let x = nn::Sigmoid.call(builder, [x]);
 
@@ -198,14 +204,20 @@ fn load_param_types() -> check::Parameters {
             NatExpr::Constant(100),
         ]),
     }));
-    map.insert(path(vec!["0", "weights"]), layer1_type);
+    map.insert(
+        path(vec!["0", "weights"]).expect("invalid param path"),
+        layer1_type,
+    );
 
     // Layer 2: 100 → 10
     let layer2_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::F32),
         shape: ShapeExpr::Shape(vec![NatExpr::Constant(100), NatExpr::Constant(10)]),
     }));
-    map.insert(path(vec!["1", "weights"]), layer2_type);
+    map.insert(
+        path(vec!["1", "weights"]).expect("invalid param path"),
+        layer2_type,
+    );
 
     check::Parameters::from(map)
 }
@@ -224,7 +236,10 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
     let layer1_tensor =
         interpreter::TaggedNdArray::from_slice(backend, &layer1_data, Shape(vec![784, 100]))
             .expect("Failed to create layer1 tensor");
-    map.insert(path(vec!["0", "weights"]), layer1_tensor);
+    map.insert(
+        path(vec!["0", "weights"]).expect("invalid param path"),
+        layer1_tensor,
+    );
 
     // Layer 2 weights: [100, 10]
     let layer2_data: Vec<f32> = (0..100 * 10)
@@ -233,7 +248,10 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
     let layer2_tensor =
         interpreter::TaggedNdArray::from_slice(backend, &layer2_data, Shape(vec![100, 10]))
             .expect("Failed to create layer2 tensor");
-    map.insert(path(vec!["1", "weights"]), layer2_tensor);
+    map.insert(
+        path(vec!["1", "weights"]).expect("invalid param path"),
+        layer2_tensor,
+    );
 
     interpreter::Parameters::from(map)
 }
