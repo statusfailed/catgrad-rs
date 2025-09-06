@@ -135,6 +135,15 @@ impl<const N: usize> From<[(Path, Type); N]> for Parameters {
     }
 }
 
+impl<'a> IntoIterator for &'a Parameters {
+    type Item = &'a Path;
+    type IntoIter = std::collections::hash_map::Keys<'a, Path, Type>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.keys()
+    }
+}
+
 /*
 pub fn param_declaration(
     name: &Path,
