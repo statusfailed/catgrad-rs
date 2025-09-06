@@ -1,6 +1,4 @@
-use catgrad_core::check::Value;
 use catgrad_core::stdlib::{Environment, stdlib};
-use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
 
 pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
     if std::env::var("SAVE_DIAGRAMS").is_ok() {
@@ -19,20 +17,4 @@ pub fn get_forget_core_declarations() -> Environment {
         def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
     }
     env
-}
-
-pub fn replace_nodes_in_hypergraph<T, U>(
-    term: OpenHypergraph<T, U>,
-    new_nodes: Vec<Value>,
-) -> OpenHypergraph<Value, U> {
-    OpenHypergraph {
-        hypergraph: Hypergraph {
-            nodes: new_nodes,
-            edges: term.hypergraph.edges,
-            adjacency: term.hypergraph.adjacency,
-            quotient: term.hypergraph.quotient,
-        },
-        sources: term.sources,
-        targets: term.targets,
-    }
 }

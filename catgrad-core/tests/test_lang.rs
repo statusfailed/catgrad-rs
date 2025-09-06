@@ -2,11 +2,10 @@ use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::stdlib::*;
 use catgrad_core::svg::to_svg;
+use catgrad_core::util::replace_nodes_in_hypergraph;
 
 pub mod test_utils;
-use test_utils::{
-    get_forget_core_declarations, replace_nodes_in_hypergraph, save_diagram_if_enabled,
-};
+use test_utils::{get_forget_core_declarations, save_diagram_if_enabled};
 pub mod test_models;
 use test_models::LinearSigmoid;
 
