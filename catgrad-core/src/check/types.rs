@@ -5,14 +5,6 @@ use open_hypergraphs::lax::{EdgeId, NodeId};
 
 use std::collections::HashMap;
 
-// Environment used by the interpreter
-#[derive(Debug, Clone)]
-pub struct Environment {
-    pub definitions: HashMap<Path, TypedTerm>,
-    pub declarations: HashMap<Path, core::Operation>,
-    pub parameters: HashMap<Path, core::NdArrayType>,
-}
-
 #[derive(Debug)]
 pub enum ShapeCheckError {
     /// SSA ordering was invalid: an op depended on some arguments which did not have a value at
@@ -124,6 +116,27 @@ impl From<core::NdArrayType> for NdArrayType {
                     .collect(),
             ),
         }
+    }
+}
+
+#[derive(PartialEq, Clone, Debug)]
+pub struct Parameters(pub HashMap<Path, Type>);
+
+impl Parameters {
+    pub fn new() -> Parameters {
+        Parameters(HashMap::from([]))
+    }
+}
+
+impl From<HashMap<Path, Type>> for Parameters {
+    fn from(map: HashMap<Path, Type>) -> Self {
+        Parameters(map)
+    }
+}
+
+impl<const N: usize> From<[(Path, Type); N]> for Parameters {
+    fn from(arr: [(Path, Type); N]) -> Self {
+        Parameters(HashMap::from(arr))
     }
 }
 

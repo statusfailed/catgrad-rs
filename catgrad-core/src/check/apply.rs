@@ -5,16 +5,18 @@ use crate::category::{
     lang,
 };
 use crate::ssa::SSA;
+use crate::stdlib::Environment;
 
 // Get a value for each resulting NodeId.
 pub fn s_apply(
     env: &Environment,
+    params: &Parameters,
     op: &Operation,
     args: &[Value],
     ssa: &SSA<lang::Object, lang::Operation>,
 ) -> ApplyResult {
     match &op {
-        Operation::Load(path) => apply_load(env, path, args, ssa),
+        Operation::Load(path) => apply_load(env, params, path, args, ssa),
         Operation::Type(op) => type_op(op, args),
         Operation::DtypeConstant(d) => Ok(vec![Value::Dtype(DtypeExpr::Constant(d.clone()))]),
         Operation::Nat(op) => nat_op(op, args),
@@ -24,7 +26,8 @@ pub fn s_apply(
 }
 
 fn apply_load(
-    env: &Environment,
+    _env: &Environment,
+    params: &Parameters,
     path: &Path,
     args: &[Value],
     _ssa: &SSA<lang::Object, lang::Operation>,
@@ -33,13 +36,11 @@ fn apply_load(
         return Err(ApplyError::ArityError);
     }
 
-    let ty = env
-        .parameters
+    let result = params
+        .0
         .get(path)
         .ok_or(ApplyError::UnknownOp(path.clone()))?;
-    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(
-        ty.clone().into(),
-    ))])
+    Ok(vec![result.clone()])
 }
 
 fn apply_copy(args: &[Value], ssa: &SSA<lang::Object, lang::Operation>) -> ApplyResult {

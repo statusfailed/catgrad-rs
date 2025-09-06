@@ -4,27 +4,50 @@ use super::backend::*;
 use super::types::*;
 use crate::category::{core, lang::*};
 use crate::ssa::{SSA, SSAError, parallel_ssa};
+use crate::stdlib::Environment;
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
-// Environment used by the interpreter
-#[derive(Debug, Clone)]
-pub struct Environment<B: Backend> {
-    pub definitions: HashMap<Path, TypedTerm>,
-    pub declarations: HashMap<Path, core::Operation>,
-    pub parameters: HashMap<Path, TaggedNdArray<B>>,
+/// Parameter values dict
+#[derive(PartialEq, Clone, Debug)]
+pub struct Parameters<B: Backend>(HashMap<Path, TaggedNdArray<B>>);
+
+impl<B: Backend> Parameters<B> {
+    pub fn new() -> Parameters<B> {
+        Parameters(HashMap::from([]))
+    }
+}
+
+impl<B: Backend> From<HashMap<Path, TaggedNdArray<B>>> for Parameters<B> {
+    fn from(map: HashMap<Path, TaggedNdArray<B>>) -> Self {
+        Parameters(map)
+    }
+}
+
+impl<B: Backend, const N: usize> From<[(Path, TaggedNdArray<B>); N]> for Parameters<B> {
+    fn from(arr: [(Path, TaggedNdArray<B>); N]) -> Self {
+        Parameters(HashMap::from(arr))
+    }
 }
 
 pub struct Interpreter<B: Backend> {
+    /// Array kernel backend implementation
     pub backend: B,
-    pub env: Environment<B>,
+    /// Environment (definitions & declarations)
+    pub env: Environment,
+    /// Parameter tensors
+    pub parameters: Parameters<B>,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, env: Environment<B>) -> Self {
-        Self { backend, env }
+    pub fn new(backend: B, env: Environment, parameters: Parameters<B>) -> Self {
+        Self {
+            backend,
+            env,
+            parameters,
+        }
     }
 
     /// Run the interpreter with specified input values
@@ -144,11 +167,8 @@ impl<B: Backend> Interpreter<B> {
     }
 
     fn load(&self, path: &Path) -> Result<Vec<Value<B>>, InterpreterError> {
-        let value = self
-            .env
-            .parameters
-            .get(path)
-            .ok_or(InterpreterError::LoadError(path.clone()))?;
+        let value = self.parameters.0.get(path);
+        let value = value.ok_or(InterpreterError::LoadError(path.clone()))?;
         // TODO: fix unnecessary clone (or ensure backend deals with this!)
         Ok(vec![Value::NdArray(value.clone())])
     }

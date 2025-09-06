@@ -11,24 +11,19 @@ macro_rules! path{
     };
 }
 
-/// The set of operations in the category
+/// Declared and defined operations.
+/// Currently, a declaration must map to a Core operation (subject to change!)
 #[derive(Debug, Clone)]
-pub struct Definitions {
-    pub operations: HashMap<lang::Path, lang::TypedTerm>,
-}
-
-/// Declared operations that map directly to a core op
-/// NOTE: this interface is likely to change in future
-#[derive(Debug, Clone)]
-pub struct Declarations {
-    pub operations: HashMap<lang::Path, core::Operation>,
+pub struct Environment {
+    pub definitions: HashMap<lang::Path, lang::TypedTerm>,
+    pub declarations: HashMap<lang::Path, core::Operation>,
 }
 
 /// Interpretations of declared operations
-pub fn core_declarations() -> Declarations {
+fn core_declarations() -> HashMap<lang::Path, core::Operation> {
     use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
     use std::collections::HashMap;
-    let operations = HashMap::from([
+    HashMap::from([
         (path!["cartesian", "copy"], Operation::Copy),
         // tensor ops (which actually affect tensor data)
         (path!["tensor", "add"], Operation::Tensor(Map(Add))),
@@ -47,24 +42,30 @@ pub fn core_declarations() -> Declarations {
         (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
         (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
-    ]);
-    Declarations { operations }
+    ])
 }
 
+// helper to simplify stdlib defs list
 fn to_pair<const A: usize, const B: usize, T: Def<A, B>>(def: T) -> (lang::Path, lang::TypedTerm) {
     (def.path(), def.term().unwrap())
 }
 
 /// Standard library of definitions
-pub fn stdlib() -> Definitions {
+fn definitions() -> HashMap<lang::Path, lang::TypedTerm> {
     use super::nn::*;
 
     // NOTE: can't just map this since each invocation of to_pair is differently typed
-    let operations = HashMap::from([
+    HashMap::from([
         to_pair(Sigmoid),
         to_pair(Exp),
         //
-    ]);
+    ])
+}
 
-    Definitions { operations }
+/// Standard library declarations and definitions
+pub fn stdlib() -> Environment {
+    Environment {
+        declarations: core_declarations(),
+        definitions: definitions(),
+    }
 }

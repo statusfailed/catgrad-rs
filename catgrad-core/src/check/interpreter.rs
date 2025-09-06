@@ -2,6 +2,7 @@
 // It uses the core declarations in [`crate::stdlib`].
 use crate::category::lang::*;
 use crate::ssa::*;
+use crate::stdlib::Environment;
 
 use open_hypergraphs::lax::NodeId;
 
@@ -9,7 +10,12 @@ use super::types::*;
 
 /// Assign a shape value to each node in a term (hypergraph).
 #[allow(clippy::result_large_err)]
-pub fn check_with(env: &Environment, term: Term, source_values: Vec<Value>) -> ShapeCheckResult {
+pub fn check_with(
+    env: &Environment,
+    params: &Parameters,
+    term: Term,
+    source_values: Vec<Value>,
+) -> ShapeCheckResult {
     assert_eq!(source_values.len(), term.sources.len());
 
     // Create evaluation state
@@ -38,7 +44,7 @@ pub fn check_with(env: &Environment, term: Term, source_values: Vec<Value>) -> S
         }
 
         // Compute output values and write into the graph
-        let coargs = apply(env, &op, &args)?;
+        let coargs = apply(env, &params, &op, &args)?;
         assert_eq!(coargs.len(), op.targets.len(), "{op:?}");
 
         for ((NodeId(i), _), value) in op.targets.iter().zip(coargs.into_iter()) {
@@ -75,7 +81,12 @@ use super::apply::*;
 
 // Get a value for each resulting NodeId.
 #[allow(clippy::result_large_err)]
-pub fn apply(env: &Environment, ssa: &SSA<Object, Operation>, args: &[Value]) -> ShapeCheckResult {
+pub fn apply(
+    env: &Environment,
+    params: &Parameters,
+    ssa: &SSA<Object, Operation>,
+    args: &[Value],
+) -> ShapeCheckResult {
     match &ssa.op {
         Operation::Definition(op) => {
             // look up term
@@ -85,9 +96,9 @@ pub fn apply(env: &Environment, ssa: &SSA<Object, Operation>, args: &[Value]) ->
                     ssa.clone(),
                     args.to_vec(),
                 ))?;
-            apply_definition(env, term, args)
+            apply_definition(env, params, term, args)
         }
-        Operation::Declaration(op) => apply_declaration(env, op, args, ssa)
+        Operation::Declaration(op) => apply_declaration(env, params, op, args, ssa)
             .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
         Operation::Literal(lit) => apply_literal(lit)
             .map_err(|e| ShapeCheckError::ApplyError(e, ssa.clone(), args.to_vec())),
@@ -96,6 +107,7 @@ pub fn apply(env: &Environment, ssa: &SSA<Object, Operation>, args: &[Value]) ->
 
 fn apply_declaration(
     env: &Environment,
+    params: &Parameters,
     op: &Path,
     args: &[Value],
     ssa: &SSA<Object, Operation>,
@@ -104,18 +116,19 @@ fn apply_declaration(
         .declarations
         .get(op)
         .ok_or(ApplyError::UnknownOp(op.clone()))?;
-    s_apply(env, shape_op, args, ssa)
+    s_apply(env, params, shape_op, args, ssa)
 }
 
 // TODO: manage recursion explicitly with a stack
 #[allow(clippy::result_large_err)]
 fn apply_definition(
     env: &Environment,
+    params: &Parameters,
     term: &Term,
     args: &[Value],
 ) -> Result<Vec<Value>, ShapeCheckError> {
     let source_values = args.to_vec();
-    let nodes = check_with(env, term.clone(), source_values)?;
+    let nodes = check_with(env, params, term.clone(), source_values)?;
     Ok(term
         .targets
         .iter()
