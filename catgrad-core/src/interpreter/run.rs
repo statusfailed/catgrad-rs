@@ -13,9 +13,10 @@ use std::collections::HashMap;
 #[derive(PartialEq, Clone, Debug)]
 pub struct Parameters<B: Backend>(HashMap<Path, TaggedNdArray<B>>);
 
-impl<B: Backend> Parameters<B> {
-    pub fn new() -> Parameters<B> {
-        Parameters(HashMap::from([]))
+// Needed so Backend doesn't have to implement Default
+impl<B: Backend> Default for Parameters<B> {
+    fn default() -> Self {
+        Self(Default::default())
     }
 }
 
@@ -37,16 +38,16 @@ pub struct Interpreter<B: Backend> {
     /// Environment (definitions & declarations)
     pub env: Environment,
     /// Parameter tensors
-    pub parameters: Parameters<B>,
+    pub params: Parameters<B>,
 }
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, env: Environment, parameters: Parameters<B>) -> Self {
+    pub fn new(backend: B, env: Environment, params: Parameters<B>) -> Self {
         Self {
             backend,
             env,
-            parameters,
+            params,
         }
     }
 
@@ -167,7 +168,7 @@ impl<B: Backend> Interpreter<B> {
     }
 
     fn load(&self, path: &Path) -> Result<Vec<Value<B>>, InterpreterError> {
-        let value = self.parameters.0.get(path);
+        let value = self.params.0.get(path);
         let value = value.ok_or(InterpreterError::LoadError(path.clone()))?;
         // TODO: fix unnecessary clone (or ensure backend deals with this!)
         Ok(vec![Value::NdArray(value.clone())])

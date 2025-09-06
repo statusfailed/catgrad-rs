@@ -2,12 +2,12 @@
 
 use catgrad_core::category::core::Shape;
 use catgrad_core::category::lang::*;
-use catgrad_core::check::*;
+use catgrad_core::{check, check::*};
 
 use catgrad_core::stdlib::*;
 
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
-use catgrad_core::interpreter::{Interpreter, tensor};
+use catgrad_core::interpreter::{Interpreter, Parameters, tensor};
 
 pub mod test_models;
 pub mod test_utils;
@@ -24,15 +24,21 @@ where
     F: FnOnce(&NdArrayBackend) -> Vec<catgrad_core::interpreter::Value<NdArrayBackend>>,
 {
     // Get stdlib / environment
-    let ops = catgrad_core::stdlib::core_declarations();
     let env = catgrad_core::stdlib::stdlib();
 
     // Typecheck
-    let _result = check_with(&ops, &env, term.clone(), source_type).unwrap();
+    let _result = check_with(
+        &env,
+        &check::Parameters::default(),
+        term.clone(),
+        source_type,
+    )
+    .unwrap();
 
     // Run interpreter
     let backend = NdArrayBackend;
-    let interpreter: Interpreter<NdArrayBackend> = Interpreter::new(backend, ops, env);
+    let interpreter: Interpreter<NdArrayBackend> =
+        Interpreter::new(backend, env, Parameters::default());
 
     let values = build_inputs(&interpreter.backend);
     interpreter.run(term, values).unwrap()

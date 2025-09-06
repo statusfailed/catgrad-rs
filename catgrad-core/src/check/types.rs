@@ -119,14 +119,8 @@ impl From<core::NdArrayType> for NdArrayType {
     }
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Debug, Default)]
 pub struct Parameters(pub HashMap<Path, Type>);
-
-impl Parameters {
-    pub fn new() -> Parameters {
-        Parameters(HashMap::from([]))
-    }
-}
 
 impl From<HashMap<Path, Type>> for Parameters {
     fn from(map: HashMap<Path, Type>) -> Self {

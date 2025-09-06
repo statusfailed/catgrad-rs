@@ -69,9 +69,9 @@ pub fn run_check_test(
     } = term.unwrap();
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-    let (ops, env) = get_forget_core_declarations();
+    let env = get_forget_core_declarations();
 
-    let result = check_with(&ops, &env, term.clone(), source_type)?;
+    let result = check_with(&env, &Parameters::default(), term.clone(), source_type)?;
     println!("result: {result:?}");
 
     let typed_term = replace_nodes_in_hypergraph(term, result);

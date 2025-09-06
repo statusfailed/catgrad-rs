@@ -1,6 +1,5 @@
 use catgrad_core::check::Value;
-use catgrad_core::stdlib::stdlib;
-use catgrad_core::stdlib::{Declarations, Definitions, core_declarations};
+use catgrad_core::stdlib::{Environment, stdlib};
 use open_hypergraphs::lax::{Hypergraph, OpenHypergraph};
 
 pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
@@ -13,14 +12,13 @@ pub fn save_diagram_if_enabled(filename: &str, data: Vec<u8>) {
     }
 }
 
-pub fn get_forget_core_declarations() -> (Declarations, Definitions) {
+pub fn get_forget_core_declarations() -> Environment {
     use open_hypergraphs::lax::functor::*;
-    let ops = core_declarations();
     let mut env = stdlib();
-    for def in env.operations.values_mut() {
+    for def in env.definitions.values_mut() {
         def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
     }
-    (ops, env)
+    env
 }
 
 pub fn replace_nodes_in_hypergraph<T, U>(
