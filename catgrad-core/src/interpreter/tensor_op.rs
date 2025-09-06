@@ -20,9 +20,12 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Max => todo!("max"),
         TensorOp::Argmax => todo!("argmax"),
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
-        TensorOp::Reshape => todo!("reshape"),
+        TensorOp::Reshape => tensor_reshape(backend, args, ssa),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add),
         TensorOp::Map(ScalarOp::Pow) => binop(backend, args, ssa, B::pow),
+        TensorOp::Map(ScalarOp::Neg) => unary_op(backend, args, ssa, B::neg),
+        TensorOp::Map(ScalarOp::Mul) => binop(backend, args, ssa, B::mul),
+        TensorOp::Map(ScalarOp::Div) => binop(backend, args, ssa, B::div),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Stack => todo!("stack"),
@@ -65,6 +68,30 @@ fn tensor_cast<B: Backend>(
     Ok(vec![Value::NdArray(result)])
 }
 
+fn tensor_reshape<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 2 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    // Args are: [new_shape, tensor] - reshape(builder, new_shape, tensor)
+    if let (Value::Shape(new_shape), Value::NdArray(x)) = (args.remove(0), args.remove(0)) {
+        let result = backend.reshape(x, new_shape);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
+    }
+}
+
 fn tensor_broadcast<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
@@ -91,6 +118,9 @@ fn tensor_broadcast<B: Backend>(
 #[allow(type_alias_bounds)]
 type Binop<B: Backend> = fn(&B, TaggedNdArrayTuple<B, 2>) -> TaggedNdArrayTuple<B, 1>;
 
+#[allow(type_alias_bounds)]
+type Unaryop<B: Backend> = fn(&B, TaggedNdArray<B>) -> TaggedNdArray<B>;
+
 fn binop<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
@@ -99,6 +129,30 @@ fn binop<B: Backend>(
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     let args = try_into_tagged_ndarrays::<B, 2>(args, ssa)?;
     let result = callback(backend, args);
+    Ok(vec![Value::NdArray(result)])
+}
+
+fn unary_op<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+    callback: Unaryop<B>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let Value::NdArray(x) = &args[0] else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = callback(backend, x.clone());
     Ok(vec![Value::NdArray(result)])
 }
 
