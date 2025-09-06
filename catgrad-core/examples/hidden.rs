@@ -1,5 +1,10 @@
 use catgrad_core::check::check_with;
 use catgrad_core::prelude::*;
+use catgrad_core::svg::to_svg;
+use catgrad_core::util::replace_nodes_in_hypergraph;
+
+use catgrad_core::check::Parameters;
+use std::collections::HashMap;
 
 pub struct SimpleMNISTModel;
 
@@ -61,9 +66,6 @@ impl Def<1, 1> for SimpleMNISTModel {
 
 // TODO: you would normally create this by reading the safetensors file!
 // In user code, the param(<name>) op is just creating a declaration param.name...
-use catgrad_core::check::Parameters;
-use std::collections::HashMap;
-
 pub fn params() -> Parameters {
     use catgrad_core::category::core::Dtype;
     use catgrad_core::check::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr, Value};
@@ -102,11 +104,12 @@ fn param_declarations(
     })
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = SimpleMNISTModel;
 
     // Get the model as a typed term
     let typed_term = model.term().expect("Failed to create typed term");
+    let _ = save_svg(&typed_term.term, "hidden.svg")?;
 
     // Create parameters for the model
     let parameters = params();
@@ -115,29 +118,36 @@ fn main() {
     let env = stdlib().extend_declarations(param_declarations(&parameters));
 
     // Shapecheck the model
-    match check_with(
+    let check_result = check_with(
         &env,
         &parameters,
         typed_term.term.clone(),
         typed_term.source_type.clone(),
-    ) {
-        Ok(result_types) => {
-            println!("✓ Model shapechecked successfully!");
-            println!("Input types: {:?}", typed_term.source_type);
-            println!("Output types: {:?}", result_types);
-        }
-        Err(error) => {
-            println!("✗ Shapecheck failed: {:?}", error);
-        }
-    }
+    )
+    .expect("typecheck failed");
 
-    // Note: To run the interpreter, you would typically:
-    // 1. Create an NdArrayBackend
-    // 2. Create an Interpreter with the backend, environment, and interpreter parameters
-    // 3. Create actual tensor data that matches the input shape
-    // 4. Call interpreter.run(term, input_values)
+    let labeled_term = replace_nodes_in_hypergraph(typed_term.term, check_result);
+    let _ = save_svg(&labeled_term, "hidden_typed.svg")?;
 
-    println!(
-        "Model definition complete. To run inference, create tensor data and use the interpreter."
-    );
+    // TODO: run interpreter
+
+    Ok(())
+}
+
+use std::fmt::{Debug, Display};
+pub fn save_svg<
+    O: PartialEq + Clone + std::fmt::Display + Debug,
+    A: PartialEq + Clone + Display + Debug,
+>(
+    term: &open_hypergraphs::lax::OpenHypergraph<O, A>,
+    filename: &str,
+) -> Result<(), std::io::Error> {
+    let bytes = to_svg(term)?;
+    let output_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("examples")
+        .join("images")
+        .join(filename);
+    println!("saving svg to {output_path:?}");
+    std::fs::write(output_path, bytes).expect("write diagram file");
+    Ok(())
 }

@@ -1,6 +1,7 @@
 use crate::category::lang::*;
 use crate::category::{core, core::Dtype};
 use crate::ssa::*;
+
 use open_hypergraphs::lax::{EdgeId, NodeId};
 
 use std::collections::HashMap;
