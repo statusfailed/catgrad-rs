@@ -69,3 +69,17 @@ pub fn stdlib() -> Environment {
         definitions: definitions(),
     }
 }
+
+/// Convert parameter paths to Load operations with a given prefix
+pub fn to_load_ops<'a, I>(
+    prefix: lang::Path,
+    paths: I,
+) -> impl Iterator<Item = (lang::Path, core::Operation)>
+where
+    I: IntoIterator<Item = &'a lang::Path>,
+{
+    paths.into_iter().map(move |key| {
+        let param_path = prefix.concat(key);
+        (param_path, core::Operation::Load(key.clone()))
+    })
+}

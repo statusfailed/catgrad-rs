@@ -144,6 +144,12 @@ impl<'a> IntoIterator for &'a Parameters {
     }
 }
 
+impl Parameters {
+    pub fn keys(&self) -> std::collections::hash_map::Keys<'_, Path, Type> {
+        self.0.keys()
+    }
+}
+
 /*
 pub fn param_declaration(
     name: &Path,

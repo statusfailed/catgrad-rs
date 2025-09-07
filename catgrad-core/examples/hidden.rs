@@ -20,7 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get stdlib environment and extend with parameter declarations
     let mut env = stdlib();
-    env.declarations.extend(param_declarations(&parameters));
+    env.declarations
+        .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Shapecheck the model
     let check_result = check::check_with(
@@ -94,23 +95,6 @@ fn run_interpreter(
     Ok(())
 }
 
-// TODO: integrate into API?
-// In user code, the param(<name>) op is just creating a declaration param.name...
-fn param_declarations<'a, I>(
-    paths: I,
-) -> impl Iterator<Item = (Path, catgrad_core::category::core::Operation)>
-where
-    I: IntoIterator<Item = &'a Path>,
-{
-    paths.into_iter().map(|key| {
-        let param_path = path(vec!["param"]).expect("invalid param path").concat(key);
-        (
-            param_path,
-            catgrad_core::category::core::Operation::Load(key.clone()),
-        )
-    })
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Define the SimpleMNISTModel model
 
@@ -131,9 +115,11 @@ impl Def<1, 1> for SimpleMNISTModel {
         let flat_shape = pack::<2>(builder, [batch_size, flat_size]);
         let x = reshape(builder, flat_shape, x);
 
+        let root = self.path();
+
         let p = param(
             builder,
-            &path(vec!["0", "weights"]).expect("invalid param path"),
+            &root.concat(&path(vec!["0", "weights"]).expect("invalid param path")),
         );
 
         // layer 1: B×784 @ 784×100 = B×100
@@ -143,7 +129,7 @@ impl Def<1, 1> for SimpleMNISTModel {
         // layer 2: B×100 @ 100×10 = B×10
         let p = param(
             builder,
-            &path(vec!["1", "weights"]).expect("invalid param path"),
+            &root.concat(&path(vec!["1", "weights"]).expect("invalid param path")),
         );
         let x = matmul(builder, x, p);
         let x = nn::Sigmoid.call(builder, [x]);
