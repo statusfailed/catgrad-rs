@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum ShapeCheckError {
     /// SSA ordering was invalid: an op depended on some arguments which did not have a value at
-    /// time of [`apply`]
+    /// time of operation application
     EvaluationOrder(EdgeId),
 
     /// Some nodes in the term were not evaluated during shapechecking
@@ -64,8 +64,7 @@ pub enum ShapeExpr {
     Shape(Vec<NatExpr>),
 }
 
-/// TODO: keep *normalized* instead as a Vec<Nat>
-/// A symbolic shape value
+/// A symbolic type value
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NdArrayType {
     pub dtype: DtypeExpr,
