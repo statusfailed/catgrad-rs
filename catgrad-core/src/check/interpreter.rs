@@ -44,7 +44,7 @@ pub fn check_with(
         }
 
         // Compute output values and write into the graph
-        let coargs = apply(env, &params, &op, &args)?;
+        let coargs = apply(env, params, &op, &args)?;
         assert_eq!(coargs.len(), op.targets.len(), "{op:?}");
 
         for ((NodeId(i), _), value) in op.targets.iter().zip(coargs.into_iter()) {

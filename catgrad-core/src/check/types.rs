@@ -113,7 +113,7 @@ impl From<core::NdArrayType> for NdArrayType {
                     .shape
                     .0
                     .into_iter()
-                    .map(|dim| NatExpr::Constant(dim))
+                    .map(NatExpr::Constant)
                     .collect(),
             ),
         }

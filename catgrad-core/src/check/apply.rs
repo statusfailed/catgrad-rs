@@ -32,7 +32,7 @@ fn apply_load(
     args: &[Value],
     _ssa: &SSA<lang::Object, lang::Operation>,
 ) -> ApplyResult {
-    if args.len() != 0 {
+    if !args.is_empty() {
         return Err(ApplyError::ArityError);
     }
 
@@ -205,7 +205,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Split => tensor_split(args),
         TensorOp::Reshape => tensor_reshape(args),
         TensorOp::MatMul => tensor_matmul(args),
-        TensorOp::Map(scalar_op) => tensor_map(&scalar_op, args),
+        TensorOp::Map(scalar_op) => tensor_map(scalar_op, args),
         TensorOp::Cast => tensor_cast(args),
         TensorOp::Broadcast => tensor_broadcast(args),
         op => todo!("operation {op:?}"),
