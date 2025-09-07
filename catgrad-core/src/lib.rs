@@ -1,4 +1,4 @@
-// Core language
+#![doc = include_str!("../README.md")]
 pub mod category;
 pub mod stdlib;
 
