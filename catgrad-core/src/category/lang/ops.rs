@@ -1,3 +1,4 @@
+use super::path::Path;
 use super::types::*;
 use open_hypergraphs::lax::var;
 
@@ -71,6 +72,16 @@ pub fn pow(builder: &Builder, value: Var, exponent: Var) -> Var {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Declarations
+
+/// For a param named a.b.c, create an op named param.a.b.c.
+pub fn param(builder: &Builder, path: &Path) -> Var {
+    var::fn_operation(
+        builder,
+        &[],
+        Object::Tensor,
+        Operation::Declaration(path.clone()),
+    )
+}
 
 pub fn lit(builder: &Builder, lit: Literal) -> Var {
     var::fn_operation(builder, &[], Object::Tensor, Operation::Literal(lit))

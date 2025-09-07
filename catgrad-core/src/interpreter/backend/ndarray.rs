@@ -60,11 +60,35 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::mul(x, y)]),
+            U32([x, y]) => U32([Self::mul(x, y)]),
+        }
+    }
+
+    fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::div(x, y)]),
+            U32([x, y]) => U32([Self::div(x, y)]),
+        }
+    }
+
     fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
             F32([x, y]) => F32([Self::pow_f32(x, y)]),
             U32([x, y]) => U32([Self::pow_u32(x, y)]),
+        }
+    }
+
+    fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::neg_f32(arr)]),
+            U32([arr]) => U32([Self::neg_u32(arr)]),
         }
     }
 
@@ -75,9 +99,22 @@ impl Backend for NdArrayBackend {
             U32([arr]) => U32([Self::broadcast_ndarray(arr, shape_prefix)]),
         }
     }
+
+    fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::reshape_ndarray(arr, new_shape)]),
+            U32([arr]) => U32([Self::reshape_ndarray(arr, new_shape)]),
+        }
+    }
 }
 
 impl NdArrayBackend {
+    fn reshape_ndarray<D: HasDtype>(arr: ArrayD<D>, new_shape: Shape) -> ArrayD<D> {
+        let new_dims = ndarray::IxDyn(&new_shape.0);
+        arr.to_shape(new_dims).unwrap().to_owned()
+    }
+
     fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape_prefix: Shape) -> ArrayD<D> {
         let current_shape = arr.shape().to_vec();
         let mut new_shape = shape_prefix.0;
@@ -95,6 +132,30 @@ impl NdArrayBackend {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
         x + y
+    }
+
+    fn mul<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
+    where
+        D: HasDtype + ndarray::LinalgScalar,
+    {
+        x * y
+    }
+
+    fn div<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
+    where
+        D: HasDtype + ndarray::LinalgScalar,
+    {
+        x / y
+    }
+
+    fn neg_f32(x: ArrayD<f32>) -> ArrayD<f32> {
+        x.map(|&v| -v)
+    }
+
+    fn neg_u32(x: ArrayD<u32>) -> ArrayD<u32> {
+        // For u32, negation doesn't make much sense, but we'll implement it anyway
+        // using wrapping negation
+        x.map(|&v| v.wrapping_neg())
     }
 
     fn pow_f32(x: ArrayD<f32>, y: ArrayD<f32>) -> ArrayD<f32> {

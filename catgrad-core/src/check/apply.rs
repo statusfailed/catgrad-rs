@@ -1,24 +1,46 @@
 use super::types::*;
+use crate::category::lang::Path;
 use crate::category::{
     core::{NatOp, Operation, ScalarOp, TensorOp, TypeOp},
     lang,
 };
 use crate::ssa::SSA;
+use crate::stdlib::Environment;
 
 // Get a value for each resulting NodeId.
 pub fn s_apply(
+    env: &Environment,
+    params: &Parameters,
     op: &Operation,
     args: &[Value],
     ssa: &SSA<lang::Object, lang::Operation>,
 ) -> ApplyResult {
-    // Unwrap each optional value-
     match &op {
+        Operation::Load(path) => apply_load(env, params, path, args, ssa),
         Operation::Type(op) => type_op(op, args),
         Operation::DtypeConstant(d) => Ok(vec![Value::Dtype(DtypeExpr::Constant(d.clone()))]),
         Operation::Nat(op) => nat_op(op, args),
         Operation::Tensor(op) => tensor_op(op, args),
         Operation::Copy => apply_copy(args, ssa),
     }
+}
+
+fn apply_load(
+    _env: &Environment,
+    params: &Parameters,
+    path: &Path,
+    args: &[Value],
+    _ssa: &SSA<lang::Object, lang::Operation>,
+) -> ApplyResult {
+    if !args.is_empty() {
+        return Err(ApplyError::ArityError);
+    }
+
+    let result = params
+        .0
+        .get(path)
+        .ok_or(ApplyError::UnknownOp(path.clone()))?;
+    Ok(vec![result.clone()])
 }
 
 fn apply_copy(args: &[Value], ssa: &SSA<lang::Object, lang::Operation>) -> ApplyResult {
@@ -183,7 +205,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Split => tensor_split(args),
         TensorOp::Reshape => tensor_reshape(args),
         TensorOp::MatMul => tensor_matmul(args),
-        TensorOp::Map(scalar_op) => tensor_map(&scalar_op, args),
+        TensorOp::Map(scalar_op) => tensor_map(scalar_op, args),
         TensorOp::Cast => tensor_cast(args),
         TensorOp::Broadcast => tensor_broadcast(args),
         op => todo!("operation {op:?}"),

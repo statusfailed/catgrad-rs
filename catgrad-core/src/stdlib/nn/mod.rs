@@ -20,7 +20,7 @@ impl Def<1, 1> for Sigmoid {
 
     // Name of the op
     fn path(&self) -> Path {
-        path(vec!["nn", "sigmoid"])
+        path(vec!["nn", "sigmoid"]).unwrap()
     }
 
     // def
@@ -52,7 +52,7 @@ impl Def<1, 1> for Exp {
 
     // Name of the op
     fn path(&self) -> Path {
-        path(vec!["nn", "exp"])
+        path(vec!["nn", "exp"]).unwrap()
     }
 
     // def

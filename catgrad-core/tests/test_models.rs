@@ -28,7 +28,7 @@ impl Def<2, 1> for LinearSigmoid {
     }
 
     fn path(&self) -> Path {
-        path(vec!["test", "linear_sigmoid"])
+        path(vec!["test", "linear_sigmoid"]).unwrap()
     }
 
     fn def(&self, builder: &Builder, [x, p]: [Var; 2]) -> [Var; 1] {
@@ -66,7 +66,7 @@ impl Def<2, 1> for Add {
     }
 
     fn path(&self) -> Path {
-        path(vec!["test", "add"])
+        path(vec!["test", "add"]).unwrap()
     }
 
     fn def(&self, _builder: &Builder, [x, y]: [Var; 2]) -> [Var; 1] {
@@ -96,7 +96,7 @@ impl Def<2, 1> for BatchMatMul {
     }
 
     fn path(&self) -> Path {
-        path(vec!["test", "batch_matmul"])
+        path(vec!["test", "batch_matmul"]).unwrap()
     }
 
     fn def(&self, builder: &Builder, [x, y]: [Var; 2]) -> [Var; 1] {

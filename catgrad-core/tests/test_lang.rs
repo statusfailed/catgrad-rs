@@ -2,11 +2,10 @@ use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::stdlib::*;
 use catgrad_core::svg::to_svg;
+use catgrad_core::util::replace_nodes_in_hypergraph;
 
 pub mod test_utils;
-use test_utils::{
-    get_forget_core_declarations, replace_nodes_in_hypergraph, save_diagram_if_enabled,
-};
+use test_utils::{get_forget_core_declarations, save_diagram_if_enabled};
 pub mod test_models;
 use test_models::LinearSigmoid;
 
@@ -58,7 +57,6 @@ fn test_check_exp() {
     run_check_test(nn::Exp.term(), "test_check_exp.svg").expect("valid");
 }
 
-#[allow(clippy::result_large_err)]
 pub fn run_check_test(
     term: Option<catgrad_core::category::lang::TypedTerm>,
     svg_filename: &str,
@@ -69,9 +67,9 @@ pub fn run_check_test(
     } = term.unwrap();
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-    let (ops, env) = get_forget_core_declarations();
+    let env = get_forget_core_declarations();
 
-    let result = check_with(&ops, &env, term.clone(), source_type)?;
+    let result = check_with(&env, &Parameters::default(), term.clone(), source_type)?;
     println!("result: {result:?}");
 
     let typed_term = replace_nodes_in_hypergraph(term, result);
