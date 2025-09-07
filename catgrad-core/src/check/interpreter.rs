@@ -8,6 +8,14 @@ use open_hypergraphs::lax::NodeId;
 
 use super::types::*;
 
+#[allow(clippy::result_large_err)]
+pub fn check(env: &Environment, params: &Parameters, term: TypedTerm) -> ShapeCheckResult {
+    let TypedTerm {
+        term, source_type, ..
+    } = term;
+    check_with(env, params, term, source_type)
+}
+
 /// Assign a shape value to each node in a term (hypergraph).
 #[allow(clippy::result_large_err)]
 pub fn check_with(
@@ -81,7 +89,7 @@ use super::apply::*;
 
 // Get a value for each resulting NodeId.
 #[allow(clippy::result_large_err)]
-pub fn apply(
+fn apply(
     env: &Environment,
     params: &Parameters,
     ssa: &SSA<Object, Operation>,

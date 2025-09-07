@@ -4,5 +4,5 @@ pub mod interpreter;
 pub mod isomorphism;
 pub mod types;
 
-pub use interpreter::check_with;
+pub use interpreter::{check, check_with};
 pub use types::*;
