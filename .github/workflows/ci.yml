@@ -26,4 +26,4 @@ jobs:
      runs-on: ubuntu-latest
      steps:
       - uses: actions/checkout@v4
-        run: cargo clippy --all-targets --all-features -- --deny warnings -W clippy::redundant_clone
+      - run: cargo clippy --all-targets --all-features -- --deny warnings -W clippy::redundant_clone

@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the model as a typed term
     let typed_term = model.term().expect("Failed to create typed term");
-    let _ = save_svg(&typed_term.term, &format!("{}.svg", model.path()))?;
+    save_svg(&typed_term.term, &format!("{}.svg", model.path()))?;
 
     // Create parameters for the model
     let parameters = load_param_types();
@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Diagram of term with shapes inferred
     let labeled_term = replace_nodes_in_hypergraph(typed_term.term.clone(), check_result);
-    let _ = save_svg(&labeled_term, &format!("{}_typed.svg", model.path()))?;
+    save_svg(&labeled_term, &format!("{}_typed.svg", model.path()))?;
 
     // Run interpreter
     run_interpreter(&typed_term, env)?;
