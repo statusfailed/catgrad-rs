@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - name: Install Graphviz
         run: sudo apt-get update && sudo apt-get install -y graphviz
       - run: cargo test --all-features
@@ -26,4 +27,5 @@ jobs:
      runs-on: ubuntu-latest
      steps:
       - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets --all-features -- --deny warnings -W clippy::redundant_clone
