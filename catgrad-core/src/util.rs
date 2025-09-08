@@ -21,14 +21,8 @@ where
     })
 }
 
-pub(crate) fn iter_to_array<T, const N: usize>(
-    mut iter: impl Iterator<Item = T>,
-) -> Option<[T; N]> {
-    let mut vec = Vec::with_capacity(N);
-    for _ in 0..N {
-        vec.push(iter.next()?);
-    }
-    vec.try_into().ok()
+pub(crate) fn iter_to_array<T, const N: usize>(iter: impl Iterator<Item = T>) -> Option<[T; N]> {
+    iter.collect::<Vec<T>>().try_into().ok()
 }
 
 pub fn replace_nodes_in_hypergraph<T, U, V>(

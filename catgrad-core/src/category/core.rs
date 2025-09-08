@@ -86,7 +86,7 @@ pub enum NatOp {
     Add,
 }
 
-/// Operations involving shapes
+/// Operations involving shapes and dtypes
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum TypeOp {
     /// Pack k Nats into a shape
@@ -101,8 +101,8 @@ pub enum TypeOp {
     /// Tensor → Shape
     Shape,
 
-    /// Get the dtype of a tensor (not its dtype!)
-    /// Tensor → Shape
+    /// Get the dtype of a tensor
+    /// Tensor → Dtype
     Dtype,
 }
 
