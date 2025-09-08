@@ -57,6 +57,7 @@ fn test_check_exp() {
     run_check_test(nn::Exp.term(), "test_check_exp.svg").expect("valid");
 }
 
+#[allow(clippy::result_large_err)]
 pub fn run_check_test(
     term: Option<catgrad_core::category::lang::TypedTerm>,
     svg_filename: &str,
