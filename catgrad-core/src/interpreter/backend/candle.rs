@@ -29,22 +29,6 @@ use candle_core::{DType, Device, Tensor};
 //   - operations          - PartialEq
 //   - configuration       - NdArray trait
 //
-// COMPARISON WITH NDARRAY BACKEND:
-//
-// The ndarray backend is simpler because:
-// - `ArrayD<D>` already implements `PartialEq` and other required traits
-// - No device management needed (always CPU)
-// - No additional configuration required
-//
-// Candle needs both structs because:
-// - Device Management: Need to track which device tensors are on
-// - Missing Traits: `candle_core::Tensor` doesn't implement `PartialEq`
-// - Custom Behavior: Need to add our own methods and error handling
-//
-// This design follows the Single Responsibility Principle:
-// - `CandleTensor`: Manages tensor data and implements data-related traits
-// - `CandleBackend`: Manages operations and device state
-//
 // ============================================================================
 
 #[derive(Clone, Debug)]
@@ -79,12 +63,17 @@ impl Backend for CandleBackend {
     fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
         // Use unsafe transmute as a workaround for type erasure
         // This is not ideal but necessary due to trait constraints
+        // (Candle's Tensor::new() requires knowing the specific
+        // data type at compile time)
+        // TODO: Issue #188 refactors the backend to fix this.
         if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
             let val = unsafe { std::mem::transmute_copy::<D, f32>(&d) };
-            CandleTensor(Tensor::new(&[val], &self.device).unwrap())
+            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
+            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
         } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
             let val = unsafe { std::mem::transmute_copy::<D, u32>(&d) };
-            CandleTensor(Tensor::new(&[val], &self.device).unwrap())
+            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
+            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
         } else {
             panic!("Unsupported dtype for scalar creation");
         }
@@ -152,40 +141,40 @@ impl Backend for CandleBackend {
     fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::add_f32(x, y)]),
-            U32([x, y]) => U32([Self::add_u32(x, y)]),
+            F32([x, y]) => F32([Self::add(x, y)]),
+            U32([x, y]) => U32([Self::add(x, y)]),
         }
     }
 
     fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::mul_f32(x, y)]),
-            U32([x, y]) => U32([Self::mul_u32(x, y)]),
+            F32([x, y]) => F32([Self::mul(x, y)]),
+            U32([x, y]) => U32([Self::mul(x, y)]),
         }
     }
 
     fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::div_f32(x, y)]),
-            U32([x, y]) => U32([Self::div_u32(x, y)]),
+            F32([x, y]) => F32([Self::div(x, y)]),
+            U32([x, y]) => U32([Self::div(x, y)]),
         }
     }
 
     fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::pow_f32(x, y)]),
-            U32([x, y]) => U32([Self::pow_u32(x, y)]),
+            F32([x, y]) => F32([Self::pow(x, y)]),
+            U32([x, y]) => U32([Self::pow(x, y)]),
         }
     }
 
     fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
-            F32([arr]) => F32([Self::neg_f32(arr)]),
-            U32([arr]) => U32([Self::neg_u32(arr)]),
+            F32([arr]) => F32([Self::neg(arr)]),
+            U32([arr]) => U32([Self::neg(arr)]),
         }
     }
 
@@ -211,213 +200,53 @@ impl CandleBackend {
         tensor.reshape(&*new_shape.0).unwrap()
     }
 
+    // Catgrad always uses explicit broadcasting.
     fn broadcast_tensor(tensor: Tensor, shape_prefix: Shape) -> Tensor {
         let current_shape = tensor.dims();
-        let mut new_shape = current_shape.to_vec();
-        new_shape.splice(0..0, shape_prefix.0.iter().cloned());
+        let target_shape = shape_prefix.0;
 
-        // Candle doesn't have a direct broadcast function, so this is a simplified implementation
-        // (in practice you might need more sophisticated broadcasting, see below)
-        tensor.expand(&*new_shape).unwrap()
-    }
-
-    // ============================================================================
-    // BROADCASTING HELPER FUNCTIONS
-    // ============================================================================
-    //
-    // WHY CANDLE NEEDS THESE FUNCTIONS (vs ndarray backend):
-    //
-    // The ndarray backend doesn't need explicit broadcasting helpers because:
-    //
-    // 1. **Built-in Broadcasting**: ndarray's `Zip` iterator automatically handles
-    //    broadcasting when iterating over arrays of different shapes. For example:
-    //    ```rust
-    //    ndarray::Zip::from(&array1).and(&array2).map_collect(|&a, &b| a + b)
-    //    ```
-    //    This works even if array1 has shape [2, 100] and array2 has shape [2, 100, 1].
-    //
-    // 2. **Generic Operations**: ndarray operations are generic over element types,
-    //    so the same broadcasting logic works for all dtypes (f32, u32, etc.).
-    //
-    // 3. **Automatic Shape Inference**: ndarray can automatically determine the
-    //    output shape from the input shapes during broadcasting.
-    //
-    // Candle, however, requires explicit broadcasting because:
-    //
-    // 1. **No Built-in Broadcasting**: Candle's tensor operations (+, *, /, pow)
-    //    require tensors to have exactly the same shape. There's no automatic
-    //    broadcasting like ndarray's Zip iterator.
-    //
-    // 2. **Type Erasure**: Candle uses runtime type dispatch via `DType` enum
-    //    rather than Rust generics, so we can't write generic broadcasting
-    //    functions that work for all types.
-    //
-    // 3. **Manual Shape Management**: We must explicitly:
-    //    - Check tensor shapes before operations
-    //    - Squeeze extra dimensions of size 1
-    //    - Broadcast scalars to match tensor shapes
-    //    - Handle each dtype (f32, u32) separately
-    //
-    // 4. **Neural Network Requirements**: Neural networks frequently have shape
-    //    mismatches that need broadcasting:
-    //    - Constants (scalars) broadcast to tensor shapes
-    //    - Extra dimensions from operations like reshape/broadcast
-    //    - Element-wise operations between tensors of different ranks
-    //
-    // EXAMPLES OF SHAPE MISMATCHES WE HANDLE:
-    //
-    // 1. **Sigmoid Operation**: `1.0 / (1.0 + exp(-x))`
-    //    - `1.0` is a scalar (shape [])
-    //    - `x` might be shape [2, 100]
-    //    - We need to broadcast `1.0` to [2, 100]
-    //
-    // 2. **Broadcast Operations**: After `broadcast(x, shape)`, we might get:
-    //    - `x` has shape [2, 100]
-    //    - `broadcast(x, [1, 2, 100])` gives shape [1, 2, 100]
-    //    - Later operations need to squeeze the extra dimension
-    //
-    // 3. **Matrix Operations**: After matrix multiplication:
-    //    - `matmul(A, B)` might produce shape [2, 100, 1]
-    //    - Element-wise operations with [2, 100] need squeezing
-    // ============================================================================
-
-    fn broadcast_and_op_f32<F>(x: CandleTensor, y: CandleTensor, op: F) -> CandleTensor
-    where
-        F: FnOnce(Tensor, Tensor) -> Result<Tensor, candle_core::Error>,
-    {
-        let x_shape = x.0.shape().dims();
-        let y_shape = y.0.shape().dims();
-
-        // If shapes are different, try to make them compatible
-        if x_shape != y_shape {
-            // Check if one shape can be squeezed to match the other
-            if x_shape.len() > y_shape.len() && x_shape.ends_with(&[1]) {
-                // x has extra dimension of size 1, squeeze it
-                let x_squeezed = x.0.squeeze(x_shape.len() - 1).unwrap();
-                CandleTensor(op(x_squeezed, y.0).unwrap())
-            } else if y_shape.len() > x_shape.len() && y_shape.ends_with(&[1]) {
-                // y has extra dimension of size 1, squeeze it
-                let y_squeezed = y.0.squeeze(y_shape.len() - 1).unwrap();
-                CandleTensor(op(x.0, y_squeezed).unwrap())
-            } else if y_shape.len() == 1 && y_shape[0] == 1 {
-                // y is a scalar, broadcast it
-                let y_broadcast = y.0.broadcast_as(x_shape).unwrap();
-                CandleTensor(op(x.0, y_broadcast).unwrap())
-            } else if x_shape.len() == 1 && x_shape[0] == 1 {
-                // x is a scalar, broadcast it
-                let x_broadcast = x.0.broadcast_as(y_shape).unwrap();
-                CandleTensor(op(x_broadcast, y.0).unwrap())
-            } else {
-                // Try the operation directly
-                CandleTensor(op(x.0, y.0).unwrap())
-            }
+        // If the tensor is a scalar (shape []), broadcast it to the target shape
+        if current_shape.is_empty() {
+            // For scalars, broadcast directly to the target shape
+            tensor.broadcast_as(&*target_shape).unwrap()
         } else {
-            CandleTensor(op(x.0, y.0).unwrap())
+            // For non-scalars, prepend the shape_prefix dimensions
+            let mut new_shape = target_shape;
+            new_shape.extend_from_slice(current_shape);
+            tensor.broadcast_as(&*new_shape).unwrap()
         }
     }
 
-    fn broadcast_and_op_u32<F>(x: CandleTensor, y: CandleTensor, op: F) -> CandleTensor
-    where
-        F: FnOnce(Tensor, Tensor) -> Result<Tensor, candle_core::Error>,
-    {
-        let x_shape = x.0.shape().dims();
-        let y_shape = y.0.shape().dims();
-
-        // If shapes are different, try to make them compatible
-        if x_shape != y_shape {
-            // Check if one shape can be squeezed to match the other
-            if x_shape.len() > y_shape.len() && x_shape.ends_with(&[1]) {
-                // x has extra dimension of size 1, squeeze it
-                let x_squeezed = x.0.squeeze(x_shape.len() - 1).unwrap();
-                CandleTensor(op(x_squeezed, y.0).unwrap())
-            } else if y_shape.len() > x_shape.len() && y_shape.ends_with(&[1]) {
-                // y has extra dimension of size 1, squeeze it
-                let y_squeezed = y.0.squeeze(y_shape.len() - 1).unwrap();
-                CandleTensor(op(x.0, y_squeezed).unwrap())
-            } else if y_shape.len() == 1 && y_shape[0] == 1 {
-                // y is a scalar, broadcast it
-                let y_broadcast = y.0.broadcast_as(x_shape).unwrap();
-                CandleTensor(op(x.0, y_broadcast).unwrap())
-            } else if x_shape.len() == 1 && x_shape[0] == 1 {
-                // x is a scalar, broadcast it
-                let x_broadcast = x.0.broadcast_as(y_shape).unwrap();
-                CandleTensor(op(x_broadcast, y.0).unwrap())
-            } else {
-                // Try the operation directly
-                CandleTensor(op(x.0, y.0).unwrap())
-            }
-        } else {
-            CandleTensor(op(x.0, y.0).unwrap())
+    fn add(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
         }
+        CandleTensor((&x.0 + &y.0).unwrap())
     }
 
-    // ============================================================================
-    // TYPE-SPECIFIC OPERATION FUNCTIONS
-    // ============================================================================
-    //
-    // WHY WE NEED SEPARATE add_f32/add_u32 FUNCTIONS (vs ndarray's generic approach):
-    //
-    // The ndarray backend can use generic functions like:
-    //   fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D> { x + y }
-    //
-    // But Candle requires separate functions because:
-    //
-    // 1. **Type Erasure**: CandleTensor wraps `candle_core::Tensor` which uses runtime
-    //    type dispatch via `DType` enum, not Rust generics. The tensor type is not
-    //    generic over element types like `ArrayD<D>`.
-    //
-    // 2. **API Design**: `candle_core::Tensor` operations are not generic - they work
-    //    on the concrete `Tensor` type and dispatch internally based on `DType`.
-    //
-    // 3. **Pattern Matching**: The main Backend trait methods need to match on
-    //    TaggedNdArrayTuple variants (F32/U32) and call the appropriate function.
-    //
-    // 4. **Consistency**: Even though both functions do the same thing (x.0 + y.0),
-    //    having separate functions makes the code more explicit and matches the
-    //    pattern used throughout the Candle backend.
-    //
-    // This is a fundamental difference in how ndarray (generic) vs Candle (type-erased)
-    // handle multi-type tensor operations.
-    // ============================================================================
-
-    fn add_f32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_f32(x, y, |a, b| a + b)
+    fn mul(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+        CandleTensor((&x.0 * &y.0).unwrap())
     }
 
-    fn add_u32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_u32(x, y, |a, b| a + b)
+    fn div(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+        CandleTensor((&x.0 / &y.0).unwrap())
     }
 
-    fn mul_f32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_f32(x, y, |a, b| a * b)
-    }
-
-    fn mul_u32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_u32(x, y, |a, b| a * b)
-    }
-
-    fn div_f32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_f32(x, y, |a, b| a / b)
-    }
-
-    fn div_u32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_u32(x, y, |a, b| a / b)
-    }
-
-    fn neg_f32(x: CandleTensor) -> CandleTensor {
+    fn neg(x: CandleTensor) -> CandleTensor {
         CandleTensor(x.0.neg().unwrap())
     }
 
-    fn neg_u32(x: CandleTensor) -> CandleTensor {
-        CandleTensor(x.0.neg().unwrap())
-    }
-
-    fn pow_f32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_f32(x, y, |a, b| a.pow(&b))
-    }
-
-    fn pow_u32(x: CandleTensor, y: CandleTensor) -> CandleTensor {
-        Self::broadcast_and_op_u32(x, y, |a, b| a.pow(&b))
+    fn pow(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+        CandleTensor(x.0.pow(&y.0).unwrap())
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {
@@ -434,8 +263,7 @@ impl CandleBackend {
             return Self::matmul_generic(lhs, rhs);
         }
 
-        // For batched matmul, we need to handle higher dimensions
-        // This is a simplified implementation
+        // Same as ndarray: require exact batch dimension match, panic if not
         let lhs_dims = lhs.dims();
         let rhs_dims = rhs.dims();
 
@@ -452,10 +280,10 @@ impl CandleBackend {
                 "batched_matmul: incompatible matrix dimensions"
             );
 
-            // For simplicity, require batch dimensions to match exactly
+            // Require batch dimensions to match exactly (same as ndarray)
             assert_eq!(
                 lhs_batch_dims, rhs_batch_dims,
-                "batched_matmul: batch dimensions must match"
+                "batched_matmul: batch dimensions must match exactly"
             );
 
             let batch_size: usize = lhs_batch_dims.iter().product();
