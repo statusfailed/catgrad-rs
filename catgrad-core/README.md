@@ -203,6 +203,6 @@ Some features on the roadmap:
 [license_img]: https://img.shields.io/crates/l/catgrad.svg?style=for-the-badge "License badge"
 
 [catgrad_link]: https://catgrad.com
-[catgrad_img]: ../catgrad.svg
+[catgrad_img]: ../images/catgrad.svg
 
 [sigmoid_img]: ../images/sigmoid.svg
