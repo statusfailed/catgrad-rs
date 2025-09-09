@@ -1,7 +1,6 @@
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::stdlib::*;
-use catgrad_core::svg::to_svg;
 use catgrad_core::util::replace_nodes_in_hypergraph;
 
 pub mod test_utils;
@@ -24,8 +23,7 @@ fn test_graph_sigmoid() {
     use open_hypergraphs::lax::functor::*;
 
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-    let svg_bytes = to_svg(&term).expect("create svg");
-    save_diagram_if_enabled("test_graph_sigmoid.svg", svg_bytes);
+    save_diagram_if_enabled("test_graph_sigmoid.svg", &term);
 }
 
 #[test]
@@ -35,8 +33,7 @@ fn test_graph_linear_sigmoid() {
     use open_hypergraphs::lax::functor::*;
     let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
 
-    let svg_bytes = to_svg(&term).expect("create svg");
-    save_diagram_if_enabled("test_graph_linear_sigmoid.svg", svg_bytes);
+    save_diagram_if_enabled("test_graph_linear_sigmoid.svg", &term);
 }
 
 // Shapecheck the linear-sigmoid term.
@@ -73,8 +70,7 @@ pub fn run_check_test(
     println!("result: {result:?}");
 
     let typed_term = replace_nodes_in_hypergraph(term, result);
-    let svg_bytes = to_svg(&typed_term).expect("create svg");
-    save_diagram_if_enabled(svg_filename, svg_bytes);
+    save_diagram_if_enabled(svg_filename, &typed_term);
 
     Ok(())
 }

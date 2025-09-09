@@ -8,6 +8,7 @@ pub mod interpreter;
 pub mod ssa;
 
 // Utilities
+#[cfg(feature = "svg")]
 pub mod svg;
 pub mod util;
 
