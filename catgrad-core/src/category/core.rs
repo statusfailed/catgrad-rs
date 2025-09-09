@@ -45,7 +45,7 @@ impl Shape {
 pub enum Object {
     Nat, // natural numbers
     Dtype,
-    NdArrayType, // tuples of natural numbers (TODO: dtype)
+    NdArrayType,
     Shape,
     Tensor,
 }
