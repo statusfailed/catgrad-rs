@@ -5,6 +5,9 @@ use std::fmt::Debug;
 #[cfg(feature = "ndarray-backend")]
 pub mod ndarray;
 
+#[cfg(feature = "candle-backend")]
+pub mod candle;
+
 /// Backends implement this trait.
 ///
 /// # Conventions

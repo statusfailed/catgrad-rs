@@ -2,3 +2,5 @@
 Cargo.lock
 *.safetensors
 .cargo
+.DS_Store
+images/
