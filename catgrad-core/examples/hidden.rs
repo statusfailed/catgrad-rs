@@ -1,5 +1,4 @@
 use catgrad_core::prelude::*;
-use catgrad_core::svg::to_svg;
 use catgrad_core::util::replace_nodes_in_hypergraph;
 
 use catgrad_core::interpreter;
@@ -237,14 +236,15 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
     interpreter::Parameters::from(map)
 }
 
-use std::fmt::{Debug, Display};
+#[cfg(feature = "svg")]
 pub fn save_svg<
-    O: PartialEq + Clone + std::fmt::Display + Debug,
-    A: PartialEq + Clone + Display + Debug,
+    O: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
+    A: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
 >(
     term: &open_hypergraphs::lax::OpenHypergraph<O, A>,
     filename: &str,
 ) -> Result<(), std::io::Error> {
+    use catgrad_core::svg::to_svg;
     let bytes = to_svg(term)?;
     let output_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
@@ -253,5 +253,14 @@ pub fn save_svg<
     let output_path = output_dir.join(filename);
     println!("saving svg to {output_path:?}");
     std::fs::write(output_path, bytes).expect("write diagram file");
+    Ok(())
+}
+
+#[cfg(not(feature = "svg"))]
+pub fn save_svg<O, A>(
+    _term: &open_hypergraphs::lax::OpenHypergraph<O, A>,
+    _filename: &str,
+) -> Result<(), std::io::Error> {
+    println!("SVG feature not enabled, skipping diagram generation");
     Ok(())
 }

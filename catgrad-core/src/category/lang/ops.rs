@@ -97,12 +97,12 @@ pub fn pack<const N: usize>(builder: &Builder, extents: [Var; N]) -> Var {
         assert_eq!(x.label, Object::Nat);
     }
 
-    var::fn_operation(builder, &extents, Object::NdArrayType, op!["shape", "pack"])
+    var::fn_operation(builder, &extents, Object::Shape, op!["shape", "pack"])
 }
 
 /// Unpack a shape into a dtype and its constituent Nat dimensions
 pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> [Var; N] {
-    assert_eq!(x.label, Object::NdArrayType);
+    assert_eq!(x.label, Object::Shape);
 
     let ty = vec![Object::Nat; N];
     let elements = var::operation(builder, &[x], ty, op!["shape", "unpack"]);
@@ -110,9 +110,9 @@ pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> [Var; N] {
     crate::util::iter_to_array(elements.into_iter()).expect("N elements")
 }
 
-// Tensor → NdArrayType
+// Tensor → Shape
 pub fn shape(builder: &Builder, x: Var) -> Var {
-    var::fn_operation(builder, &[x], Object::NdArrayType, op!["tensor", "shape"])
+    var::fn_operation(builder, &[x], Object::Shape, op!["tensor", "shape"])
 }
 
 pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
