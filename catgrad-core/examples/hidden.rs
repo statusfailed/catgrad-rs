@@ -5,7 +5,8 @@ use catgrad_core::interpreter;
 
 use std::collections::HashMap;
 
-/// Construct, shapecheck, and interpret the `SimpleMNISTModel` using the ndarray backend.
+/// Construct, shapecheck, and interpret the `SimpleMNISTModel`
+// using both ndarray and Candle backends.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = SimpleMNISTModel;
 
@@ -26,11 +27,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         check::check(&env, &parameters, typed_term.clone()).expect("typecheck failed");
 
     // Diagram of term with shapes inferred
-    let labeled_term = replace_nodes_in_hypergraph(typed_term.term.clone(), check_result);
+    let labeled_term = replace_nodes_in_hypergraph(typed_term.term.clone(), check_result.clone());
     save_svg(&labeled_term, &format!("{}_typed.svg", model.path()))?;
 
-    // Run interpreter
-    run_interpreter(&typed_term, env)?;
+    // Run interpreter with available backends
+    run_interpreter(&typed_term, env.clone())?;
+
+    #[cfg(feature = "candle-backend")]
+    {
+        println!("\n--- Running with Candle backend ---");
+
+        // Generate Candle-specific diagrams
+        save_svg(&typed_term.term, &format!("{}_candle.svg", model.path()))?;
+        let labeled_term_candle =
+            replace_nodes_in_hypergraph(typed_term.term.clone(), check_result);
+        save_svg(
+            &labeled_term_candle,
+            &format!("{}_candle_typed.svg", model.path()),
+        )?;
+
+        run_interpreter_candle(&typed_term, env)?;
+    }
 
     Ok(())
 }
@@ -71,6 +88,51 @@ fn run_interpreter(
                 println!(
                     "Output sample: {:?}",
                     &arr.as_slice().unwrap()[..10.min(arr.len())]
+                );
+            }
+            _ => println!("Unexpected output type: {:?}", output),
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(feature = "candle-backend")]
+fn run_interpreter_candle(
+    typed_term: &TypedTerm,
+    env: Environment,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use catgrad_core::category::core::Shape;
+    use catgrad_core::interpreter::backend::candle::CandleBackend;
+
+    let backend = CandleBackend::new();
+    let interpreter_params = load_param_data(&backend);
+
+    // Create interpreter
+    let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
+
+    // Create sample input data: batch of 2 MNIST-like images (28x28)
+    let input_data: Vec<f32> = (0..2 * 28 * 28)
+        .map(|i| (i as f32 * 0.001) % 1.0) // Simple pattern: values between 0 and 1
+        .collect();
+    let input_tensor =
+        interpreter::tensor(&interpreter.backend, Shape(vec![2, 28, 28]), &input_data)
+            .expect("Failed to create input tensor");
+
+    // Run the model
+    let results = interpreter
+        .run(typed_term.term.clone(), vec![input_tensor])
+        .expect("Failed to run inference");
+
+    // Print info about the main output (should be the last one)
+    if let Some(output) = results.last() {
+        use catgrad_core::interpreter::{TaggedNdArray, Value};
+        match output {
+            Value::NdArray(TaggedNdArray::F32([arr])) => {
+                println!("Output shape: {:?}", arr.0.shape().dims());
+                println!(
+                    "Output tensor created successfully with shape {:?}",
+                    arr.0.shape().dims()
                 );
             }
             _ => println!("Unexpected output type: {:?}", output),
