@@ -103,11 +103,12 @@ Use the `svg` feature to visualise models--produce an SVG of the `Sigmoid`
 model above with the following code:
 
 ```rust
+# #[cfg(feature = "svg")] {
 use catgrad_core::prelude::*;
 use catgrad_core::svg::to_svg;
-
 let model = nn::Sigmoid;
 let svg_bytes = to_svg(&model.term().unwrap().term);
+# }
 // then write svg_bytes to a file using std::fs::write.
 ```
 
@@ -136,6 +137,7 @@ Run a program using an `Interpreter` with a chosen backend.
 For example, we can run the Sigmoid layer as follows:
 
 ```rust
+# #[cfg(feature = "ndarray-backend")] {
 use catgrad_core::prelude::*;
 use interpreter::{Interpreter, Parameters, Shape, tensor, backend::ndarray::NdArrayBackend};
 
@@ -149,6 +151,7 @@ let input = tensor(&backend, Shape(vec![2, 3]), &[1., 2., 3., 4., 5., 6.]).expec
 // Create and run the interpreter
 let interpreter = Interpreter::new(backend, stdlib(), Parameters::from([]));
 interpreter.run(term, vec![input]);
+# }
 ```
 
 ### Serverless runtime
