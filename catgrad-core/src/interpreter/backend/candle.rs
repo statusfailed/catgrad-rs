@@ -18,7 +18,6 @@ use candle_core::{DType, Device, Tensor};
 // 2. **`CandleBackend` - The Operations Provider**
 //    - Manages device state (CPU, GPU, Metal, etc.)
 //    - Implements the `Backend` trait with all operations (add, mul, matmul, etc.)
-//    - Handles device-specific configuration and state
 //
 // ARCHITECTURE PATTERN:
 //
