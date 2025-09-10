@@ -7,7 +7,7 @@ use candle_core::{DType, Device, Tensor};
 // CANDLE BACKEND ARCHITECTURE EXPLANATION
 // ============================================================================
 //
-// This backend follows a two-layer architecture pattern common in Rust:
+// This backend follows a 2-layer architecture pattern common in Rust:
 //
 // 1. **`CandleTensor` - The Data Container**
 //    - Wrapper around `candle_core::Tensor`
