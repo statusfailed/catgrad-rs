@@ -29,6 +29,7 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self>;
     fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
     fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
+    fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
     fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
     fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
     fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;

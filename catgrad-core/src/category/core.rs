@@ -170,6 +170,7 @@ pub enum TensorOp {
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub enum ScalarOp {
     Add, // 2 → 1
+    Sub, // 2 → 1
     Mul, // 2 → 1
     Div, // 2 → 1
     Neg, // 1 → 1
@@ -183,6 +184,7 @@ impl ScalarOp {
     pub fn profile(&self) -> (usize, usize) {
         match self {
             ScalarOp::Add => (2, 1),
+            ScalarOp::Sub => (2, 1),
             ScalarOp::Mul => (2, 1),
             ScalarOp::Div => (2, 1),
             ScalarOp::Neg => (1, 1),
