@@ -60,6 +60,14 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::sub(x, y)]),
+            U32([x, y]) => U32([Self::sub(x, y)]),
+        }
+    }
+
     fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
@@ -132,6 +140,15 @@ impl NdArrayBackend {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
         x + y
+    }
+
+    fn sub<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
+    where
+        D: HasDtype + ndarray::LinalgScalar,
+    {
+        // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
+        // using in-place updates? That is, use `x -= y` if x is contiguous.
+        x - y
     }
 
     fn mul<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>

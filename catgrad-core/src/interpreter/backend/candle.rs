@@ -145,6 +145,14 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::sub(x, y)]),
+            U32([x, y]) => U32([Self::sub(x, y)]),
+        }
+    }
+
     fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
@@ -221,6 +229,13 @@ impl CandleBackend {
             panic!("Shape mismatch in operation");
         }
         CandleTensor((&x.0 + &y.0).unwrap())
+    }
+
+    fn sub(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+        CandleTensor((&x.0 - &y.0).unwrap())
     }
 
     fn mul(x: CandleTensor, y: CandleTensor) -> CandleTensor {
