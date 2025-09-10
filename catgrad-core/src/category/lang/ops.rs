@@ -30,7 +30,17 @@ impl var::HasAdd<Object, Operation> for Operation {
         match lhs {
             Object::Nat => (lhs, op!["nat", "add"]),
             Object::Tensor => (lhs, op!["tensor", "add"]),
-            _ => panic!("multiply undefined for {lhs:?}"),
+            _ => panic!("addition undefined for {lhs:?}"),
+        }
+    }
+}
+
+impl var::HasSub<Object, Operation> for Operation {
+    fn sub(lhs: Object, rhs: Object) -> (Object, Operation) {
+        assert_eq!(lhs, rhs);
+        match lhs {
+            Object::Tensor => (lhs, op!["tensor", "sub"]),
+            _ => panic!("subtraction undefined for {lhs:?}"),
         }
     }
 }
