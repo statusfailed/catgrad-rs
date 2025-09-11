@@ -1,7 +1,7 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, NdArray};
-use candle_core::{DType, Device, Tensor};
+use candle_core::{D, DType, Device, Tensor};
 
 // ============================================================================
 // CANDLE BACKEND ARCHITECTURE EXPLANATION
@@ -185,6 +185,22 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::max(arr)]),
+            U32([arr]) => U32([Self::max(arr)]),
+        }
+    }
+
+    fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::sum(arr)]),
+            U32([arr]) => U32([Self::sum(arr)]),
+        }
+    }
+
     fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -261,6 +277,14 @@ impl CandleBackend {
             panic!("Shape mismatch in operation");
         }
         CandleTensor(x.0.pow(&y.0).unwrap())
+    }
+
+    fn sum(x: CandleTensor) -> CandleTensor {
+        CandleTensor(x.0.sum(D::Minus1).unwrap())
+    }
+
+    fn max(x: CandleTensor) -> CandleTensor {
+        CandleTensor(x.0.max(D::Minus1).unwrap())
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {

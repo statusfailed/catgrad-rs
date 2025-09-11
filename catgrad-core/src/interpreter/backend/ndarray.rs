@@ -100,6 +100,22 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::max_f32(arr)]),
+            U32([arr]) => U32([Self::max_u32(arr)]),
+        }
+    }
+
+    fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::sum(arr)]),
+            U32([arr]) => U32([Self::sum(arr)]),
+        }
+    }
+
     fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -185,6 +201,27 @@ impl NdArrayBackend {
         ndarray::Zip::from(&x)
             .and(&y)
             .map_collect(|&a, &b| a.pow(b))
+    }
+
+    fn max_f32(x: ArrayD<f32>) -> ArrayD<f32> {
+        // across the last dimension
+        let axis = x.ndim() - 1;
+        x.fold_axis(ndarray::Axis(axis), f32::MIN, |acc, &x| acc.max(x))
+    }
+
+    fn max_u32(x: ArrayD<u32>) -> ArrayD<u32> {
+        // across the last dimension
+        let axis = x.ndim() - 1;
+        x.fold_axis(ndarray::Axis(axis), u32::MIN, |acc, x| *acc.max(x))
+    }
+
+    fn sum<D>(x: ArrayD<D>) -> ArrayD<D>
+    where
+        D: HasDtype + ndarray::LinalgScalar,
+    {
+        // across the last dimension
+        let axis = x.ndim() - 1;
+        x.sum_axis(ndarray::Axis(axis))
     }
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
@@ -323,6 +360,161 @@ fn test_batched_matmul() {
 
     let result_flat = result.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
+
+#[test]
+fn test_add() {
+    use ndarray::ArrayD;
+
+    let x_data = vec![1.0f32, 2.0, 3.0, 4.0];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
+
+    let y_data = vec![5.0f32, 6.0, 7.0, 8.0];
+    let y = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), y_data).unwrap();
+
+    let result = NdArrayBackend::add(x, y);
+
+    let expected = [6.0f32, 8.0, 10.0, 12.0];
+    let result_flat = result.as_slice().unwrap();
+
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
+
+#[test]
+fn test_sub() {
+    use ndarray::ArrayD;
+
+    let x_data = vec![10.0f32, 8.0, 6.0, 4.0];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
+
+    let y_data = vec![1.0f32, 2.0, 3.0, 4.0];
+    let y = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), y_data).unwrap();
+
+    let result = NdArrayBackend::sub(x, y);
+
+    let expected = [9.0f32, 6.0, 3.0, 0.0];
+    let result_flat = result.as_slice().unwrap();
+
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
+
+#[test]
+fn test_sum() {
+    use ndarray::ArrayD;
+
+    // Test summing across last dimension: [2, 3] -> [2]
+    let x_data = vec![1u32, 2, 3, 4, 5, 6];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();
+
+    let result = NdArrayBackend::sum(x);
+
+    // Expected: [1+2+3, 4+5+6] = [6, 15]
+    let expected = [6u32, 15];
+    assert_eq!(result.shape(), &[2]);
+
+    let result_flat = result.as_slice().unwrap();
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+
+    // Test with 3D tensor: [2, 2, 3] -> [2, 2]
+    let x_data_3d = vec![
+        1.0f32, 2.0, 3.0, // [0,0,:]
+        4.0, 5.0, 6.0, // [0,1,:]
+        7.0, 8.0, 9.0, // [1,0,:]
+        10.0, 11.0, 12.0, // [1,1,:]
+    ];
+    let x_3d = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2, 3]), x_data_3d).unwrap();
+
+    let result_3d = NdArrayBackend::sum(x_3d);
+
+    // Expected: [[1+2+3, 4+5+6], [7+8+9, 10+11+12]] = [[6, 15], [24, 33]]
+    let expected_3d = [6.0f32, 15.0, 24.0, 33.0];
+    assert_eq!(result_3d.shape(), &[2, 2]);
+
+    let result_3d_flat = result_3d.as_slice().unwrap();
+    for (i, (&actual, &expected)) in result_3d_flat.iter().zip(expected_3d.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
+#[test]
+fn test_max() {
+    use ndarray::ArrayD;
+
+    // Test max across last dimension: [2, 3] -> [2]
+    let x_data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();
+
+    let result = NdArrayBackend::max_f32(x);
+
+    // Expected: [max(1,5,3), max(2,8,4)] = [5, 8]
+    let expected = [5.0f32, 8.0];
+    assert_eq!(result.shape(), &[2]);
+
+    let result_flat = result.as_slice().unwrap();
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+
+    // Test with u32 array: [2, 2] -> [2]
+    let x_data_u32 = vec![1u32, 5, 3, 2];
+    let x_u32 = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data_u32).unwrap();
+
+    let result_u32 = NdArrayBackend::max_u32(x_u32);
+
+    // Expected: [max(1,5), max(3,2)] = [5, 3]
+    let expected_u32 = [5u32, 3];
+    assert_eq!(result_u32.shape(), &[2]);
+
+    let result_u32_flat = result_u32.as_slice().unwrap();
+    for (i, (&actual, &expected)) in result_u32_flat.iter().zip(expected_u32.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+
+    // Test with 3D tensor: [2, 2, 3] -> [2, 2]
+    let x_data_3d = vec![
+        1.0f32, 2.0, 3.0, // [0,0,:]
+        4.0, 5.0, 6.0, // [0,1,:]
+        7.0, 8.0, 9.0, // [1,0,:]
+        10.0, 11.0, 12.0, // [1,1,:]
+    ];
+    let x_3d = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2, 3]), x_data_3d).unwrap();
+
+    let result_3d = NdArrayBackend::max_f32(x_3d);
+
+    // Expected: [[max(1,2,3), max(4,5,6)], [max(7,8,9), max(10,11,12)]] = [[3, 6], [9, 12]]
+    let expected_3d = [3.0f32, 6.0, 9.0, 12.0];
+    assert_eq!(result_3d.shape(), &[2, 2]);
+
+    let result_3d_flat = result_3d.as_slice().unwrap();
+    for (i, (&actual, &expected)) in result_3d_flat.iter().zip(expected_3d.iter()).enumerate() {
         assert_eq!(
             actual, expected,
             "Mismatch at index {i}: got {actual}, expected {expected}"
