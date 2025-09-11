@@ -111,8 +111,8 @@ impl Backend for NdArrayBackend {
     fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
-            F32([arr]) => F32([Self::sum_f32(arr)]),
-            U32([arr]) => U32([Self::sum_u32(arr)]),
+            F32([arr]) => F32([Self::sum(arr)]),
+            U32([arr]) => U32([Self::sum(arr)]),
         }
     }
 
@@ -215,13 +215,10 @@ impl NdArrayBackend {
         x.fold_axis(ndarray::Axis(axis), u32::MIN, |acc, x| *acc.max(x))
     }
 
-    fn sum_f32(x: ArrayD<f32>) -> ArrayD<f32> {
-        // across the last dimension
-        let axis = x.ndim() - 1;
-        x.sum_axis(ndarray::Axis(axis))
-    }
-
-    fn sum_u32(x: ArrayD<u32>) -> ArrayD<u32> {
+    fn sum<D>(x: ArrayD<D>) -> ArrayD<D>
+    where
+        D: HasDtype + ndarray::LinalgScalar,
+    {
         // across the last dimension
         let axis = x.ndim() - 1;
         x.sum_axis(ndarray::Axis(axis))
@@ -421,13 +418,13 @@ fn test_sum() {
     use ndarray::ArrayD;
 
     // Test summing across last dimension: [2, 3] -> [2]
-    let x_data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let x_data = vec![1u32, 2, 3, 4, 5, 6];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();
 
-    let result = NdArrayBackend::sum_f32(x);
+    let result = NdArrayBackend::sum(x);
 
     // Expected: [1+2+3, 4+5+6] = [6, 15]
-    let expected = [6.0f32, 15.0];
+    let expected = [6u32, 15];
     assert_eq!(result.shape(), &[2]);
 
     let result_flat = result.as_slice().unwrap();
@@ -447,7 +444,7 @@ fn test_sum() {
     ];
     let x_3d = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2, 3]), x_data_3d).unwrap();
 
-    let result_3d = NdArrayBackend::sum_f32(x_3d);
+    let result_3d = NdArrayBackend::sum(x_3d);
 
     // Expected: [[1+2+3, 4+5+6], [7+8+9, 10+11+12]] = [[6, 15], [24, 33]]
     let expected_3d = [6.0f32, 15.0, 24.0, 33.0];
