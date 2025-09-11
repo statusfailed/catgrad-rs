@@ -43,12 +43,12 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
 }
 
-pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug + PartialEq {
+pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug {
     type Backend: Backend;
     fn shape(&self) -> Shape;
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum BackendError {
     /// The size of a shape did not match the number of elements in a Tensor
     ShapeError,
