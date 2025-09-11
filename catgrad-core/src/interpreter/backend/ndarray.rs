@@ -329,3 +329,49 @@ fn test_batched_matmul() {
         );
     }
 }
+
+#[test]
+fn test_add() {
+    use ndarray::ArrayD;
+
+    let x_data = vec![1.0f32, 2.0, 3.0, 4.0];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
+
+    let y_data = vec![5.0f32, 6.0, 7.0, 8.0];
+    let y = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), y_data).unwrap();
+
+    let result = NdArrayBackend::add(x, y);
+
+    let expected = vec![6.0f32, 8.0, 10.0, 12.0];
+    let result_flat = result.as_slice().unwrap();
+
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
+
+#[test]
+fn test_sub() {
+    use ndarray::ArrayD;
+
+    let x_data = vec![10.0f32, 8.0, 6.0, 4.0];
+    let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
+
+    let y_data = vec![1.0f32, 2.0, 3.0, 4.0];
+    let y = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), y_data).unwrap();
+
+    let result = NdArrayBackend::sub(x, y);
+
+    let expected = vec![9.0f32, 6.0, 3.0, 0.0];
+    let result_flat = result.as_slice().unwrap();
+
+    for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
+        assert_eq!(
+            actual, expected,
+            "Mismatch at index {i}: got {actual}, expected {expected}"
+        );
+    }
+}
