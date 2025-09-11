@@ -148,6 +148,14 @@ pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
     var::fn_operation(builder, &[t, x], Object::Tensor, op!["tensor", "reshape"])
 }
 
+pub fn max(builder: &Builder, x: Var) -> Var {
+    var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "max"])
+}
+
+pub fn sum(builder: &Builder, x: Var) -> Var {
+    var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "sum"])
+}
+
 /// Batch matmul
 pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
     // checked during shapechecking, but errors easier to follow here.

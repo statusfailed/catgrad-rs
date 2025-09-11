@@ -16,8 +16,8 @@ pub(crate) fn apply_tensor_op<B: Backend>(
     match tensor_op {
         TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
         TensorOp::Constant(_constant) => todo!("constant"),
-        TensorOp::Sum => todo!("sum"),
-        TensorOp::Max => todo!("max"),
+        TensorOp::Sum => tensor_sum(backend, args, ssa),
+        TensorOp::Max => tensor_max(backend, args, ssa),
         TensorOp::Argmax => todo!("argmax"),
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
         TensorOp::Reshape => tensor_reshape(backend, args, ssa),
@@ -66,6 +66,56 @@ fn tensor_cast<B: Backend>(
     };
 
     let result = backend.cast(x.clone(), target_dtype.clone());
+    Ok(vec![Value::NdArray(result)])
+}
+
+fn tensor_sum<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let tensor = &args[0];
+
+    let Value::NdArray(x) = tensor else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = backend.sum(x.clone());
+    Ok(vec![Value::NdArray(result)])
+}
+
+fn tensor_max<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let tensor = &args[0];
+
+    let Value::NdArray(x) = tensor else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = backend.max(x.clone());
     Ok(vec![Value::NdArray(result)])
 }
 

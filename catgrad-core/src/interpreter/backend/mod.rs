@@ -39,6 +39,8 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self>;
     fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self>;
+    fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
+    fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
 }
 
 pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug + PartialEq {
