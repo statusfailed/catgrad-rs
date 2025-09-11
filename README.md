@@ -55,7 +55,7 @@ There are several ways to use the catgrad rust crate:
 1. [Serverless runtime](#serverless-runtime) (coming soon!)
 
 An end-to-end example of defining, typechecking, running, and visualising a model
-is provided in [./examples/hidden.rs].
+is provided in [examples/hidden.rs](./catgrad-core/examples/hidden.rs).
 
 ### Defining Models
 
@@ -169,7 +169,7 @@ Optional features can be switched on which add more dependencies:
 - `svg` allows producing SVG diagrams of models but requires the `graphviz` and `open-hypergraphs-dot`
 - backends:
     - `ndarray-backend` requires the `ndarray` crate
-    - `candle-backend` (coming soon!)
+    - `candle-backend` requires the `candle-core` crate
 
 ## Roadmap
 
