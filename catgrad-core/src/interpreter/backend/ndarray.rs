@@ -3,7 +3,7 @@ use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, NdArray};
 use ndarray::{ArrayD, IxDyn};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct NdArrayBackend;
 
 impl Backend for NdArrayBackend {

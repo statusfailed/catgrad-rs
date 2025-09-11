@@ -6,13 +6,13 @@ use crate::ssa::SSA;
 use super::backend::*;
 use crate::category::core::{NdArrayType, Shape};
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ApplyError {
     pub kind: ApplyErrorKind,
     pub ssa: SSA<Object, Operation>,
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum ApplyErrorKind {
     TypeError,
     ArityError,
@@ -20,8 +20,8 @@ pub enum ApplyErrorKind {
     MissingDefinition(Path), // Operation definition not found in env
 }
 
-// Actual values produced by the interpreter #[derive(PartialEq, Debug, Clone)]
-#[derive(PartialEq, Debug, Clone)]
+// Actual values produced by the interpreter #[derive(Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Value<B: Backend> {
     /// A concrete natural number
     Nat(usize),
@@ -43,12 +43,12 @@ pub enum Value<B: Backend> {
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
-pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug + PartialEq {}
+pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
 impl HasDtype for f32 {}
 impl HasDtype for u32 {}
 
 /// A collection of N NdArrays of the same dtype
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug)]
 pub enum TaggedNdArrayTuple<B: Backend, const N: usize> {
     F32([B::NdArray<f32>; N]),
     U32([B::NdArray<u32>; N]),
@@ -56,9 +56,7 @@ pub enum TaggedNdArrayTuple<B: Backend, const N: usize> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub trait IntoTagged<B: Backend, const N: usize>:
-    Clone + PartialEq + std::fmt::Debug + HasDtype
-{
+pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
     fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedNdArrayTuple<B, N>;
 }
 

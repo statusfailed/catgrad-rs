@@ -10,7 +10,7 @@ use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
 /// Parameter values dict
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct Parameters<B: Backend>(HashMap<Path, TaggedNdArray<B>>);
 
 // Needed so Backend doesn't have to implement Default
@@ -175,7 +175,7 @@ impl<B: Backend> Interpreter<B> {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum InterpreterError {
     /// A value (identified by a node id) was written to multiple times
     NonMonogamousWrite(NodeId),
