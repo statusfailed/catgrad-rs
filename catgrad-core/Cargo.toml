@@ -10,8 +10,10 @@ open-hypergraphs-dot = { version = "0.2.1", optional = true }
 
 # Interpreter backends (optional)
 ndarray = { version = "0.16.1", optional = true }
+candle-core = { version = "0.8", optional = true }
 
 [features]
 default = []
 ndarray-backend = ["dep:ndarray"]
+candle-backend = ["dep:candle-core"]
 svg = ["dep:graphviz-rust", "dep:open-hypergraphs-dot"]
