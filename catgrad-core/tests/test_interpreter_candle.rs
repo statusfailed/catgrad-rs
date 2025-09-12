@@ -3,7 +3,7 @@
 use catgrad_core::category::core::Shape;
 use catgrad_core::interpreter::backend::Backend;
 use catgrad_core::interpreter::backend::candle::CandleBackend;
-use catgrad_core::interpreter::{TaggedNdArray, TaggedNdArrayTuple};
+use catgrad_core::interpreter::{TaggedNdArray, TaggedNdArrayTuple, Value};
 
 // ============================================================================
 // CANDLE BACKEND DIRECT TESTS
@@ -467,11 +467,19 @@ fn test_candle_interpreter_add() {
     let expected_data: Vec<u32> = data.iter().map(|&x| x * 2).collect();
     let backend = CandleBackend::new();
     let expected = tensor(&backend, Shape(vec![2, 1, 3]), &expected_data).unwrap();
-
-    assert_eq!(
-        result[0], expected,
-        "Result should be double the input data"
-    );
+    let backend = CandleBackend::new();
+    match (&result[0], &expected) {
+        (
+            Value::NdArray(TaggedNdArray::U32([actual])),
+            Value::NdArray(TaggedNdArray::U32([exp])),
+        ) => {
+            assert!(
+                backend.ndarray_eq(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                "Result should be double the input data"
+            );
+        }
+        _ => panic!("Expected U32 tensors"),
+    }
 }
 
 #[test]
@@ -501,11 +509,19 @@ fn test_candle_interpreter_batch_matmul() {
         39.0, 53.0, // batch 1: [5*3+6*4, 7*3+8*4]
     ];
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
-
-    assert_eq!(
-        result[0], expected,
-        "Batch matmul result should match expected output"
-    );
+    let backend = CandleBackend::new();
+    match (&result[0], &expected) {
+        (
+            Value::NdArray(TaggedNdArray::F32([actual])),
+            Value::NdArray(TaggedNdArray::F32([exp])),
+        ) => {
+            assert!(
+                backend.ndarray_eq(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                "Batch matmul result should match expected output"
+            );
+        }
+        _ => panic!("Expected F32 tensors"),
+    }
 }
 
 // ============================================================================

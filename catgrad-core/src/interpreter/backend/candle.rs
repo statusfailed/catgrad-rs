@@ -216,6 +216,14 @@ impl Backend for CandleBackend {
             U32([arr]) => U32([CandleTensor(Self::reshape_tensor(arr.0, new_shape))]),
         }
     }
+
+    fn ndarray_eq(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([a, b]) => a == b,
+            U32([a, b]) => a == b,
+        }
+    }
 }
 
 impl CandleBackend {
