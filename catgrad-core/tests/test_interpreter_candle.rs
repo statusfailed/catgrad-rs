@@ -6,9 +6,9 @@ use catgrad_core::interpreter::backend::candle::CandleBackend;
 use catgrad_core::interpreter::{TaggedNdArray, TaggedNdArrayTuple, Value};
 
 // ============================================================================
-// CANDLE BACKEND DIRECT TESTS
+// CANDLE BACKEND UNIT TESTS
 // ============================================================================
-// These tests verify the Candle backend operations directly
+// These tests verify all Backend trait methods for the Candle backend
 
 #[test]
 fn test_candle_backend_basic_operations() {
@@ -71,6 +71,115 @@ fn test_candle_backend_arithmetic() {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
+    }
+}
+
+#[test]
+fn test_candle_backend_subtraction() {
+    let backend = CandleBackend::new();
+
+    // Test F32 subtraction
+    let data1 = vec![10.0f32, 8.0, 6.0, 4.0];
+    let data2 = vec![1.0f32, 2.0, 3.0, 4.0];
+
+    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+        .unwrap();
+    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+        .unwrap();
+
+    let result = backend.sub(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    match result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2, 2]);
+        }
+        _ => panic!("Expected F32 result"),
+    }
+
+    // Test U32 subtraction
+    let data3 = vec![10u32, 8, 6, 4];
+    let data4 = vec![1u32, 2, 3, 4];
+
+    let tensor3: <CandleBackend as Backend>::NdArray<u32> = backend
+        .ndarray_from_slice(&data3, Shape(vec![2, 2]))
+        .unwrap();
+    let tensor4: <CandleBackend as Backend>::NdArray<u32> = backend
+        .ndarray_from_slice(&data4, Shape(vec![2, 2]))
+        .unwrap();
+
+    let result = backend.sub(TaggedNdArrayTuple::U32([tensor3, tensor4]));
+    match result {
+        TaggedNdArray::U32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2, 2]);
+        }
+        _ => panic!("Expected U32 result"),
+    }
+}
+
+#[test]
+fn test_candle_backend_max() {
+    let backend = CandleBackend::new();
+
+    // Test F32 max
+    let data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
+    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+        .unwrap();
+
+    let result = backend.max(TaggedNdArray::F32([tensor]));
+    match result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2]); // Max reduces last dimension
+        }
+        _ => panic!("Expected F32 result"),
+    }
+
+    // Test U32 max
+    let data_u32 = vec![1u32, 5, 3, 2];
+    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
+        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
+        .unwrap();
+
+    let result = backend.max(TaggedNdArray::U32([tensor_u32]));
+    match result {
+        TaggedNdArray::U32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2]); // Max reduces last dimension
+        }
+        _ => panic!("Expected U32 result"),
+    }
+}
+
+#[test]
+fn test_candle_backend_sum() {
+    let backend = CandleBackend::new();
+
+    // Test F32 sum
+    let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+        .unwrap();
+
+    let result = backend.sum(TaggedNdArray::F32([tensor]));
+    match result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2]); // Sum reduces last dimension
+        }
+        _ => panic!("Expected F32 result"),
+    }
+
+    // Test U32 sum
+    let data_u32 = vec![1u32, 2, 3, 4, 5, 6];
+    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
+        .ndarray_from_slice(&data_u32, Shape(vec![2, 3]))
+        .unwrap();
+
+    let result = backend.sum(TaggedNdArray::U32([tensor_u32]));
+    match result {
+        TaggedNdArray::U32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[2]); // Sum reduces last dimension
+        }
+        _ => panic!("Expected U32 result"),
     }
 }
 
@@ -406,6 +515,164 @@ fn test_candle_backend_power_shape_mismatch_error() {
 
     // This should panic due to shape mismatch
     let _result = backend.pow(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+}
+
+#[test]
+#[should_panic(expected = "Shape mismatch in operation")]
+fn test_candle_backend_subtraction_shape_mismatch_error() {
+    let backend = CandleBackend::new();
+
+    // Create tensors with different shapes
+    let data1 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
+    let data2 = vec![1.0f32, 2.0]; // [2] - different shape
+
+    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+        .unwrap();
+    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
+        backend.ndarray_from_slice(&data2, Shape(vec![2])).unwrap();
+
+    // This should panic due to shape mismatch
+    let _result = backend.sub(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+}
+
+// ============================================================================
+// EDGE CASE TESTS
+// ============================================================================
+// These tests verify edge cases and boundary conditions
+
+#[test]
+fn test_candle_backend_empty_tensor() {
+    let backend = CandleBackend::new();
+
+    // Test zeros with empty shape (scalar)
+    let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.zeros::<f32>(Shape(vec![]));
+    assert_eq!(scalar.0.shape().dims(), &[] as &[usize]);
+
+    // Test zeros with single element
+    let single: <CandleBackend as Backend>::NdArray<f32> = backend.zeros::<f32>(Shape(vec![1]));
+    assert_eq!(single.0.shape().dims(), &[1]);
+}
+
+#[test]
+fn test_candle_backend_single_element_operations() {
+    let backend = CandleBackend::new();
+
+    // Test operations on single-element tensors
+    let data1 = vec![5.0f32];
+    let data2 = vec![3.0f32];
+
+    let tensor1: <CandleBackend as Backend>::NdArray<f32> =
+        backend.ndarray_from_slice(&data1, Shape(vec![1])).unwrap();
+    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
+        backend.ndarray_from_slice(&data2, Shape(vec![1])).unwrap();
+
+    // Test all operations on single elements
+    let add_result = backend.add(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let sub_result = backend.sub(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let mul_result = backend.mul(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let div_result = backend.div(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let pow_result = backend.pow(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2]));
+
+    // All results should have shape [1]
+    for (name, result) in [
+        ("add", add_result),
+        ("sub", sub_result),
+        ("mul", mul_result),
+        ("div", div_result),
+        ("pow", pow_result),
+    ] {
+        match result {
+            TaggedNdArray::F32([arr]) => {
+                assert_eq!(
+                    arr.0.shape().dims(),
+                    &[1],
+                    "{} result should have shape [1]",
+                    name
+                );
+            }
+            _ => panic!("Expected F32 result for {}", name),
+        }
+    }
+
+    // Test unary operations
+    let neg_result = backend.neg(TaggedNdArray::F32([tensor1.clone()]));
+    let max_result = backend.max(TaggedNdArray::F32([tensor1.clone()]));
+    let sum_result = backend.sum(TaggedNdArray::F32([tensor1]));
+
+    // Test negation (preserves shape)
+    match neg_result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(
+                arr.0.shape().dims(),
+                &[1],
+                "neg result should have shape [1]"
+            );
+        }
+        _ => panic!("Expected F32 result for neg"),
+    }
+
+    // Test max and sum (reduce last dimension, so [1] -> [])
+    match max_result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(
+                arr.0.shape().dims(),
+                &[] as &[usize],
+                "max result should have shape []"
+            );
+        }
+        _ => panic!("Expected F32 result for max"),
+    }
+
+    match sum_result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(
+                arr.0.shape().dims(),
+                &[] as &[usize],
+                "sum result should have shape []"
+            );
+        }
+        _ => panic!("Expected F32 result for sum"),
+    }
+}
+
+#[test]
+fn test_candle_backend_large_tensor() {
+    let backend = CandleBackend::new();
+
+    // Test with a larger tensor to ensure operations scale
+    let size = 100;
+    let data: Vec<f32> = (0..size).map(|i| i as f32).collect();
+    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data, Shape(vec![10, 10]))
+        .unwrap();
+
+    // Test that operations work on larger tensors
+    let result = backend.add(TaggedNdArrayTuple::F32([tensor.clone(), tensor.clone()]));
+    match result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[10, 10]);
+        }
+        _ => panic!("Expected F32 result"),
+    }
+
+    // Test reduction operations
+    let sum_result = backend.sum(TaggedNdArray::F32([tensor.clone()]));
+    let max_result = backend.max(TaggedNdArray::F32([tensor]));
+
+    match sum_result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[10]); // Sum reduces last dimension
+        }
+        _ => panic!("Expected F32 result for sum"),
+    }
+
+    match max_result {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[10]); // Max reduces last dimension
+        }
+        _ => panic!("Expected F32 result for max"),
+    }
 }
 
 // ============================================================================
