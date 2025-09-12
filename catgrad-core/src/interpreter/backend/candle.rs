@@ -12,7 +12,6 @@ use candle_core::{D, DType, Device, Tensor};
 // 1. **`CandleTensor` - The Data Container**
 //    - Wrapper around `candle_core::Tensor`
 //    - Implements the `NdArray<D>` trait (required by the Backend trait)
-//    - Adds `PartialEq` implementation (missing from the underlying Tensor)
 //    - Provides type safety and API consistency with other backends
 //
 // 2. **`CandleBackend` - The Operations Provider**
@@ -25,7 +24,6 @@ use candle_core::{D, DType, Device, Tensor};
 //      ↓                      ↓
 // CandleBackend         CandleTensor
 //   - device              - Tensor
-//   - operations          - PartialEq
 //   - configuration       - NdArray trait
 //
 // ============================================================================
@@ -372,85 +370,6 @@ impl<D: HasDtype> NdArray<D> for CandleTensor {
 
     fn shape(&self) -> Shape {
         Shape(self.0.dims().to_vec())
-    }
-}
-
-// ============================================================================
-// PartialEq Implementation for CandleTensor
-// ============================================================================
-//
-// WHY WE NEED THIS IMPLEMENTATION:
-//
-// The CandleTensor wrapper exists because the underlying `candle_core::Tensor`
-// type does not implement `PartialEq`. This creates several important problems:
-//
-// 1. **Trait Requirements**: The `NdArray<D>` trait requires `PartialEq` to be
-//    implemented for the tensor type. This is essential for:
-//    - Testing and debugging (comparing tensors in assertions)
-//    - Generic algorithms that need to compare tensor values
-//    - Hash-based data structures that require equality
-//
-// 2. **Backend Consistency**: Other backends (like ndarray) implement `PartialEq`
-//    naturally, so our Candle backend needs to match this interface for
-//    compatibility and interchangeability.
-//
-// 3. **Testing Infrastructure**: Many test frameworks and assertion macros
-//    rely on `PartialEq` to compare expected vs actual values. Without this,
-//    we cannot write meaningful tests for our tensor operations.
-//
-// 4. **API Ergonomics**: Users expect to be able to compare tensors using `==`
-//    and `!=` operators. This is a fundamental expectation in Rust APIs.
-//
-// IMPLEMENTATION CHOICES:
-//
-// Our current implementation compares only shape and dtype, not the actual values.
-// This is a deliberate trade-off for several reasons:
-//
-// 1. **Performance**: Comparing all tensor values would be expensive for large
-//    tensors, especially on GPU devices where data transfer is costly.
-//
-// 2. **Device Independence**: The underlying tensor data might be on different
-//    devices (CPU, GPU, Metal), making direct value comparison complex.
-//
-// 3. **Floating Point Precision**: Direct value comparison can be problematic
-//    with floating-point numbers due to precision issues and different
-//    computational paths.
-//
-// 4. **Use Case Alignment**: Most equality checks in the codebase are for
-//    structural equality (shape/dtype) rather than value equality.
-//
-// ALTERNATIVE APPROACHES:
-//
-// For cases where you need value-based equality, consider:
-// - `tensor.to_vec1()?` to extract values and compare manually
-// - Custom comparison functions with tolerance for floating-point values
-// - Specialized equality traits for different precision requirements
-//
-// This implementation strikes a balance between functionality and performance,
-// providing the necessary trait implementation while avoiding expensive operations.
-
-impl PartialEq for CandleBackend {
-    fn eq(&self, other: &Self) -> bool {
-        // Compare devices by their types only, since the underlying device IDs
-        // (CudaDevice, MetalDevice) don't implement PartialEq.
-        // For most use cases, this is sufficient as we typically care about
-        // whether we're using the same device type (CPU, CUDA, Metal) rather
-        // than specific device instances.
-        matches!(
-            (&self.device, &other.device),
-            (Device::Cpu, Device::Cpu)
-                | (Device::Cuda(_), Device::Cuda(_))
-                | (Device::Metal(_), Device::Metal(_))
-        )
-    }
-}
-
-impl PartialEq for CandleTensor {
-    fn eq(&self, other: &Self) -> bool {
-        // Compare structural properties: shape and data type
-        // This is sufficient for most use cases where we need to verify
-        // that two tensors have the same structure and type.
-        self.0.shape() == other.0.shape() && self.0.dtype() == other.0.dtype()
     }
 }
 

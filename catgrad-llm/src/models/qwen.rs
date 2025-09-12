@@ -79,28 +79,34 @@ impl Model {
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
         let rep = num_heads / num_kv_heads;
-        let head_dim = config.head_dim;
+        let head_dim = config.get_head_dim();
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let q = linear_no_bias(
+        // Qwen2 has attention bias and no QK-Norms
+        let is_qwen2 = config.model_type == "qwen2";
+
+        let q = linear_b(
             builder,
             dim,
             num_heads * head_dim,
+            is_qwen2,
             &format!("{name}.q_proj"),
             x.clone(),
         );
-        let k = linear_no_bias(
+        let k = linear_b(
             builder,
             dim,
             num_kv_heads * head_dim,
+            is_qwen2,
             &format!("{name}.k_proj"),
             x.clone(),
         );
-        let v = linear_no_bias(
+        let v = linear_b(
             builder,
             dim,
             num_kv_heads * head_dim,
+            is_qwen2,
             &format!("{name}.v_proj"),
             x,
         );
@@ -109,17 +115,19 @@ impl Model {
         let k = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), k);
         let v = reshape(builder, Shape(vec![b, s, num_kv_heads, head_dim]), v);
 
-        let q = transpose(builder, 1, 2, q);
-        let k = transpose(builder, 1, 2, k);
+        let mut q = transpose(builder, 1, 2, q);
+        let mut k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        // Norm
-        let q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
-        let k = reshape(builder, Shape(vec![b * s * num_kv_heads, head_dim]), k);
-        let q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
-        let k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
-        let q = reshape(builder, Shape(vec![b, num_heads, s, head_dim]), q);
-        let k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
+        if !is_qwen2 {
+            // Norm
+            q = reshape(builder, Shape(vec![b * s * num_heads, head_dim]), q);
+            k = reshape(builder, Shape(vec![b * s * num_kv_heads, head_dim]), k);
+            q = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.q_norm"), q);
+            k = rmsnorm(builder, config.rms_norm_eps, &format!("{name}.k_norm"), k);
+            q = reshape(builder, Shape(vec![b, num_heads, s, head_dim]), q);
+            k = reshape(builder, Shape(vec![b, num_kv_heads, s, head_dim]), k);
+        }
 
         // Rope embeddings
         let q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
