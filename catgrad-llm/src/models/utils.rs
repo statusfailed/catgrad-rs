@@ -60,6 +60,7 @@ pub struct Config {
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
     pub head_dim: usize,
+    pub decoder_sparse_step: usize,
     pub num_experts_per_tok: usize,
     #[serde(alias = "num_experts")]
     pub num_local_experts: usize,
