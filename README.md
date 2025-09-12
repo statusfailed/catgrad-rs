@@ -112,7 +112,7 @@ let svg_bytes = to_svg(&model.term().unwrap().term);
 // then write svg_bytes to a file using std::fs::write.
 ```
 
-This produces a diagrams of "boxes and wires" as below:
+This produces a diagram of "boxes and wires" as below:
 
 ![sigmoid][sigmoid_img]
 
@@ -133,8 +133,13 @@ The `stdlib` and `parameters` arguments define what definitions and parameters a
 
 ### Running Models
 
-Run a program using an `Interpreter` with a chosen backend.
-For example, we can run the Sigmoid layer as follows:
+Run a program using an `Interpreter` with a chosen backend:
+
+- **ndarray-backend**: for CPU-based tensor operations
+- **candle-backend**: for GPU-accelerated tensor operations
+
+
+Here's how to run the Sigmoid layer with the ndarray backend:
 
 ```rust
 # #[cfg(feature = "ndarray-backend")] {
@@ -153,6 +158,7 @@ let interpreter = Interpreter::new(backend, stdlib(), Parameters::from([]));
 interpreter.run(term, vec![input]);
 # }
 ```
+
 
 ### Serverless runtime
 
