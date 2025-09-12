@@ -6,8 +6,11 @@ use catgrad_core::{check, check::*};
 
 use catgrad_core::stdlib::*;
 
+use catgrad_core::interpreter::backend::Backend;
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
-use catgrad_core::interpreter::{Interpreter, Parameters, TaggedNdArray, Value, tensor};
+use catgrad_core::interpreter::{
+    Interpreter, Parameters, TaggedNdArray, TaggedNdArrayTuple, Value, tensor,
+};
 
 pub mod test_models;
 pub mod test_utils;
@@ -59,46 +62,18 @@ fn test_run_add() {
     let backend = NdArrayBackend;
     let expected = tensor(&backend, Shape(vec![2, 1, 3]), &expected_data).unwrap();
 
-    // Compare the actual tensor data
+    let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (Value::NdArray(result_tensor), Value::NdArray(expected_tensor)) => {
-            assert_eq!(
-                result_tensor.shape(),
-                expected_tensor.shape(),
-                "Shapes should match"
-            );
-            assert_eq!(
-                result_tensor.dtype(),
-                expected_tensor.dtype(),
-                "Dtypes should match"
-            );
-
-            // Compare the actual data
-            let result_data = match result_tensor {
-                TaggedNdArray::F32(arr) => arr[0].as_slice().unwrap().to_vec(),
-                TaggedNdArray::U32(arr) => arr[0]
-                    .as_slice()
-                    .unwrap()
-                    .iter()
-                    .map(|&x| x as f32)
-                    .collect(),
-            };
-            let expected_data = match expected_tensor {
-                TaggedNdArray::F32(arr) => arr[0].as_slice().unwrap().to_vec(),
-                TaggedNdArray::U32(arr) => arr[0]
-                    .as_slice()
-                    .unwrap()
-                    .iter()
-                    .map(|&x| x as f32)
-                    .collect(),
-            };
-
-            assert_eq!(
-                result_data, expected_data,
+        (
+            Value::NdArray(TaggedNdArray::U32([actual])),
+            Value::NdArray(TaggedNdArray::U32([exp])),
+        ) => {
+            assert!(
+                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
             );
         }
-        _ => panic!("Expected NdArray values"),
+        _ => panic!("Expected U32 tensors"),
     }
 }
 
@@ -129,47 +104,18 @@ fn test_run_batch_matmul() {
         39.0, 53.0, // batch 1: [5*3+6*4, 7*3+8*4]
     ];
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
-
-    // Compare the actual tensor data
+    let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (Value::NdArray(result_tensor), Value::NdArray(expected_tensor)) => {
-            assert_eq!(
-                result_tensor.shape(),
-                expected_tensor.shape(),
-                "Shapes should match"
-            );
-            assert_eq!(
-                result_tensor.dtype(),
-                expected_tensor.dtype(),
-                "Dtypes should match"
-            );
-
-            // Compare the actual data
-            let result_data = match result_tensor {
-                TaggedNdArray::F32(arr) => arr[0].as_slice().unwrap().to_vec(),
-                TaggedNdArray::U32(arr) => arr[0]
-                    .as_slice()
-                    .unwrap()
-                    .iter()
-                    .map(|&x| x as f32)
-                    .collect(),
-            };
-            let expected_data = match expected_tensor {
-                TaggedNdArray::F32(arr) => arr[0].as_slice().unwrap().to_vec(),
-                TaggedNdArray::U32(arr) => arr[0]
-                    .as_slice()
-                    .unwrap()
-                    .iter()
-                    .map(|&x| x as f32)
-                    .collect(),
-            };
-
-            assert_eq!(
-                result_data, expected_data,
+        (
+            Value::NdArray(TaggedNdArray::F32([actual])),
+            Value::NdArray(TaggedNdArray::F32([exp])),
+        ) => {
+            assert!(
+                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
             );
         }
-        _ => panic!("Expected NdArray values"),
+        _ => panic!("Expected F32 tensors"),
     }
 }
 
@@ -199,9 +145,24 @@ fn test_run_exp() {
 
     // Create expected result (e^x for each element)
     let expected: Vec<f32> = data.iter().map(|&x| x.exp()).collect();
+    let backend = NdArrayBackend;
+    let expected_tensor = tensor(&backend, Shape(vec![2, 2]), &expected).unwrap();
 
-    assert!(
-        allclose_f32(actual.as_slice().unwrap(), &expected, 1e-5, 1e-8),
-        "actual should be close to expected!"
-    );
+    match (&expected_tensor, actual) {
+        (Value::NdArray(TaggedNdArray::F32([exp])), actual_arr) => {
+            // For floating point, we need to use approximate equality
+            // Since compare uses exact equality, we'll keep the allclose check for now
+            // TODO: Consider adding an approximate equality method to the Backend trait
+            assert!(
+                allclose_f32(
+                    actual_arr.as_slice().unwrap(),
+                    exp.as_slice().unwrap(),
+                    1e-5,
+                    1e-8
+                ),
+                "actual should be close to expected!"
+            );
+        }
+        _ => panic!("Expected F32 tensors"),
+    }
 }

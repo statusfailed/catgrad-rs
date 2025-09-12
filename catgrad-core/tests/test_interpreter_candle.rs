@@ -467,30 +467,18 @@ fn test_candle_interpreter_add() {
     let expected_data: Vec<u32> = data.iter().map(|&x| x * 2).collect();
     let backend = CandleBackend::new();
     let expected = tensor(&backend, Shape(vec![2, 1, 3]), &expected_data).unwrap();
-
-    // Compare the actual tensor data
+    let backend = CandleBackend::new();
     match (&result[0], &expected) {
-        (Value::NdArray(result_tensor), Value::NdArray(expected_tensor)) => {
-            assert_eq!(
-                result_tensor.shape(),
-                expected_tensor.shape(),
-                "Shapes should match"
+        (
+            Value::NdArray(TaggedNdArray::U32([actual])),
+            Value::NdArray(TaggedNdArray::U32([exp])),
+        ) => {
+            assert!(
+                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                "Result should be double the input data"
             );
-            assert_eq!(
-                result_tensor.dtype(),
-                expected_tensor.dtype(),
-                "Dtypes should match"
-            );
-
-            // For CandleTensor, we need to extract the data differently
-            // Since CandleTensor doesn't have as_slice(), we'll compare shapes and dtypes
-            // and note that value comparison would require a backend.eq() kernel
-            println!("Result tensor shape: {:?}", result_tensor.shape());
-            println!("Expected tensor shape: {:?}", expected_tensor.shape());
-            println!("Result tensor dtype: {:?}", result_tensor.dtype());
-            println!("Expected tensor dtype: {:?}", expected_tensor.dtype());
         }
-        _ => panic!("Expected NdArray values"),
+        _ => panic!("Expected U32 tensors"),
     }
 }
 
@@ -521,30 +509,18 @@ fn test_candle_interpreter_batch_matmul() {
         39.0, 53.0, // batch 1: [5*3+6*4, 7*3+8*4]
     ];
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
-
-    // Compare the actual tensor data
+    let backend = CandleBackend::new();
     match (&result[0], &expected) {
-        (Value::NdArray(result_tensor), Value::NdArray(expected_tensor)) => {
-            assert_eq!(
-                result_tensor.shape(),
-                expected_tensor.shape(),
-                "Shapes should match"
+        (
+            Value::NdArray(TaggedNdArray::F32([actual])),
+            Value::NdArray(TaggedNdArray::F32([exp])),
+        ) => {
+            assert!(
+                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                "Batch matmul result should match expected output"
             );
-            assert_eq!(
-                result_tensor.dtype(),
-                expected_tensor.dtype(),
-                "Dtypes should match"
-            );
-
-            // For CandleTensor, we need to extract the data differently
-            // Since CandleTensor doesn't have as_slice(), we'll compare shapes and dtypes
-            // and note that value comparison would require a backend.eq() kernel
-            println!("Result tensor shape: {:?}", result_tensor.shape());
-            println!("Expected tensor shape: {:?}", expected_tensor.shape());
-            println!("Result tensor dtype: {:?}", result_tensor.dtype());
-            println!("Expected tensor dtype: {:?}", expected_tensor.dtype());
         }
-        _ => panic!("Expected NdArray values"),
+        _ => panic!("Expected F32 tensors"),
     }
 }
 

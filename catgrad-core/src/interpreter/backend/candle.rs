@@ -214,9 +214,52 @@ impl Backend for CandleBackend {
             U32([arr]) => U32([CandleTensor(Self::reshape_tensor(arr.0, new_shape))]),
         }
     }
+
+    fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([a, b]) => Self::compare_tensors(&a.0, &b.0),
+            U32([a, b]) => Self::compare_tensors(&a.0, &b.0),
+        }
+    }
 }
 
 impl CandleBackend {
+    // ============================================================================
+    //              TENSOR COMPARISON: CANDLE vs NDARRAY DESIGN DIFFERENCES
+    // ============================================================================
+    //
+    // **NDARRAY:**
+    // - CPU-only, Rust-native data structures
+    // - `a == b` automatically handles shape checking + element-wise comparison
+    //
+    // **CANDLE:**
+    // - GPU/CPU computation with device memory management
+    // - Explicit error handling (GPU operations can fail)
+    // - Element-wise operations return tensors, not scalars
+    //
+    // **Why Candle's approach:**
+    // 1. `.eq()` returns Result<Tensor, Error> (not Result<bool, Error>)
+    // 2. Returns U8 boolean tensor where 1=equal, 0=not equal
+    // 3. Need `min_all()` to check if ALL elements are true (equal)
+    // 4. Must handle device errors explicitly
+    // 5. More efficient than converting to Vec for comparison
+    //
+    // ============================================================================
+
+    fn compare_tensors(a: &Tensor, b: &Tensor) -> bool {
+        if a.dims() != b.dims() {
+            return false;
+        }
+
+        a.eq(b)
+            .ok()
+            .and_then(|eq_tensor| eq_tensor.min_all().ok())
+            .and_then(|min_val| min_val.to_scalar::<u8>().ok())
+            .map(|min_scalar| min_scalar == 1)
+            .unwrap_or(false)
+    }
+
     fn reshape_tensor(tensor: Tensor, new_shape: Shape) -> Tensor {
         tensor.reshape(&*new_shape.0).unwrap()
     }

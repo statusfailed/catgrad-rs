@@ -131,6 +131,14 @@ impl Backend for NdArrayBackend {
             U32([arr]) => U32([Self::reshape_ndarray(arr, new_shape)]),
         }
     }
+
+    fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([a, b]) => a == b,
+            U32([a, b]) => a == b,
+        }
+    }
 }
 
 impl NdArrayBackend {
