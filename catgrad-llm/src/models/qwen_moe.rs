@@ -204,6 +204,32 @@ impl Model {
     }
 
     pub fn mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+        let gated = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.intermediate_size,
+            &format!("{name}.gate_proj"),
+            x.clone(),
+        );
+        let up = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.intermediate_size,
+            &format!("{name}.up_proj"),
+            x,
+        );
+        let x = silu(builder, gated) * up; // SwiGLU
+
+        linear_no_bias(
+            builder,
+            config.intermediate_size,
+            config.hidden_size,
+            &format!("{name}.down_proj"),
+            x,
+        )
+    }
+
+    pub fn moe(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let seq_len = x.label.shape.0[1];
 
         let routed = linear_no_bias(
@@ -299,7 +325,13 @@ impl Model {
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-        let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+        let moe_layer =
+            config.num_local_experts > 1 && (layer_id + 1) % config.decoder_sparse_step == 0;
+        let x = if moe_layer {
+            Model::moe(builder, config, &format!("{name}.mlp"), x)
+        } else {
+            Model::mlp(builder, config, &format!("{name}.mlp"), x)
+        };
         res + x
     }
 }
