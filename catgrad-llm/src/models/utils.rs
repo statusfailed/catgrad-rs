@@ -214,6 +214,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "LlamaForCausalLM" => Ok(Box::new(LlamaModel {})),
         "MistralForCausalLM" => Ok(Box::new(LlamaModel {})),
         "Olmo2ForCausalLM" => Ok(Box::new(OlmoModel {})),
+        "Qwen2ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Qwen3MoeForCausalLM" => Ok(Box::new(QwenMoeModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
