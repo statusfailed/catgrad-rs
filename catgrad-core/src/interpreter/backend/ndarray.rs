@@ -132,7 +132,7 @@ impl Backend for NdArrayBackend {
         }
     }
 
-    fn ndarray_eq(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
+    fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
         use TaggedNdArrayTuple::*;
         match x {
             F32([a, b]) => a == b,

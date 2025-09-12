@@ -69,7 +69,7 @@ fn test_run_add() {
             Value::NdArray(TaggedNdArray::U32([exp])),
         ) => {
             assert!(
-                backend.ndarray_eq(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
             );
         }
@@ -111,7 +111,7 @@ fn test_run_batch_matmul() {
             Value::NdArray(TaggedNdArray::F32([exp])),
         ) => {
             assert!(
-                backend.ndarray_eq(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
             );
         }
@@ -151,7 +151,7 @@ fn test_run_exp() {
     match (&expected_tensor, actual) {
         (Value::NdArray(TaggedNdArray::F32([exp])), actual_arr) => {
             // For floating point, we need to use approximate equality
-            // Since ndarray_eq uses exact equality, we'll keep the allclose check for now
+            // Since compare uses exact equality, we'll keep the allclose check for now
             // TODO: Consider adding an approximate equality method to the Backend trait
             assert!(
                 allclose_f32(

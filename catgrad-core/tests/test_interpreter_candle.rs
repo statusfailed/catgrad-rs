@@ -474,7 +474,7 @@ fn test_candle_interpreter_add() {
             Value::NdArray(TaggedNdArray::U32([exp])),
         ) => {
             assert!(
-                backend.ndarray_eq(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
             );
         }
@@ -516,7 +516,7 @@ fn test_candle_interpreter_batch_matmul() {
             Value::NdArray(TaggedNdArray::F32([exp])),
         ) => {
             assert!(
-                backend.ndarray_eq(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
             );
         }
