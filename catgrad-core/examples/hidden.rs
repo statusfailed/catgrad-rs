@@ -76,6 +76,7 @@ fn select_backend() -> Result<impl interpreter::Backend, Box<dyn std::error::Err
     {
         println!("selected candle backend...");
         use catgrad_core::interpreter::backend::candle::CandleBackend;
+        #[allow(clippy::needless_return)]
         return Ok(CandleBackend::new());
     }
 
@@ -83,6 +84,7 @@ fn select_backend() -> Result<impl interpreter::Backend, Box<dyn std::error::Err
     {
         println!("selected ndarray backend...");
         use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
+        #[allow(clippy::needless_return)]
         return Ok(NdArrayBackend);
     }
 

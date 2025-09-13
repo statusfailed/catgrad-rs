@@ -9,6 +9,12 @@ pub struct ShapeOnlyBackend;
 #[derive(Clone, Debug)]
 pub struct ShapeOnly(Shape);
 
+impl ShapeOnly {
+    pub fn shape(&self) -> Shape {
+        self.0.clone()
+    }
+}
+
 impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
     type Backend = ShapeOnlyBackend;
 
@@ -184,11 +190,209 @@ impl ShapeOnlyBackend {
             return arr;
         }
 
-        let mut result_shape = shape[..shape.len() - 1].to_vec();
-        if result_shape.is_empty() {
-            result_shape.push(1);
-        }
+        let mut result_shape = shape.clone();
+        let last_idx = result_shape.len() - 1;
+        result_shape[last_idx] = 1;
 
         ShapeOnly(Shape(result_shape))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::category::core::Shape;
+
+    #[test]
+    fn test_scalar() {
+        let backend = ShapeOnlyBackend;
+        let scalar_f32 = backend.scalar(1.0f32);
+        let scalar_u32 = backend.scalar(42u32);
+
+        assert_eq!(scalar_f32.0, Shape(vec![]));
+        assert_eq!(scalar_u32.0, Shape(vec![]));
+    }
+
+    #[test]
+    fn test_zeros() {
+        let backend = ShapeOnlyBackend;
+        let shape = Shape(vec![2, 3, 4]);
+        let zeros_f32: ShapeOnly = backend.zeros::<f32>(shape.clone());
+        let zeros_u32: ShapeOnly = backend.zeros::<u32>(shape.clone());
+
+        assert_eq!(zeros_f32.0, shape);
+        assert_eq!(zeros_u32.0, shape);
+    }
+
+    #[test]
+    fn test_ndarray_from_slice() {
+        let backend = ShapeOnlyBackend;
+        let shape = Shape(vec![2, 3]);
+        let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+
+        let result = backend.ndarray_from_slice(&data, shape.clone()).unwrap();
+        assert_eq!(result.0, shape);
+    }
+
+    #[test]
+    fn test_exact_shape_match_same_shapes() {
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![2, 3]));
+        let result = ShapeOnlyBackend::exact_shape_match(x, y);
+        assert_eq!(result.0, Shape(vec![2, 3]));
+    }
+
+    #[test]
+    #[should_panic(expected = "Shape mismatch")]
+    fn test_exact_shape_match_different_shapes() {
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![3, 2]));
+        ShapeOnlyBackend::exact_shape_match(x, y);
+    }
+
+    #[test]
+    fn test_add_same_shapes() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![2, 3]));
+        let lhs = TaggedNdArrayTuple::F32([x, y]);
+
+        let result = backend.add(lhs);
+        assert_eq!(result.shape(), Shape(vec![2, 3]));
+    }
+
+    #[test]
+    #[should_panic(expected = "Shape mismatch")]
+    fn test_add_different_shapes() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![3, 2]));
+        let lhs = TaggedNdArrayTuple::F32([x, y]);
+
+        backend.add(lhs);
+    }
+
+    #[test]
+    fn test_matmul_2d() {
+        let lhs = ShapeOnly(Shape(vec![3, 4]));
+        let rhs = ShapeOnly(Shape(vec![4, 5]));
+        let result = ShapeOnlyBackend::matmul_shape(lhs, rhs);
+        assert_eq!(result.shape(), Shape(vec![3, 5]));
+    }
+
+    #[test]
+    fn test_matmul_batched() {
+        let lhs = ShapeOnly(Shape(vec![2, 3, 4]));
+        let rhs = ShapeOnly(Shape(vec![2, 4, 5]));
+        let result = ShapeOnlyBackend::matmul_shape(lhs, rhs);
+        assert_eq!(result.shape(), Shape(vec![2, 3, 5]));
+    }
+
+    #[test]
+    #[should_panic(expected = "inner dimensions must match")]
+    fn test_matmul_incompatible() {
+        let lhs = ShapeOnly(Shape(vec![3, 4]));
+        let rhs = ShapeOnly(Shape(vec![5, 6]));
+        ShapeOnlyBackend::matmul_shape(lhs, rhs);
+    }
+
+    #[test]
+    fn test_broadcast_with_prefix() {
+        let arr = ShapeOnly(Shape(vec![3, 4]));
+        let prefix = Shape(vec![2, 5]);
+        let result = ShapeOnlyBackend::broadcast_with_prefix(arr, prefix);
+        assert_eq!(result.shape(), Shape(vec![2, 5, 3, 4]));
+    }
+
+    #[test]
+    fn test_reduce_last_dim() {
+        let arr = ShapeOnly(Shape(vec![2, 3, 4]));
+        let result = ShapeOnlyBackend::reduce_last_dim(arr);
+        assert_eq!(result.shape(), Shape(vec![2, 3, 1]));
+    }
+
+    #[test]
+    fn test_reduce_last_dim_1d() {
+        let arr = ShapeOnly(Shape(vec![5]));
+        let result = ShapeOnlyBackend::reduce_last_dim(arr);
+        assert_eq!(result.shape(), Shape(vec![1]));
+    }
+
+    #[test]
+    fn test_reduce_last_dim_scalar() {
+        let arr = ShapeOnly(Shape(vec![]));
+        let result = ShapeOnlyBackend::reduce_last_dim(arr);
+        assert_eq!(result.shape(), Shape(vec![]));
+    }
+
+    #[test]
+    fn test_reshape() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let new_shape = Shape(vec![6]);
+
+        let result = backend.reshape(tagged_x, new_shape.clone());
+        assert_eq!(result.shape(), new_shape);
+    }
+
+    #[test]
+    fn test_neg() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let tagged_x = TaggedNdArrayTuple::F32([x]);
+
+        let result = backend.neg(tagged_x);
+        assert_eq!(result.shape(), Shape(vec![2, 3]));
+    }
+
+    #[test]
+    fn test_sum() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3, 4]));
+        let tagged_x = TaggedNdArrayTuple::F32([x]);
+
+        let result = backend.sum(tagged_x);
+        assert_eq!(result.shape(), Shape(vec![2, 3, 1]));
+    }
+
+    #[test]
+    fn test_max() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3, 4]));
+        let tagged_x = TaggedNdArrayTuple::F32([x]);
+
+        let result = backend.max(tagged_x);
+        assert_eq!(result.shape(), Shape(vec![2, 3, 1]));
+    }
+
+    #[test]
+    fn test_compare_same_shapes() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![2, 3]));
+        let lhs = TaggedNdArrayTuple::F32([x, y]);
+
+        assert!(backend.compare(lhs));
+    }
+
+    #[test]
+    fn test_compare_different_shapes() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let y = ShapeOnly(Shape(vec![3, 2]));
+        let lhs = TaggedNdArrayTuple::F32([x, y]);
+
+        assert!(!backend.compare(lhs));
+    }
+
+    #[test]
+    fn test_cast() {
+        let backend = ShapeOnlyBackend;
+        let x = ShapeOnly(Shape(vec![2, 3]));
+        let tagged_x = TaggedNdArrayTuple::F32([x]);
+
+        let result = backend.cast(tagged_x, Dtype::U32);
+        assert_eq!(result.shape(), Shape(vec![2, 3]));
     }
 }
