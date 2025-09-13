@@ -5,6 +5,9 @@ use catgrad_core::interpreter;
 
 use std::collections::HashMap;
 
+type BackendFunction =
+    Box<dyn Fn(&TypedTerm, Environment) -> Result<(), Box<dyn std::error::Error>>>;
+
 /// Construct, shapecheck, and interpret the `SimpleMNISTModel` using the ndarray backend.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = SimpleMNISTModel;
@@ -30,62 +33,87 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     save_svg(&labeled_term, &format!("{}_typed.svg", model.path()))?;
 
     // Run interpreter
-    run_interpreter(&typed_term, env)?;
+    let run_backend = get_backend()?;
+    run_backend(&typed_term, env)?;
 
     Ok(())
 }
 
-#[cfg(feature = "ndarray-backend")]
-fn run_interpreter(
+fn get_backend() -> Result<BackendFunction, Box<dyn std::error::Error>> {
+    #[cfg(feature = "candle-backend")]
+    {
+        use catgrad_core::interpreter::backend::candle::CandleBackend;
+
+        let backend = CandleBackend::new();
+        Ok(Box::new(move |typed_term: &TypedTerm, env: Environment| {
+            run_interpreter(&backend, typed_term, env, |arr| {
+                println!("Output shape: {:?}", <catgrad_core::interpreter::backend::candle::CandleTensor as catgrad_core::interpreter::backend::NdArray<f32>>::shape(arr));
+                let flat_data: Vec<f32> = arr.0.flatten_all().unwrap().to_vec1().unwrap();
+                println!("Output sample: {:?}", &flat_data[..10.min(flat_data.len())]);
+            })
+        }))
+    }
+
+    #[cfg(all(feature = "ndarray-backend", not(feature = "candle-backend")))]
+    {
+        use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
+
+        let backend = NdArrayBackend;
+        Ok(Box::new(move |typed_term: &TypedTerm, env: Environment| {
+            run_interpreter(&backend, typed_term, env, |arr| {
+                println!("Output shape: {:?}", arr.shape());
+                if let Some(slice) = arr.as_slice() {
+                    println!("Output sample: {:?}", &slice[..10.min(slice.len())]);
+                }
+            })
+        }))
+    }
+
+    #[cfg(not(any(feature = "ndarray-backend", feature = "candle-backend")))]
+    {
+        panic!(
+            "No backend feature enabled. Please enable either 'candle-backend' or 'ndarray-backend'."
+        );
+    }
+}
+
+fn run_interpreter<B: interpreter::Backend, F>(
+    backend: &B,
     typed_term: &TypedTerm,
     env: Environment,
-) -> Result<(), Box<dyn std::error::Error>> {
+    print_output: F,
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    F: FnOnce(&B::NdArray<f32>),
+{
     use catgrad_core::category::core::Shape;
-    use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
-
-    let backend = NdArrayBackend;
-    let interpreter_params = load_param_data(&backend);
-
-    // Create interpreter
-    let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
+    use catgrad_core::interpreter::{TaggedNdArray, Value};
 
     // Create sample input data: batch of 2 MNIST-like images (28x28)
     let input_data: Vec<f32> = (0..2 * 28 * 28)
         .map(|i| (i as f32 * 0.001) % 1.0) // Simple pattern: values between 0 and 1
         .collect();
+
+    let interpreter_params = load_param_data(backend);
+    let interpreter = interpreter::Interpreter::new(backend.clone(), env, interpreter_params);
+
     let input_tensor =
         interpreter::tensor(&interpreter.backend, Shape(vec![2, 28, 28]), &input_data)
             .expect("Failed to create input tensor");
 
-    // Run the model
     let results = interpreter
         .run(typed_term.term.clone(), vec![input_tensor])
         .expect("Failed to run inference");
 
-    // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
-        use catgrad_core::interpreter::{TaggedNdArray, Value};
         match output {
             Value::NdArray(TaggedNdArray::F32([arr])) => {
-                println!("Output shape: {:?}", arr.shape());
-                println!(
-                    "Output sample: {:?}",
-                    &arr.as_slice().unwrap()[..10.min(arr.len())]
-                );
+                print_output(arr);
             }
             _ => println!("Unexpected output type: {:?}", output),
         }
     }
 
-    Ok(())
-}
-
-#[cfg(not(feature = "ndarray-backend"))]
-fn run_interpreter(
-    _typed_term: &TypedTerm,
-    _env: Environment,
-) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Interpreter execution skipped (ndarray-backend feature not enabled)");
     Ok(())
 }
 
@@ -162,12 +190,6 @@ impl Def<1, 1> for SimpleMNISTModel {
 ////////////////////////////////////////////////////////////////////////////////
 // Parameter loading boilerplate
 // NOTE: in reality, this would be done by loading e.g. a safetensors file.
-
-pub fn load_params<B: interpreter::Backend>(
-    backend: &B,
-) -> (check::Parameters, interpreter::Parameters<B>) {
-    (load_param_types(), load_param_data(backend))
-}
 
 // NOTE: you would normally create this data by reading the safetensors file!
 fn load_param_types() -> check::Parameters {
