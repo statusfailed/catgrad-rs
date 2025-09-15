@@ -215,6 +215,19 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match (x, indices) {
+            (F32([arr]), U32([indices])) => {
+                F32([CandleTensor(Self::index_tensor(arr.0, indices.0))])
+            }
+            (U32([arr]), U32([indices])) => {
+                U32([CandleTensor(Self::index_tensor(arr.0, indices.0))])
+            }
+            _ => panic!("Invalid index type"),
+        }
+    }
+
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
         use TaggedNdArrayTuple::*;
         match x {
@@ -262,6 +275,10 @@ impl CandleBackend {
 
     fn reshape_tensor(tensor: Tensor, new_shape: Shape) -> Tensor {
         tensor.reshape(&*new_shape.0).unwrap()
+    }
+
+    fn index_tensor(tensor: Tensor, indices: Tensor) -> Tensor {
+        tensor.index_select(&indices, 0).unwrap()
     }
 
     // Catgrad always uses explicit broadcasting.

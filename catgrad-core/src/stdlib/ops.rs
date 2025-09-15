@@ -35,6 +35,9 @@ fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
         (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
         (path!["tensor", "cast"], Operation::Tensor(Cast)),
+        (path!["tensor", "index"], Operation::Tensor(Index)),
+        (path!["tensor", "sum"], Operation::Tensor(Sum)),
+        (path!["tensor", "max"], Operation::Tensor(Max)),
         // Mixed Tensor/Type ops
         (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
         (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),

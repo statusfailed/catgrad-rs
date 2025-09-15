@@ -148,6 +148,10 @@ pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
     var::fn_operation(builder, &[t, x], Object::Tensor, op!["tensor", "reshape"])
 }
 
+pub fn index(builder: &Builder, x: Var, idx: Var) -> Var {
+    var::fn_operation(builder, &[x, idx], Object::Tensor, op!["tensor", "index"])
+}
+
 pub fn max(builder: &Builder, x: Var) -> Var {
     var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "max"])
 }

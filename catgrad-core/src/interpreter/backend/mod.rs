@@ -42,6 +42,7 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool;
+    fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
 }
 
 pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug {

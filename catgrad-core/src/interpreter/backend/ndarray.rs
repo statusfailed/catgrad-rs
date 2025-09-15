@@ -124,6 +124,15 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match (x, indices) {
+            (F32([arr]), U32([indices])) => F32([Self::index_ndarray(arr, indices)]),
+            (U32([arr]), U32([indices])) => U32([Self::index_ndarray(arr, indices)]),
+            _ => panic!("Invalid input types for indexing"),
+        }
+    }
+
     fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -155,6 +164,13 @@ impl NdArrayBackend {
         // Use ndarray's broadcast to expand dimensions
         let broadcasted = arr.broadcast(ndarray::IxDyn(&new_shape)).unwrap();
         broadcasted.to_owned()
+    }
+
+    fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, indices: ArrayD<u32>) -> ArrayD<D> {
+        let axis = 0;
+        let idx = indices.iter().map(|&i| i as usize).collect::<Vec<_>>();
+
+        arr.select(ndarray::Axis(axis), &idx)
     }
 
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
