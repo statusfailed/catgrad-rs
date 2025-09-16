@@ -18,6 +18,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Constant(_constant) => todo!("constant"),
         TensorOp::Sum => tensor_sum(backend, args, ssa),
         TensorOp::Max => tensor_max(backend, args, ssa),
+        TensorOp::Arange => tensor_arange(backend, args, ssa),
         TensorOp::Argmax => todo!("argmax"),
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
         TensorOp::Reshape => tensor_reshape(backend, args, ssa),
@@ -164,6 +165,29 @@ fn tensor_broadcast<B: Backend>(
             ssa: ssa.clone(),
         }))
     }
+}
+
+fn tensor_arange<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let Value::Nat(end) = args[0] else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = backend.arange(end);
+    Ok(vec![Value::NdArray(result)])
 }
 
 fn tensor_index<B: Backend>(
