@@ -167,8 +167,8 @@ pub enum TensorOp {
     Reshape,
 
     // TODO:
-    //Slice,
-    //Arange,
+    // Slice,
+    Arange,
     /// S ● ... ● S → N×S
     Stack,
 

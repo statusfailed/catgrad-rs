@@ -215,6 +215,12 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn arange(&self, end: usize) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        let r = Tensor::arange(0, end as u32, &self.device).unwrap();
+        U32([CandleTensor(r)])
+    }
+
     fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match (x, indices) {

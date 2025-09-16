@@ -27,6 +27,12 @@ impl Backend for NdArrayBackend {
         ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).map_err(|_| BackendError::ShapeError)
     }
 
+    fn arange(&self, end: usize) -> TaggedNdArray<Self> {
+        let result = ndarray::Array::range(0.0, end as f32, 1.0).into_dyn();
+        let result = TaggedNdArray::F32([result]);
+        self.cast(result, Dtype::U32)
+    }
+
     fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self> {
         match (&x, target_dtype) {
             (TaggedNdArray::F32(arr), Dtype::U32) => {

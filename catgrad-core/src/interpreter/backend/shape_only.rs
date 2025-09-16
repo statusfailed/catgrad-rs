@@ -139,6 +139,11 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
+    fn arange(&self, end: usize) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        U32([ShapeOnly(Shape(vec![end]))])
+    }
+
     fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         let shape = &match indices {
