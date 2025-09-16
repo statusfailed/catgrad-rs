@@ -138,6 +138,28 @@ impl Backend for ShapeOnlyBackend {
             U32([a, b]) => a.0 == b.0,
         }
     }
+
+    fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        let shape = &match indices {
+            F32([shape]) => shape,
+            U32([shape]) => shape,
+        }
+        .0;
+        assert_eq!(shape.rank(), 1);
+        let n = shape[0]; // first dim
+
+        match x {
+            F32([ShapeOnly(mut s)]) => {
+                s[0] = n;
+                F32([ShapeOnly(s)])
+            }
+            U32([ShapeOnly(mut s)]) => {
+                s[0] = n;
+                U32([ShapeOnly(s)])
+            }
+        }
+    }
 }
 
 impl ShapeOnlyBackend {
