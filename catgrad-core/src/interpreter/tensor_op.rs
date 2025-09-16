@@ -29,11 +29,43 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Map(ScalarOp::Div) => binop(backend, args, ssa, B::div),
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
+        TensorOp::Scalar => tensor_scalar(backend, args, ssa),
         TensorOp::Stack => todo!("stack"),
         TensorOp::Split => todo!("split"),
         TensorOp::Index => tensor_index(backend, args, ssa),
         TensorOp::Copy => todo!("copy"),
     }
+}
+
+fn err<K: Into<ApplyErrorKind>>(kind: K, ssa: &SSA<Object, Operation>) -> Box<ApplyError> {
+    Box::new(ApplyError {
+        kind: kind.into(),
+        ssa: ssa.clone(),
+    })
+}
+
+pub(crate) fn tensor_scalar<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(err(ApplyErrorKind::ArityError, ssa));
+    }
+
+    let value: u32 = match args[0] {
+        Value::Nat(n) => n
+            .try_into()
+            .map_err(|_| err(ApplyErrorKind::NatOverflow, ssa))?,
+        _ => return Err(err(ApplyErrorKind::TypeError, ssa)),
+    };
+
+    let tensor = backend
+        .ndarray_from_slice(&[value], super::Shape(vec![]))
+        .map_err(|e| err(e, ssa))?;
+
+    let result = TaggedNdArrayTuple::U32([tensor]);
+    Ok(vec![Value::NdArray(result)])
 }
 
 fn tensor_cast<B: Backend>(
