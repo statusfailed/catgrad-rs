@@ -16,8 +16,16 @@ pub struct ApplyError {
 pub enum ApplyErrorKind {
     TypeError,
     ArityError,
+    NatOverflow,             // Nat was not representable as a u32
     MissingOperation(Path),  // Operation declaration not found in ops
     MissingDefinition(Path), // Operation definition not found in env
+    BackendError(BackendError),
+}
+
+impl From<BackendError> for ApplyErrorKind {
+    fn from(error: BackendError) -> Self {
+        ApplyErrorKind::BackendError(error)
+    }
 }
 
 // Actual values produced by the interpreter #[derive(Debug, Clone)]
