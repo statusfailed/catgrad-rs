@@ -12,11 +12,7 @@ fn normalize_product(exprs: Vec<NatExpr>) -> NatExpr {
         return NatExpr::Constant(1);
     }
 
-    let product = if exprs.len() == 1 {
-        exprs.into_iter().next().unwrap()
-    } else {
-        NatExpr::Mul(exprs)
-    };
+    let product = NatExpr::Mul(exprs);
 
     normalize(&product)
 }
