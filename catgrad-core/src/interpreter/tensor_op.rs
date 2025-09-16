@@ -31,7 +31,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Stack => todo!("stack"),
         TensorOp::Split => todo!("split"),
-        TensorOp::Index => todo!("index"),
+        TensorOp::Index => tensor_index(backend, args, ssa),
         TensorOp::Copy => todo!("copy"),
     }
 }
@@ -157,6 +157,30 @@ fn tensor_broadcast<B: Backend>(
 
     if let (Value::Shape(shape_prefix), Value::NdArray(x)) = (args.remove(1), args.remove(0)) {
         let result = backend.broadcast(x, shape_prefix);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
+    }
+}
+
+fn tensor_index<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 2 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    // Args are: [input, indices]
+    if let (Value::NdArray(input), Value::NdArray(indices)) = (args.remove(0), args.remove(0)) {
+        let result = backend.index(input, indices);
         Ok(vec![Value::NdArray(result)])
     } else {
         Err(Box::new(ApplyError {
