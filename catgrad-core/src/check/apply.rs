@@ -1,7 +1,7 @@
 use super::types::*;
 use crate::category::lang::Path;
 use crate::category::{
-    core::{NatOp, Operation, ScalarOp, TensorOp, TypeOp},
+    core::{Dtype, NatOp, Operation, ScalarOp, TensorOp, TypeOp},
     lang,
 };
 use crate::ssa::SSA;
@@ -207,7 +207,11 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::MatMul => tensor_matmul(args),
         TensorOp::Map(scalar_op) => tensor_map(scalar_op, args),
         TensorOp::Cast => tensor_cast(args),
+        TensorOp::Sum => tensor_sum(args),
+        TensorOp::Max => tensor_max(args),
         TensorOp::Broadcast => tensor_broadcast(args),
+        TensorOp::Index => tensor_index(args),
+        TensorOp::Arange => tensor_arange(args),
         op => todo!("operation {op:?}"),
     }
 }
@@ -271,6 +275,38 @@ fn tensor_cast(args: &[Value]) -> ApplyResult {
     Ok(vec![Value::Tensor(type_expr)])
 }
 
+fn tensor_reduce(args: &[Value]) -> ApplyResult {
+    if args.len() != 1 {
+        return Err(ApplyError::ArityError);
+    };
+
+    let [Value::Tensor(tensor)] = args else {
+        return Err(ApplyError::TypeError);
+    };
+
+    let type_expr = match tensor {
+        TypeExpr::Var(_) => return Err(ApplyError::TypeError),
+        TypeExpr::NdArrayType(n) => match &n.shape {
+            ShapeExpr::Shape(input_shape) => {
+                let out_shape = input_shape[..input_shape.len() - 1].to_vec();
+                TypeExpr::NdArrayType(NdArrayType {
+                    dtype: n.dtype.clone(),
+                    shape: ShapeExpr::Shape(out_shape),
+                })
+            }
+            _ => return Err(ApplyError::TypeError),
+        },
+    };
+
+    Ok(vec![Value::Tensor(type_expr)])
+}
+
+fn tensor_sum(args: &[Value]) -> ApplyResult {
+    tensor_reduce(args)
+}
+fn tensor_max(args: &[Value]) -> ApplyResult {
+    tensor_reduce(args)
+}
 fn tensor_broadcast(args: &[Value]) -> ApplyResult {
     match (&args[0], &args[1]) {
         (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Shape(shape)) => {
@@ -290,6 +326,36 @@ fn tensor_broadcast(args: &[Value]) -> ApplyResult {
                 _ => Err(ApplyError::TypeError),
             }
         }
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn tensor_index(args: &[Value]) -> ApplyResult {
+    match (&args[0], &args[1]) {
+        (
+            Value::Tensor(TypeExpr::NdArrayType(input)),
+            Value::Tensor(TypeExpr::NdArrayType(idx)),
+        ) => match (&input.shape, &idx.shape) {
+            (ShapeExpr::Shape(input_shape), ShapeExpr::Shape(idx_shape)) => {
+                let mut out_shape = input_shape.clone();
+                out_shape[0] = idx_shape[0].clone();
+                Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                    dtype: input.dtype.clone(),
+                    shape: ShapeExpr::Shape(out_shape),
+                }))])
+            }
+            _ => Err(ApplyError::TypeError),
+        },
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn tensor_arange(args: &[Value]) -> ApplyResult {
+    match &args[0] {
+        Value::Nat(n) => Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::U32),
+            shape: ShapeExpr::Shape(vec![n.clone()]),
+        }))]),
         _ => Err(ApplyError::TypeError),
     }
 }
