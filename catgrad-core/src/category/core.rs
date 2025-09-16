@@ -20,6 +20,10 @@ pub enum Dtype {
 pub struct Shape(pub Vec<usize>);
 
 impl Shape {
+    pub fn rank(&self) -> usize {
+        self.0.len()
+    }
+
     /// Product of extents
     pub fn size(&self) -> usize {
         self.0.iter().product()
@@ -33,6 +37,20 @@ impl Shape {
         }
         strides.reverse();
         strides
+    }
+}
+
+impl std::ops::Index<usize> for Shape {
+    type Output = usize;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl std::ops::IndexMut<usize> for Shape {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }
 
