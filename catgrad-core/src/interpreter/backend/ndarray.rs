@@ -139,6 +139,20 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn slice(
+        &self,
+        x: TaggedNdArray<Self>,
+        dim: usize,
+        start: usize,
+        len: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::slice_ndarray(arr, dim, start, len)]),
+            U32([arr]) => U32([Self::slice_ndarray(arr, dim, start, len)]),
+        }
+    }
+
     fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -177,6 +191,16 @@ impl NdArrayBackend {
         let idx = indices.iter().map(|&i| i as usize).collect::<Vec<_>>();
 
         arr.select(ndarray::Axis(axis), &idx)
+    }
+
+    fn slice_ndarray<D: HasDtype>(
+        arr: ArrayD<D>,
+        dim: usize,
+        start: usize,
+        len: usize,
+    ) -> ArrayD<D> {
+        let r = arr.slice_axis(ndarray::Axis(dim), (start..start + len).into());
+        r.to_owned()
     }
 
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>

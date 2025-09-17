@@ -165,6 +165,26 @@ impl Backend for ShapeOnlyBackend {
             }
         }
     }
+
+    fn slice(
+        &self,
+        x: TaggedNdArray<Self>,
+        dim: usize,
+        _start: usize,
+        len: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([ShapeOnly(mut s)]) => {
+                s[dim] = len;
+                F32([ShapeOnly(s)])
+            }
+            U32([ShapeOnly(mut s)]) => {
+                s[dim] = len;
+                U32([ShapeOnly(s)])
+            }
+        }
+    }
 }
 
 impl ShapeOnlyBackend {

@@ -34,6 +34,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Stack => todo!("stack"),
         TensorOp::Split => todo!("split"),
         TensorOp::Index => tensor_index(backend, args, ssa),
+        TensorOp::Slice => tensor_slice(backend, args, ssa),
         TensorOp::Copy => todo!("copy"),
     }
 }
@@ -237,6 +238,35 @@ fn tensor_index<B: Backend>(
     // Args are: [input, indices]
     if let (Value::NdArray(input), Value::NdArray(indices)) = (args.remove(0), args.remove(0)) {
         let result = backend.index(input, indices);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
+    }
+}
+
+fn tensor_slice<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 4 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    // Args are: [input, dim, start, end]
+    if let (Value::NdArray(input), Value::Nat(dim), Value::Nat(start), Value::Nat(len)) = (
+        args.remove(0),
+        args.remove(0),
+        args.remove(0),
+        args.remove(0),
+    ) {
+        let result = backend.slice(input, dim, start, len);
         Ok(vec![Value::NdArray(result)])
     } else {
         Err(Box::new(ApplyError {

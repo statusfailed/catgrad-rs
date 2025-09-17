@@ -152,6 +152,15 @@ pub fn index(builder: &Builder, x: Var, idx: Var) -> Var {
     var::fn_operation(builder, &[x, idx], Object::Tensor, op!["tensor", "index"])
 }
 
+pub fn slice(builder: &Builder, x: Var, dim: Var, start: Var, len: Var) -> Var {
+    var::fn_operation(
+        builder,
+        &[x, dim, start, len],
+        Object::Tensor,
+        op!["tensor", "slice"],
+    )
+}
+
 pub fn arange(builder: &Builder, end: Var) -> Var {
     var::fn_operation(builder, &[end], Object::Tensor, op!["tensor", "arange"])
 }

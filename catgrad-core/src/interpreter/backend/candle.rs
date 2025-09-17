@@ -234,6 +234,20 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn slice(
+        &self,
+        x: TaggedNdArray<Self>,
+        dim: usize,
+        start: usize,
+        len: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([CandleTensor(Self::slice_tensor(arr.0, dim, start, len))]),
+            U32([arr]) => U32([CandleTensor(Self::slice_tensor(arr.0, dim, start, len))]),
+        }
+    }
+
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
         use TaggedNdArrayTuple::*;
         match x {
@@ -285,6 +299,10 @@ impl CandleBackend {
 
     fn index_tensor(tensor: Tensor, indices: Tensor) -> Tensor {
         tensor.index_select(&indices, 0).unwrap()
+    }
+
+    fn slice_tensor(tensor: Tensor, dim: usize, start: usize, len: usize) -> Tensor {
+        tensor.narrow(dim, start, len).unwrap()
     }
 
     // Catgrad always uses explicit broadcasting.

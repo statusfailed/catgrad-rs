@@ -47,6 +47,13 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool;
     fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
+    fn slice(
+        &self,
+        x: TaggedNdArray<Self>,
+        dim: usize,
+        start: usize,
+        len: usize,
+    ) -> TaggedNdArray<Self>;
     fn arange(&self, end: usize) -> TaggedNdArray<Self>;
 }
 
