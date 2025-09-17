@@ -169,9 +169,14 @@ pub enum TensorOp {
     /// Reshape a tensor into an isomorphic shape
     Reshape,
 
-    // TODO:
-    // Slice,
+    /// Slice a tensor along a dimension
+    /// `Slice : Tensor × Dim × Start × Len → Tensor`
+    Slice,
+
+    /// Create a 1-D tensor with values from 0 to end (exclusive)
+    /// `Arange : End → Tensor`
     Arange,
+
     /// S ● ... ● S → N×S
     Stack,
 
