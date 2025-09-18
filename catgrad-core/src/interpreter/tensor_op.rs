@@ -32,8 +32,6 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Scalar => tensor_scalar(backend, args, ssa),
         TensorOp::Concat => tensor_concat(backend, args, ssa),
-        TensorOp::Stack => todo!("stack"),
-        TensorOp::Split => todo!("split"),
         TensorOp::Index => tensor_index(backend, args, ssa),
         TensorOp::Slice => tensor_slice(backend, args, ssa),
         TensorOp::Copy => todo!("copy"),

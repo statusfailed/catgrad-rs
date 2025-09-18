@@ -181,12 +181,6 @@ pub enum TensorOp {
     /// `Arange : End → Tensor`
     Arange,
 
-    /// S ● ... ● S → N×S
-    Stack,
-
-    /// N×S → S ● ... ● S
-    Split,
-
     // Array lookup indices
     // `Index: (N,) ● (M,) → (N,)`
     Index,

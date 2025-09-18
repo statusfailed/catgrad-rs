@@ -201,8 +201,6 @@ fn nat_add(args: &[Value]) -> ApplyResult {
 
 fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
     match op {
-        TensorOp::Stack => tensor_stack(args),
-        TensorOp::Split => tensor_split(args),
         TensorOp::Reshape => tensor_reshape(args),
         TensorOp::MatMul => tensor_matmul(args),
         TensorOp::Map(scalar_op) => tensor_map(scalar_op, args),
@@ -358,16 +356,6 @@ fn tensor_arange(args: &[Value]) -> ApplyResult {
         }))]),
         _ => Err(ApplyError::TypeError),
     }
-}
-
-fn tensor_stack(_args: &[Value]) -> ApplyResult {
-    // Construct a NdArrayType::Concat
-    todo!()
-}
-
-fn tensor_split(_args: &[Value]) -> ApplyResult {
-    // len = 1 or error
-    todo!()
 }
 
 fn tensor_matmul(args: &[Value]) -> ApplyResult {
