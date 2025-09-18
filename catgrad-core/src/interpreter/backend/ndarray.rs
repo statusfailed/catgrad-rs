@@ -161,6 +161,20 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn concat(
+        &self,
+        x: TaggedNdArray<Self>,
+        y: TaggedNdArray<Self>,
+        dim: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match (x, y) {
+            (F32([a]), F32([b])) => F32([Self::concat_ndarray(a, b, dim)]),
+            (U32([a]), U32([b])) => U32([Self::concat_ndarray(a, b, dim)]),
+            _ => panic!("Incompatible types for concatenation"),
+        }
+    }
+
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
         use TaggedNdArrayTuple::*;
         match x {
@@ -201,6 +215,10 @@ impl NdArrayBackend {
     ) -> ArrayD<D> {
         let r = arr.slice_axis(ndarray::Axis(dim), (start..start + len).into());
         r.to_owned()
+    }
+
+    fn concat_ndarray<D: HasDtype>(a: ArrayD<D>, b: ArrayD<D>, dim: usize) -> ArrayD<D> {
+        ndarray::concatenate(ndarray::Axis(dim), &[a.view(), b.view()]).unwrap()
     }
 
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>

@@ -161,6 +161,15 @@ pub fn slice(builder: &Builder, x: Var, dim: Var, start: Var, len: Var) -> Var {
     )
 }
 
+pub fn concat(builder: &Builder, x: Var, y: Var, dim: Var) -> Var {
+    var::fn_operation(
+        builder,
+        &[x, y, dim],
+        Object::Tensor,
+        op!["tensor", "concat"],
+    )
+}
+
 pub fn arange(builder: &Builder, end: Var) -> Var {
     var::fn_operation(builder, &[end], Object::Tensor, op!["tensor", "arange"])
 }

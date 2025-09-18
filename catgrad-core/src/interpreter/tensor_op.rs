@@ -31,6 +31,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Map(scalar_op) => todo!("unimplemented scalar op {:?}", scalar_op),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Scalar => tensor_scalar(backend, args, ssa),
+        TensorOp::Concat => tensor_concat(backend, args, ssa),
         TensorOp::Stack => todo!("stack"),
         TensorOp::Split => todo!("split"),
         TensorOp::Index => tensor_index(backend, args, ssa),
@@ -238,6 +239,32 @@ fn tensor_index<B: Backend>(
     // Args are: [input, indices]
     if let (Value::NdArray(input), Value::NdArray(indices)) = (args.remove(0), args.remove(0)) {
         let result = backend.index(input, indices);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
+    }
+}
+
+fn tensor_concat<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &SSA<Object, Operation>,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 3 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    // Args are: [tensor, tensor, dim]
+    if let (Value::NdArray(a), Value::NdArray(b), Value::Nat(dim)) =
+        (args.remove(0), args.remove(0), args.remove(0))
+    {
+        let result = backend.concat(a, b, dim);
         Ok(vec![Value::NdArray(result)])
     } else {
         Err(Box::new(ApplyError {

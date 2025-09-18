@@ -144,6 +144,28 @@ impl Backend for ShapeOnlyBackend {
         U32([ShapeOnly(Shape(vec![end]))])
     }
 
+    fn concat(
+        &self,
+        x: TaggedNdArray<Self>,
+        y: TaggedNdArray<Self>,
+        dim: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match (x, y) {
+            (F32([ShapeOnly(a)]), F32([ShapeOnly(b)])) => {
+                let mut s = a.clone();
+                s[dim] = a[dim] + b[dim];
+                F32([ShapeOnly(s)])
+            }
+            (U32([ShapeOnly(a)]), U32([ShapeOnly(b)])) => {
+                let mut s = a.clone();
+                s[dim] = a[dim] + b[dim];
+                U32([ShapeOnly(s)])
+            }
+            _ => panic!("Incompatible types for concatenation"),
+        }
+    }
+
     fn index(&self, x: TaggedNdArray<Self>, indices: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         let shape = &match indices {
