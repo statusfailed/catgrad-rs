@@ -41,3 +41,34 @@ pub fn replace_nodes_in_hypergraph<T, U, V>(
         targets: term.targets,
     }
 }
+
+// TODO: add to open-hypergraphs
+pub(crate) fn map_nodes_and_edges<F: Fn(O1) -> O2, G: Fn(A1) -> A2, O1, O2, A1, A2>(
+    term: OpenHypergraph<O1, A1>,
+    f: F,
+    g: G,
+) -> OpenHypergraph<O2, A2> {
+    use open_hypergraphs::lax::Hypergraph;
+    let OpenHypergraph {
+        sources,
+        targets,
+        hypergraph:
+            Hypergraph {
+                nodes,
+                edges,
+                adjacency,
+                quotient,
+            },
+    } = term;
+
+    OpenHypergraph {
+        sources,
+        targets,
+        hypergraph: Hypergraph {
+            nodes: nodes.into_iter().map(f).collect(),
+            edges: edges.into_iter().map(g).collect(),
+            adjacency,
+            quotient,
+        },
+    }
+}
