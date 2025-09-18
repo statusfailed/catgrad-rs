@@ -255,6 +255,20 @@ impl Backend for CandleBackend {
             U32([a, b]) => Self::compare_tensors(&a.0, &b.0),
         }
     }
+
+    fn concat(
+        &self,
+        x: TaggedNdArray<Self>,
+        y: TaggedNdArray<Self>,
+        dim: usize,
+    ) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match (x, y) {
+            (F32([a]), F32([b])) => F32([CandleTensor(Self::concat_tensors(&a.0, &b.0, dim))]),
+            (U32([a]), U32([b])) => U32([CandleTensor(Self::concat_tensors(&a.0, &b.0, dim))]),
+            _ => panic!("Incompatible types for concatenation"),
+        }
+    }
 }
 
 impl CandleBackend {
@@ -291,6 +305,10 @@ impl CandleBackend {
             .and_then(|min_val| min_val.to_scalar::<u8>().ok())
             .map(|min_scalar| min_scalar == 1)
             .unwrap_or(false)
+    }
+
+    fn concat_tensors(a: &Tensor, b: &Tensor, dim: usize) -> Tensor {
+        Tensor::cat(&[a, b], dim).unwrap()
     }
 
     fn reshape_tensor(tensor: Tensor, new_shape: Shape) -> Tensor {

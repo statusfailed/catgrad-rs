@@ -173,6 +173,10 @@ pub enum TensorOp {
     /// `Slice : Tensor × Dim × Start × Len → Tensor`
     Slice,
 
+    /// Concatenate two tensors along a dimension
+    /// `Concat : Tensor × Tensor × Dim → Tensor`
+    Concat,
+
     /// Create a 1-D tensor with values from 0 to end (exclusive)
     /// `Arange : End → Tensor`
     Arange,
