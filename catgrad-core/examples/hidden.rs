@@ -1,7 +1,5 @@
-use catgrad_core::prelude::*;
-use catgrad_core::util::replace_nodes_in_hypergraph;
-
 use catgrad_core::interpreter;
+use catgrad_core::prelude::*;
 
 use std::collections::HashMap;
 
@@ -26,8 +24,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         check::check(&env, &parameters, typed_term.clone()).expect("typecheck failed");
 
     // Diagram of term with shapes inferred
-    let labeled_term = replace_nodes_in_hypergraph(typed_term.term.clone(), check_result);
-    save_svg(&labeled_term, &format!("{}_typed.svg", model.path()))?;
+    let labeled_term = typed_term.term.clone().with_nodes(|_| check_result);
+    let filename = &format!("{}_typed.svg", model.path());
+    save_svg(&labeled_term.unwrap(), filename)?;
 
     // Choose a backend from available features
     let backend = select_backend()?;

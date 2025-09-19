@@ -1,7 +1,6 @@
 use catgrad_core::category::lang::*;
 use catgrad_core::check::*;
 use catgrad_core::stdlib::*;
-use catgrad_core::util::replace_nodes_in_hypergraph;
 
 pub mod test_utils;
 use test_utils::{get_forget_core_declarations, save_diagram_if_enabled};
@@ -70,7 +69,7 @@ pub fn run_check_test(
     let result = check_with(&env, &Parameters::default(), term.clone(), source_type)?;
     println!("result: {result:?}");
 
-    let typed_term = replace_nodes_in_hypergraph(term, result);
+    let typed_term = term.with_nodes(|_| result).unwrap();
     save_diagram_if_enabled(svg_filename, &typed_term);
 
     Ok(())
