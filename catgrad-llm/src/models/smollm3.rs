@@ -97,7 +97,7 @@ impl Model {
         let mut k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        if (layer_id + 1) % config.no_rope_layer_interval != 0 {
+        if !(layer_id + 1).is_multiple_of(config.no_rope_layer_interval) {
             q = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), q);
             k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
         }

@@ -125,7 +125,7 @@ impl Model {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let theta = if layer_id % config.global_attn_every_n_layers == 0 {
+        let theta = if layer_id.is_multiple_of(config.global_attn_every_n_layers) {
             config.global_rope_theta
         } else {
             config.local_rope_theta
