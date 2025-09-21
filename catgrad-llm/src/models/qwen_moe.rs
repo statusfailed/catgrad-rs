@@ -325,8 +325,8 @@ impl Model {
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-        let moe_layer =
-            config.num_local_experts > 1 && (layer_id + 1) % config.decoder_sparse_step == 0;
+        let moe_layer = config.num_local_experts > 1
+            && (layer_id + 1).is_multiple_of(config.decoder_sparse_step);
         let x = if moe_layer {
             Model::moe(builder, config, &format!("{name}.mlp"), x)
         } else {

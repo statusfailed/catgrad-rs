@@ -136,7 +136,7 @@ impl Model {
 
         // Rope
         // Every 6th layer uses global attention, otherwise local attention
-        let theta = if (layer_id + 1) % config.sliding_window_pattern > 0 {
+        let theta = if !(layer_id + 1).is_multiple_of(config.sliding_window_pattern) {
             config.rope_local_base_freq
         } else {
             config.rope_theta

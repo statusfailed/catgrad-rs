@@ -132,7 +132,7 @@ pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var>
 }
 
 pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
-    assert!(x.label.shape.0[dim] % chunks == 0);
+    assert!(x.label.shape.0[dim].is_multiple_of(chunks));
 
     let d = x.label.shape.0[dim] / chunks;
 
@@ -708,6 +708,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn test_layernorm() {
         test_norm(
             &[0., 1., 2., 3., 4.],
