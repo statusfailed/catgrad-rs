@@ -5,6 +5,7 @@ repository = "https://github.com/hellas-ai/catgrad"
 description = "Tools for LLMs built with catgrad"
 version = "0.1.1"
 edition = "2024"
+rust-version = "1.87"
 
 [dependencies]
 catgrad = { version = "0.1.1", path = "../catgrad" }
