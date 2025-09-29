@@ -182,6 +182,10 @@ pub fn sum(builder: &Builder, x: Var) -> Var {
     var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "sum"])
 }
 
+pub fn scalar(builder: &Builder, nat: Var) -> Var {
+    var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "scalar"])
+}
+
 /// Batch matmul
 pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
     // checked during shapechecking, but errors easier to follow here.
