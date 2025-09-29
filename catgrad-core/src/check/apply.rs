@@ -210,6 +210,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Broadcast => tensor_broadcast(args),
         TensorOp::Index => tensor_index(args),
         TensorOp::Arange => tensor_arange(args),
+        TensorOp::Scalar => tensor_scalar(args),
         op => todo!("operation {op:?}"),
     }
 }
@@ -353,6 +354,16 @@ fn tensor_arange(args: &[Value]) -> ApplyResult {
         Value::Nat(n) => Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::U32),
             shape: ShapeExpr::Shape(vec![n.clone()]),
+        }))]),
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn tensor_scalar(args: &[Value]) -> ApplyResult {
+    match &args[0] {
+        Value::Nat(_) => Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::U32),
+            shape: ShapeExpr::Shape(vec![]),
         }))]),
         _ => Err(ApplyError::TypeError),
     }

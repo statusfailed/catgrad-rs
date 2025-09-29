@@ -40,6 +40,7 @@ fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "max"], Operation::Tensor(Max)),
         (path!["tensor", "arange"], Operation::Tensor(Arange)),
         (path!["tensor", "concat"], Operation::Tensor(Concat)),
+        (path!["tensor", "scalar"], Operation::Tensor(Scalar)),
         // Mixed Tensor/Type ops
         (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
         (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),

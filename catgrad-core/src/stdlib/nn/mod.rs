@@ -65,3 +65,10 @@ impl Def<1, 1> for Exp {
         [pow(graph, e, x)]
     }
 }
+
+pub fn sqrt(graph: &Builder, x: Var) -> Var {
+    let e = constant_f32(graph, 0.5);
+    let s = shape(graph, x.clone());
+    let e = broadcast(graph, e, s);
+    pow(graph, x, e)
+}
