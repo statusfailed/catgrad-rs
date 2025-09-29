@@ -101,6 +101,10 @@ pub fn constant_f32(builder: &Builder, v: f32) -> Var {
     lit(builder, Literal::F32(v))
 }
 
+pub fn constant_nat(builder: &Builder, v: u32) -> Var {
+    lit(builder, Literal::Nat(v))
+}
+
 /// Pack a fixed number of Nat values into a specific shape
 pub fn pack<const N: usize>(builder: &Builder, extents: [Var; N]) -> Var {
     for x in &extents {

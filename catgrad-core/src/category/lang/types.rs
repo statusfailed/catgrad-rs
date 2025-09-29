@@ -11,6 +11,7 @@ use super::path::*;
 pub enum Literal {
     F32(f32),
     U32(u32),
+    Nat(u32),
     Dtype(Dtype),
 }
 
@@ -55,6 +56,7 @@ impl fmt::Display for Literal {
         match self {
             Literal::F32(v) => write!(f, "{v}"),
             Literal::U32(v) => write!(f, "{v}"),
+            Literal::Nat(v) => write!(f, "{v}"),
             Literal::Dtype(dtype) => write!(f, "{dtype:?}"),
         }
     }
