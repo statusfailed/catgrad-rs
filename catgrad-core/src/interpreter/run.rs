@@ -216,6 +216,7 @@ pub(crate) fn lit_to_value<B: Backend>(backend: &B, lit: &Literal) -> Value<B> {
         Literal::F32(x) => Value::NdArray(TaggedNdArray::F32([B::scalar(backend, *x)])),
         Literal::U32(x) => Value::NdArray(TaggedNdArray::U32([B::scalar(backend, *x)])),
         Literal::Dtype(d) => Value::Dtype(d.clone()),
+        Literal::Nat(x) => Value::Nat(*x as usize),
     }
 }
 
