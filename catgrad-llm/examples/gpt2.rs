@@ -187,7 +187,7 @@ impl GPT2Model {
 }
 
 // Implement `Def`: this is like torch's `Module`.
-impl Def<1, 1> for GPT2Model {
+impl Module<1, 1> for GPT2Model {
     fn path(&self) -> Path {
         path(vec!["gpt2"]).expect("invalid model path")
     }

@@ -7,7 +7,7 @@ use catgrad_core::stdlib::{nn::*, *};
 
 pub struct LinearSigmoid;
 
-impl Def<2, 1> for LinearSigmoid {
+impl Module<2, 1> for LinearSigmoid {
     fn ty(&self) -> ([Type; 2], [Type; 1]) {
         let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
@@ -45,7 +45,7 @@ impl Def<2, 1> for LinearSigmoid {
 
 // You wouldn't normally do this- just for testing!
 pub struct Add;
-impl Def<2, 1> for Add {
+impl Module<2, 1> for Add {
     fn ty(&self) -> ([Type; 2], [Type; 1]) {
         let t_x0 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
@@ -75,7 +75,7 @@ impl Def<2, 1> for Add {
 }
 
 pub struct BatchMatMul;
-impl Def<2, 1> for BatchMatMul {
+impl Module<2, 1> for BatchMatMul {
     fn ty(&self) -> ([Type; 2], [Type; 1]) {
         let t_x0 = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),

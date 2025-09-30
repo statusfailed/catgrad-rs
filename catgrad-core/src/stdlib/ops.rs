@@ -52,7 +52,9 @@ fn core_declarations() -> HashMap<lang::Path, core::Operation> {
 }
 
 // helper to simplify stdlib defs list
-fn to_pair<const A: usize, const B: usize, T: Def<A, B>>(def: T) -> (lang::Path, lang::TypedTerm) {
+fn to_pair<const A: usize, const B: usize, T: Module<A, B>>(
+    def: T,
+) -> (lang::Path, lang::TypedTerm) {
     (def.path(), def.term().unwrap())
 }
 
