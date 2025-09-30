@@ -10,6 +10,9 @@ pub mod check;
 pub mod interpreter;
 pub mod ssa;
 
+// general compiler tools
+pub mod definition;
+
 // Utilities
 #[cfg(feature = "svg")]
 pub mod svg;
