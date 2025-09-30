@@ -236,7 +236,7 @@ fn tensor_index<B: Backend>(
 
     // Args are: [input, indices]
     if let (Value::NdArray(input), Value::NdArray(indices)) = (args.remove(0), args.remove(0)) {
-        let result = backend.index(input, indices);
+        let result = backend.index(input, 0, indices);
         Ok(vec![Value::NdArray(result)])
     } else {
         Err(Box::new(ApplyError {
