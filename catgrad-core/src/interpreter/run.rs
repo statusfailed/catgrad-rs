@@ -132,11 +132,12 @@ impl<B: Backend> Interpreter<B> {
     ) -> Result<Vec<Value<B>>, InterpreterError> {
         match &ssa.op {
             Def::Def(path) => self.apply_definition(ssa, args, path),
-            Def::Arr(op) => self.apply_declaration(ssa, args, op),
+            Def::Arr(op) => self.apply_op(ssa, args, op),
         }
     }
 
-    fn apply_declaration(
+    // Dispatch ops
+    fn apply_op(
         &self,
         ssa: &CoreSSA,
         args: Vec<Value<B>>,
@@ -156,6 +157,7 @@ impl<B: Backend> Interpreter<B> {
         })
     }
 
+    // Dispatch definitions by recursing
     fn apply_definition(
         &self,
         ssa: &CoreSSA,
@@ -168,6 +170,9 @@ impl<B: Backend> Interpreter<B> {
             ssa: ssa.clone(),
         })?;
 
+        // PERFORMANCE: we shouldn't really need to clone terms here;
+        // Interpreter only takes ownership because it has to call to_strict() to do the SSA
+        // decomposition. But this is not strictly necessary.
         self.run_core(definition.clone(), args)
     }
 
