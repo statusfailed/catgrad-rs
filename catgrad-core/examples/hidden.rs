@@ -100,7 +100,7 @@ fn select_backend() -> Result<impl interpreter::Backend, Box<dyn std::error::Err
 pub struct SimpleMNISTModel;
 
 // Implement `Def`: this is like torch's `Module`.
-impl Def<1, 1> for SimpleMNISTModel {
+impl Module<1, 1> for SimpleMNISTModel {
     // Model name
     // TODO: NOTE: it's not clear how user is supposed to know how to choose this name!
     fn path(&self) -> Path {

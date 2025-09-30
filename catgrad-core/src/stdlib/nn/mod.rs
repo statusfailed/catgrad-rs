@@ -6,7 +6,7 @@ use crate::stdlib::def::*;
 
 pub struct Sigmoid;
 
-impl Def<1, 1> for Sigmoid {
+impl Module<1, 1> for Sigmoid {
     // Type maps
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
         // TODO: allow any dtype; cast constants in exp.
@@ -39,7 +39,7 @@ impl Def<1, 1> for Sigmoid {
 
 pub struct Exp;
 
-impl Def<1, 1> for Exp {
+impl Module<1, 1> for Exp {
     // Type maps
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
         use crate::check::*;

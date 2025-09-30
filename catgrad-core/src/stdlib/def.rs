@@ -7,16 +7,16 @@ use open_hypergraphs::lax::var;
 ////////////////////////////////////////////////////////////////////////////////
 // Generic interface
 
-/// A type implementing [`Def`] defines a *typed term* with additional metadata.
+/// A type implementing [`Module`] defines a *typed term* with additional metadata.
 /// Analogous to a `nn.Module` in PyTorch.
-/// In total, a `T: Def` defines:
+/// In total, a `T: Module` defines:
 ///
 /// 1. A *unique global name* (`path`)
 /// 2. A *type* (`ty`)
 /// 3. A *definition* (`inline`) - an open hypergraph representing
 ///
 /// Note that definitions have fixed arity/coarity, but types can vary.
-pub trait Def<const A: usize, const B: usize> {
+pub trait Module<const A: usize, const B: usize> {
     /// The *type* of this definition, used to construct a [`TypedTerm`]
     fn ty(&self) -> ([Type; A], [Type; B]);
 
@@ -96,9 +96,9 @@ fn to_sort(value: Type) -> Object {
 ////////////////////////////////////////////////////////////////////////////////
 // "Function" definitions just return a single Var- this makes it easier to call them.
 
-/// A FnDef is a "Function Definition": a `Def` with a single output var.
+/// A FnModule is a "Function Module": a `Module` with a single output var.
 /// The `call` method is a helper for getting the single output of self.op.
-pub trait FnDef<const N: usize>: Def<N, 1> {
+pub trait FnModule<const N: usize>: Module<N, 1> {
     /// Like [`Def::op`] for coarity 1.
     fn call(&self, builder: &Builder, args: [Var; N]) -> Var {
         let [r] = self.op(builder, args);
@@ -108,4 +108,4 @@ pub trait FnDef<const N: usize>: Def<N, 1> {
     // TODO: call_inline?
 }
 
-impl<const N: usize, T: Def<N, 1>> FnDef<N> for T {}
+impl<const N: usize, T: Module<N, 1>> FnModule<N> for T {}
