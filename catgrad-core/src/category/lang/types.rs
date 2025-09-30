@@ -5,7 +5,7 @@ use std::fmt;
 
 pub use crate::category::core::{Dtype, Object};
 
-use super::path::*;
+use crate::path::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
