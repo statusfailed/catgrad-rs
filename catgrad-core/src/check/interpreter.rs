@@ -166,6 +166,6 @@ fn apply_literal(lit: &Literal) -> ApplyResult {
             };
             Value::Tensor(TypeExpr::NdArrayType(ty))
         }
-        Literal::Nat(_) => Value::Nat(NatExpr::Constant(1)),
+        Literal::Nat(v) => Value::Nat(NatExpr::Constant(*v as usize)),
     }])
 }
