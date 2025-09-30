@@ -50,7 +50,7 @@ pub(crate) fn tensor_constant<B: Backend>(
     ssa: &CoreSSA,
     c: &Constant,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 0 {
+    if !args.is_empty() {
         return Err(err(ApplyErrorKind::ArityError, ssa));
     }
 
