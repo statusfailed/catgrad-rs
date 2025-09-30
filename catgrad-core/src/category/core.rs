@@ -134,7 +134,7 @@ pub enum TypeOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constant {
     F32(f32),
-    U32(i32),
+    U32(u32),
 }
 
 /// Generating tensor operations
