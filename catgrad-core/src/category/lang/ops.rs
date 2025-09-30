@@ -1,5 +1,5 @@
-use super::path::Path;
 use super::types::*;
+use crate::path::Path;
 use open_hypergraphs::lax::var;
 
 macro_rules! path{
