@@ -1,47 +1,8 @@
 //! Tests for the catgrad reference interpreter
 
+use super::TaggedNdArray;
 use super::backend::ndarray::NdArrayBackend;
-use super::{TaggedNdArray, Value, lit_to_value};
 use crate::category::core::Shape;
-use crate::category::lang::Literal;
-
-#[test]
-fn test_literal_u32_scalar() {
-    let literal = Literal::U32(42);
-    let result: Value<NdArrayBackend> = lit_to_value(&NdArrayBackend, &literal);
-
-    match result {
-        Value::NdArray(arr) => {
-            assert_eq!(arr.shape().0, vec![] as Vec<usize>);
-            match arr {
-                TaggedNdArray::U32([nd_arr]) => {
-                    assert_eq!(nd_arr[[]], 42);
-                }
-                _ => panic!("Expected U32 TaggedNdArray"),
-            }
-        }
-        _ => panic!("Expected NdArray value for U32 literal"),
-    }
-}
-
-#[test]
-fn test_literal_f32_scalar() {
-    let literal = Literal::F32(3.15);
-    let result: Value<NdArrayBackend> = lit_to_value(&NdArrayBackend, &literal);
-
-    match result {
-        Value::NdArray(arr) => {
-            assert_eq!(arr.shape().0, vec![] as Vec<usize>);
-            match arr {
-                TaggedNdArray::F32([nd_arr]) => {
-                    assert_eq!(nd_arr[[]], 3.15);
-                }
-                _ => panic!("Expected F32 TaggedNdArray"),
-            }
-        }
-        _ => panic!("Expected NdArray value for F32 literal"),
-    }
-}
 
 #[test]
 fn test_tagged_ndarray_constructors() {

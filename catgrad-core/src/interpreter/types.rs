@@ -1,15 +1,20 @@
 //! Catgrad reference interpreter
 
-use crate::category::lang::*;
+use crate::category::core::{Dtype, Object, Operation};
 use crate::ssa::SSA;
 
 use super::backend::*;
 use crate::category::core::{NdArrayType, Shape};
 
+use crate::definition::Def;
+use crate::path::Path;
+
+pub(crate) type CoreSSA = SSA<Object, Def<Path, Operation>>;
+
 #[derive(Debug, Clone)]
 pub struct ApplyError {
     pub kind: ApplyErrorKind,
-    pub ssa: SSA<Object, Operation>,
+    pub ssa: CoreSSA,
 }
 
 #[derive(Debug, Clone)]

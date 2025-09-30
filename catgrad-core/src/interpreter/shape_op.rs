@@ -1,16 +1,15 @@
 //! Shape operation implementations for the interpreter
 
 use super::backend::Backend;
+use super::types::CoreSSA;
 use super::{ApplyError, ApplyErrorKind, Value};
-use crate::category::lang::{Object, Operation};
 use crate::category::{core, core::Shape};
-use crate::ssa::SSA;
 
 /// Apply a Type operation
 pub(crate) fn apply_type_op<B: Backend>(
     type_op: &core::TypeOp,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match type_op {
         core::TypeOp::Pack => apply_pack(args, ssa),
@@ -24,7 +23,7 @@ pub(crate) fn apply_type_op<B: Backend>(
 pub(crate) fn apply_nat_op<B: Backend>(
     nat_op: &core::NatOp,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match nat_op {
         core::NatOp::Constant(n) => apply_nat_constant(*n, args, ssa),
@@ -37,7 +36,7 @@ pub(crate) fn apply_nat_op<B: Backend>(
 pub(crate) fn apply_dtype_constant<B: Backend>(
     dtype: &core::Dtype,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 0, ssa)?;
     Ok(vec![Value::Dtype(dtype.clone())])
@@ -46,7 +45,7 @@ pub(crate) fn apply_dtype_constant<B: Backend>(
 // Type operation implementations
 pub(crate) fn apply_pack<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     let mut shape = Vec::new();
     for arg in &args {
@@ -60,7 +59,7 @@ pub(crate) fn apply_pack<B: Backend>(
 
 pub(crate) fn apply_unpack<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
@@ -77,7 +76,7 @@ pub(crate) fn apply_unpack<B: Backend>(
 
 pub(crate) fn apply_shape<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
@@ -88,7 +87,7 @@ pub(crate) fn apply_shape<B: Backend>(
 
 pub(crate) fn apply_dtype<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 1, ssa)?;
     match &args[0] {
@@ -101,7 +100,7 @@ pub(crate) fn apply_dtype<B: Backend>(
 pub(crate) fn apply_nat_constant<B: Backend>(
     n: usize,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     expect_arity(&args, 0, ssa)?;
     Ok(vec![Value::Nat(n)])
@@ -109,7 +108,7 @@ pub(crate) fn apply_nat_constant<B: Backend>(
 
 pub(crate) fn apply_nat_mul<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.is_empty() {
         return Ok(vec![Value::Nat(1)]);
@@ -126,7 +125,7 @@ pub(crate) fn apply_nat_mul<B: Backend>(
 
 pub(crate) fn apply_nat_add<B: Backend>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.is_empty() {
         return Ok(vec![Value::Nat(0)]);
@@ -144,9 +143,7 @@ pub(crate) fn apply_nat_add<B: Backend>(
 ////////////////////////////////////////////////////////////////////////////////
 // utilities
 
-pub fn type_error<B: Backend>(
-    ssa: &SSA<Object, Operation>,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+pub fn type_error<B: Backend>(ssa: &CoreSSA) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     Err(Box::new(ApplyError {
         kind: ApplyErrorKind::TypeError,
         ssa: ssa.clone(),
@@ -156,7 +153,7 @@ pub fn type_error<B: Backend>(
 pub fn expect_arity<B: Backend>(
     args: &[Value<B>],
     expected: usize,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<(), Box<ApplyError>> {
     if args.len() != expected {
         type_error::<B>(ssa)?;
