@@ -144,7 +144,8 @@ impl GPT2Model {
             builder,
             &p.concat(&path(vec!["wte", "weight"]).expect("invalid param path")),
         );
-        let te = index(builder, wte, x);
+        let dim = constant_nat(builder, 0);
+        let te = index(builder, wte, dim.clone(), x);
 
         let wpe = param(
             builder,
@@ -157,7 +158,7 @@ impl GPT2Model {
         let [seq_len, _dim] = unpack::<2>(builder, sh);
         let r = arange(builder, seq_len);
         // let r = broadcast(builder, r, sh);
-        let pe = index(builder, wpe, r);
+        let pe = index(builder, wpe, dim, r);
         te + pe
     }
 
@@ -207,7 +208,7 @@ impl Module<1, 1> for GPT2Model {
         //     root.concat(&path(vec!["ln_f"]).expect("invalid param path")),
         //     x.clone(),
         // );
-        let _ln_f = self.layernorm_raw(builder, self.config.layer_norm_epsilon, x.clone());
+        // let _ln_f = self.layernorm_raw(builder, self.config.layer_norm_epsilon, x.clone());
         [x]
     }
 

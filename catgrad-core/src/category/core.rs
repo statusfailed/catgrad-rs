@@ -181,8 +181,12 @@ pub enum TensorOp {
     /// `Arange : End → Tensor`
     Arange,
 
-    // Array lookup indices
-    // `Index: (N,) ● (M,) → (N,)`
+    // Slice using an index along a dimension
+    // `Index: Tensor × Dim × Indices → Tensor`
+    // Tensor: input tensor
+    // Dim: dimension to slice along
+    // Indices: 1-D tensor of indices to pick, they can be unordered and repeated
+    // Output will be a tensor with the shape same as the input's except for the dimension being sliced where it is the length of the indices tensor
     Index,
 
     // Copy a tensor
