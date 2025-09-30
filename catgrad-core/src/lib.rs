@@ -2,6 +2,9 @@
 pub mod category;
 pub mod stdlib;
 
+// Compiler passes
+pub mod pass;
+
 // path::Path is a type of dot-separated strings used to name definitions and lang ops.
 pub mod path;
 
@@ -9,6 +12,9 @@ pub mod path;
 pub mod check;
 pub mod interpreter;
 pub mod ssa;
+
+// general compiler tools
+pub mod definition;
 
 // Utilities
 #[cfg(feature = "svg")]

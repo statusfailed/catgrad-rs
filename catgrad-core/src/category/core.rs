@@ -1,8 +1,15 @@
 //! Core operations on shapes, natural numbers, and tensors.
 //! A simple, portable IR.
 
+use crate::definition::Def;
+use crate::path::Path;
+use open_hypergraphs::lax::OpenHypergraph;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Basic types.
+
+// a core::Term is an open hypergraph with adjoined definitions named by Paths
+pub type Term = OpenHypergraph<Object, Def<Path, Operation>>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NdArrayType {
@@ -127,7 +134,7 @@ pub enum TypeOp {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Constant {
     F32(f32),
-    U32(i32),
+    U32(u32),
 }
 
 /// Generating tensor operations
