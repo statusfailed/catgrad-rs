@@ -5,50 +5,12 @@ use super::def::*;
 
 use std::collections::HashMap;
 
-macro_rules! path{
-    [$($x:expr),* $(,)?] => {
-        vec![$($x),*].try_into().expect("invalid operation name")
-    };
-}
-
 /// Declared and defined operations.
 /// Currently, a declaration must map to a Core operation (subject to change!)
 #[derive(Debug, Clone)]
 pub struct Environment {
     pub definitions: HashMap<lang::Path, lang::TypedTerm>,
     pub declarations: HashMap<lang::Path, core::Operation>,
-}
-
-/// Interpretations of declared operations
-fn core_declarations() -> HashMap<lang::Path, core::Operation> {
-    use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
-    use std::collections::HashMap;
-    HashMap::from([
-        (path!["cartesian", "copy"], Operation::Copy),
-        // tensor ops (which actually affect tensor data)
-        (path!["tensor", "add"], Operation::Tensor(Map(Add))),
-        (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),
-        (path!["tensor", "mul"], Operation::Tensor(Map(Mul))),
-        (path!["tensor", "div"], Operation::Tensor(Map(Div))),
-        (path!["tensor", "pow"], Operation::Tensor(Map(Pow))),
-        (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
-        (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
-        (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
-        (path!["tensor", "cast"], Operation::Tensor(Cast)),
-        (path!["tensor", "index"], Operation::Tensor(Index)),
-        (path!["tensor", "sum"], Operation::Tensor(Sum)),
-        (path!["tensor", "max"], Operation::Tensor(Max)),
-        (path!["tensor", "arange"], Operation::Tensor(Arange)),
-        (path!["tensor", "concat"], Operation::Tensor(Concat)),
-        (path!["tensor", "scalar"], Operation::Tensor(Scalar)),
-        // Mixed Tensor/Type ops
-        (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
-        (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),
-        // Shape ops
-        (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
-        (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
-        (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
-    ])
 }
 
 // helper to simplify stdlib defs list
@@ -72,6 +34,8 @@ fn definitions() -> HashMap<lang::Path, lang::TypedTerm> {
 
 /// Standard library declarations and definitions
 pub fn stdlib() -> Environment {
+    use crate::pass::to_core::core_declarations;
+
     Environment {
         declarations: core_declarations(),
         definitions: definitions(),

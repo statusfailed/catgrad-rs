@@ -39,7 +39,7 @@ macro_rules! path{
 }
 
 /// Interpretations of declared operations
-fn core_declarations() -> HashMap<lang::Path, core::Operation> {
+pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
     use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
     use std::collections::HashMap;
     HashMap::from([
