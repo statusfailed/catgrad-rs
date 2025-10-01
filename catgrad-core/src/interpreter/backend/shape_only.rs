@@ -115,6 +115,17 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
+    fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        let mut shape = x.shape();
+        shape.0.swap(dim0, dim1);
+
+        match x {
+            F32(_) => F32([ShapeOnly(shape)]),
+            U32(_) => U32([ShapeOnly(shape)]),
+        }
+    }
+
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {

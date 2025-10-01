@@ -176,6 +176,10 @@ pub enum TensorOp {
     /// Reshape a tensor into an isomorphic shape
     Reshape,
 
+    /// Transpose two axes of the input
+    /// `Transpose : Tensor × Dim × Dim → Tensor`
+    Transpose,
+
     /// Slice a tensor along a dimension
     /// `Slice : Tensor × Dim × Start × Len → Tensor`
     Slice,

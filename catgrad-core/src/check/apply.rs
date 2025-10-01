@@ -211,6 +211,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Index => tensor_index(args),
         TensorOp::Arange => tensor_arange(args),
         TensorOp::Scalar => tensor_scalar(args),
+        TensorOp::Transpose => tensor_transpose(args),
         op => todo!("operation {op:?}"),
     }
 }
@@ -325,6 +326,31 @@ fn tensor_broadcast(args: &[Value]) -> ApplyResult {
                 _ => Err(ApplyError::TypeError),
             }
         }
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn tensor_transpose(args: &[Value]) -> ApplyResult {
+    if args.len() != 3 {
+        return Err(ApplyError::ArityError);
+    }
+    match (&args[0], &args[1], &args[2]) {
+        (
+            Value::Tensor(TypeExpr::NdArrayType(input)),
+            Value::Nat(NatExpr::Constant(dim0)),
+            Value::Nat(NatExpr::Constant(dim1)),
+        ) => match &input.shape {
+            ShapeExpr::Shape(input_shape) => {
+                let mut out_shape = input_shape.clone();
+                out_shape[*dim0] = input_shape[*dim1].clone();
+                out_shape[*dim1] = input_shape[*dim0].clone();
+                Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                    dtype: input.dtype.clone(),
+                    shape: ShapeExpr::Shape(out_shape),
+                }))])
+            }
+            _ => Err(ApplyError::TypeError),
+        },
         _ => Err(ApplyError::TypeError),
     }
 }
