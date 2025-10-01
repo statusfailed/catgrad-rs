@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-open-hypergraphs = "0.2.6"
+open-hypergraphs = "0.2.7"
 graphviz-rust = { version = "0.9.5", optional = true }
 open-hypergraphs-dot = { version = "0.2.1", optional = true }
 

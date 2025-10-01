@@ -2,9 +2,11 @@
 
 use super::backend::*;
 use super::types::*;
-use crate::category::{core, lang::*};
-use crate::ssa::{SSA, SSAError, parallel_ssa};
-use crate::stdlib::Environment;
+use crate::category::{core, core::*, lang};
+use crate::definition::Def;
+use crate::pass::to_core::{env_to_core, to_core};
+use crate::path::Path;
+use crate::ssa::{SSAError, parallel_ssa};
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
@@ -12,6 +14,11 @@ use std::collections::HashMap;
 /// Parameter values dict
 #[derive(Clone, Debug)]
 pub struct Parameters<B: Backend>(HashMap<Path, TaggedNdArray<B>>);
+
+#[derive(Clone, Debug)]
+pub struct Environment {
+    pub definitions: HashMap<Path, core::Term>,
+}
 
 // Needed so Backend doesn't have to implement Default
 impl<B: Backend> Default for Parameters<B> {
@@ -43,7 +50,7 @@ pub struct Interpreter<B: Backend> {
 
 impl<B: Backend> Interpreter<B> {
     // specific to this interpreter (probably?)
-    pub fn new(backend: B, env: Environment, params: Parameters<B>) -> Self {
+    pub fn from_core(backend: B, env: Environment, params: Parameters<B>) -> Self {
         Self {
             backend,
             env,
@@ -51,10 +58,23 @@ impl<B: Backend> Interpreter<B> {
         }
     }
 
-    /// Run the interpreter with specified input values
+    pub fn new(backend: B, env: crate::stdlib::Environment, params: Parameters<B>) -> Self {
+        let env = env_to_core(env);
+        Self::from_core(backend, env, params)
+    }
+
     pub fn run(
         &self,
-        term: Term,
+        term: lang::Term,
+        values: Vec<Value<B>>,
+    ) -> Result<Vec<Value<B>>, InterpreterError> {
+        self.run_core(to_core(term), values)
+    }
+
+    /// Run the interpreter with specified input values
+    pub fn run_core(
+        &self,
+        term: core::Term,
         values: Vec<Value<B>>,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
         assert_eq!(values.len(), term.sources.len());
@@ -105,39 +125,24 @@ impl<B: Backend> Interpreter<B> {
         Ok(target_values)
     }
 
-    fn get_op(
-        &self,
-        path: &Path,
-        ssa: &SSA<Object, Operation>,
-    ) -> Result<&core::Operation, InterpreterError> {
-        Ok(self.env.declarations.get(path).ok_or(ApplyError {
-            kind: ApplyErrorKind::MissingOperation(path.clone()),
-            ssa: ssa.clone(),
-        })?)
-    }
-
     pub fn apply(
         &self,
-        ssa: &SSA<Object, Operation>,
+        ssa: &CoreSSA,
         args: Vec<Value<B>>,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
         match &ssa.op {
-            Operation::Literal(lit) => {
-                let v = lit_to_value(&self.backend, lit);
-                Ok(vec![v])
-            }
-            Operation::Declaration(path) => self.apply_declaration(ssa, args, path),
-            Operation::Definition(path) => self.apply_definition(ssa, args, path),
+            Def::Def(path) => self.apply_definition(ssa, args, path),
+            Def::Arr(op) => self.apply_op(ssa, args, op),
         }
     }
 
-    fn apply_declaration(
+    // Dispatch ops
+    fn apply_op(
         &self,
-        ssa: &SSA<Object, Operation>,
+        ssa: &CoreSSA,
         args: Vec<Value<B>>,
-        path: &Path,
+        op: &Operation,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
-        let op = self.get_op(path, ssa)?;
         use super::shape_op::{apply_dtype_constant, apply_nat_op, apply_type_op};
         use super::tensor_op::apply_tensor_op;
         Ok(match op {
@@ -152,9 +157,10 @@ impl<B: Backend> Interpreter<B> {
         })
     }
 
+    // Dispatch definitions by recursing
     fn apply_definition(
         &self,
-        ssa: &SSA<Object, Operation>,
+        ssa: &CoreSSA,
         args: Vec<Value<B>>,
         def: &Path,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
@@ -164,7 +170,10 @@ impl<B: Backend> Interpreter<B> {
             ssa: ssa.clone(),
         })?;
 
-        self.run(definition.term.clone(), args)
+        // PERFORMANCE: we shouldn't really need to clone terms here;
+        // Interpreter only takes ownership because it has to call to_strict() to do the SSA
+        // decomposition. But this is not strictly necessary.
+        self.run_core(definition.clone(), args)
     }
 
     fn load(&self, path: &Path) -> Result<Vec<Value<B>>, InterpreterError> {
@@ -211,18 +220,9 @@ impl From<Box<ApplyError>> for InterpreterError {
     }
 }
 
-pub(crate) fn lit_to_value<B: Backend>(backend: &B, lit: &Literal) -> Value<B> {
-    match lit {
-        Literal::F32(x) => Value::NdArray(TaggedNdArray::F32([B::scalar(backend, *x)])),
-        Literal::U32(x) => Value::NdArray(TaggedNdArray::U32([B::scalar(backend, *x)])),
-        Literal::Dtype(d) => Value::Dtype(d.clone()),
-        Literal::Nat(x) => Value::Nat(*x as usize),
-    }
-}
-
 fn apply_copy<B: Backend>(
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     use super::shape_op::expect_arity;
     expect_arity(&args, 1, ssa)?;

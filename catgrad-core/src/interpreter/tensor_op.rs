@@ -1,21 +1,20 @@
 //! Tensor operation implementations for the interpreter
 
 use super::backend::*;
+use super::types::CoreSSA;
 use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrayTuple, Value};
-use crate::category::core::{Dtype, ScalarOp, TensorOp};
-use crate::category::lang::{Object, Operation};
-use crate::ssa::SSA;
+use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
 
 /// Apply a Tensor operation
 pub(crate) fn apply_tensor_op<B: Backend>(
     backend: &B,
     tensor_op: &TensorOp,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     match tensor_op {
         TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
-        TensorOp::Constant(_constant) => todo!("constant"),
+        TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
         TensorOp::Sum => tensor_sum(backend, args, ssa),
         TensorOp::Max => tensor_max(backend, args, ssa),
         TensorOp::Arange => tensor_arange(backend, args, ssa),
@@ -38,17 +37,36 @@ pub(crate) fn apply_tensor_op<B: Backend>(
     }
 }
 
-fn err<K: Into<ApplyErrorKind>>(kind: K, ssa: &SSA<Object, Operation>) -> Box<ApplyError> {
+fn err<K: Into<ApplyErrorKind>>(kind: K, ssa: &CoreSSA) -> Box<ApplyError> {
     Box::new(ApplyError {
         kind: kind.into(),
         ssa: ssa.clone(),
     })
 }
 
+pub(crate) fn tensor_constant<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>, // must be empty
+    ssa: &CoreSSA,
+    c: &Constant,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if !args.is_empty() {
+        return Err(err(ApplyErrorKind::ArityError, ssa));
+    }
+
+    let tagged = match c {
+        Constant::F32(x) => TaggedNdArray::from_slice(backend, &[*x], super::Shape(vec![])),
+        Constant::U32(x) => TaggedNdArray::from_slice(backend, &[*x], super::Shape(vec![])),
+    }
+    .map_err(|e| err(e, ssa))?;
+
+    Ok(vec![Value::NdArray(tagged)])
+}
+
 pub(crate) fn tensor_scalar<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 1 {
         return Err(err(ApplyErrorKind::ArityError, ssa));
@@ -72,7 +90,7 @@ pub(crate) fn tensor_scalar<B: Backend>(
 fn tensor_cast<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 2 {
         return Err(Box::new(ApplyError {
@@ -105,7 +123,7 @@ fn tensor_cast<B: Backend>(
 fn tensor_sum<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 1 {
         return Err(Box::new(ApplyError {
@@ -130,7 +148,7 @@ fn tensor_sum<B: Backend>(
 fn tensor_max<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 1 {
         return Err(Box::new(ApplyError {
@@ -155,7 +173,7 @@ fn tensor_max<B: Backend>(
 fn tensor_reshape<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 2 {
         return Err(Box::new(ApplyError {
@@ -179,7 +197,7 @@ fn tensor_reshape<B: Backend>(
 fn tensor_broadcast<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 2 {
         return Err(Box::new(ApplyError {
@@ -202,7 +220,7 @@ fn tensor_broadcast<B: Backend>(
 fn tensor_arange<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 1 {
         return Err(Box::new(ApplyError {
@@ -225,7 +243,7 @@ fn tensor_arange<B: Backend>(
 fn tensor_index<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 3 {
         return Err(Box::new(ApplyError {
@@ -251,7 +269,7 @@ fn tensor_index<B: Backend>(
 fn tensor_concat<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 3 {
         return Err(Box::new(ApplyError {
@@ -277,7 +295,7 @@ fn tensor_concat<B: Backend>(
 fn tensor_slice<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 4 {
         return Err(Box::new(ApplyError {
@@ -312,7 +330,7 @@ type Unaryop<B: Backend> = fn(&B, TaggedNdArray<B>) -> TaggedNdArray<B>;
 fn binop<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
     callback: Binop<B>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     let args = try_into_tagged_ndarrays::<B, 2>(args, ssa)?;
@@ -323,7 +341,7 @@ fn binop<B: Backend>(
 fn unary_op<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
     callback: Unaryop<B>,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>> {
     if args.len() != 1 {
@@ -350,7 +368,7 @@ fn unary_op<B: Backend>(
 /// Run an M → 1 op taking M NdArray values of the same dtype, producing an NdArray.
 fn run_op<B: Backend, F, const M: usize>(
     args: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
     f: F,
 ) -> Result<Vec<Value<B>>, Box<ApplyError>>
 where
@@ -364,7 +382,7 @@ where
 /// Convert a Vec<Value<B>> into TaggedNdArrays<B, N> with compile-time length checking
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     values: Vec<Value<B>>,
-    ssa: &SSA<Object, Operation>,
+    ssa: &CoreSSA,
 ) -> Result<TaggedNdArrayTuple<B, N>, Box<ApplyError>> {
     let n = values.len();
 
