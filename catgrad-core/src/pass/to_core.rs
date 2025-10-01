@@ -3,13 +3,12 @@ use std::collections::HashMap;
 use crate::category::{core, lang};
 use crate::definition::Def;
 use crate::interpreter;
+use crate::stdlib;
 
 /// Lower a `lang::Term` to a `core::Term`.
 /// If a Definition or Declaration was not a core operation, it is assumed to be a definition in
 /// [`core`].
-pub fn to_core(term: lang::Term) -> core::Term {
-    let core_ops = core_declarations();
-
+pub fn to_core(term: lang::Term, core_ops: &HashMap<lang::Path, core::Operation>) -> core::Term {
     term.map_edges(|e| match e {
         lang::Operation::Definition(path) => Def::Def(path),
         lang::Operation::Declaration(path) => match core_ops.get(&path) {
@@ -31,16 +30,23 @@ pub fn to_core(term: lang::Term) -> core::Term {
 
 /// Lower an entire stdlib::Environment to the core, discarding type maps.
 pub fn env_to_core(env: crate::stdlib::Environment) -> interpreter::Environment {
-    let definitions = env
-        .definitions
+    let stdlib::Environment {
+        definitions,
+        declarations,
+    } = env;
+
+    let definitions = definitions
         .into_iter()
         .map(|(k, v)| {
-            let v = to_core(v.term);
+            let v = to_core(v.term, &declarations);
             (k, v)
         })
         .collect();
 
-    interpreter::Environment { definitions }
+    interpreter::Environment {
+        definitions,
+        declarations,
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
