@@ -263,3 +263,12 @@ pub fn save_svg<O, A>(
     println!("SVG feature not enabled, skipping diagram generation");
     Ok(())
 }
+
+// include this as a test
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn main() {
+        super::main().unwrap();
+    }
+}
