@@ -244,14 +244,30 @@ pub fn save_svg<
     filename: &str,
 ) -> Result<(), std::io::Error> {
     use catgrad_core::svg::to_svg;
-    let bytes = to_svg(term)?;
+    let bytes = match to_svg(term) {
+        Ok(bytes) => bytes,
+        Err(e) => {
+            eprintln!("Failed to generate SVG: {e}");
+            return Ok(());
+        }
+    };
+
     let output_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("examples")
         .join("images");
-    std::fs::create_dir_all(&output_dir)?;
+
+    if let Err(e) = std::fs::create_dir_all(&output_dir) {
+        eprintln!("Failed to create directory {output_dir:?}: {e}");
+        return Ok(());
+    }
+
     let output_path = output_dir.join(filename);
     println!("saving svg to {output_path:?}");
-    std::fs::write(output_path, bytes).expect("write diagram file");
+
+    if let Err(e) = std::fs::write(&output_path, bytes) {
+        eprintln!("Failed to write SVG file {output_path:?}: {e}");
+    }
+
     Ok(())
 }
 
