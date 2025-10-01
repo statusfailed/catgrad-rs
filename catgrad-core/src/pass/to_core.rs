@@ -35,7 +35,7 @@ pub fn env_to_core(env: crate::stdlib::Environment) -> interpreter::Environment 
         .definitions
         .into_iter()
         .map(|(k, v)| {
-            let v = crate::pass::to_core::to_core(v.term);
+            let v = to_core(v.term);
             (k, v)
         })
         .collect();
@@ -56,7 +56,6 @@ macro_rules! path{
 /// Interpretations of declared operations
 pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
     use crate::category::core::{NatOp, Operation, ScalarOp::*, TensorOp::*, TypeOp};
-    use std::collections::HashMap;
     HashMap::from([
         (path!["cartesian", "copy"], Operation::Copy),
         // tensor ops (which actually affect tensor data)
@@ -67,6 +66,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "pow"], Operation::Tensor(Map(Pow))),
         (path!["tensor", "matmul"], Operation::Tensor(MatMul)),
         (path!["tensor", "reshape"], Operation::Tensor(Reshape)),
+        (path!["tensor", "transpose"], Operation::Tensor(Transpose)),
         (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
         (path!["tensor", "cast"], Operation::Tensor(Cast)),
         (path!["tensor", "index"], Operation::Tensor(Index)),

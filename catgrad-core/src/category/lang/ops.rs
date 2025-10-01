@@ -152,6 +152,15 @@ pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
     var::fn_operation(builder, &[t, x], Object::Tensor, op!["tensor", "reshape"])
 }
 
+pub fn transpose(builder: &Builder, x: Var, dim0: Var, dim1: Var) -> Var {
+    var::fn_operation(
+        builder,
+        &[x, dim0, dim1],
+        Object::Tensor,
+        op!["tensor", "transpose"],
+    )
+}
+
 pub fn index(builder: &Builder, x: Var, dim: Var, idx: Var) -> Var {
     var::fn_operation(
         builder,

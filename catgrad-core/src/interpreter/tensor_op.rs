@@ -21,6 +21,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Argmax => todo!("argmax"),
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
         TensorOp::Reshape => tensor_reshape(backend, args, ssa),
+        TensorOp::Transpose => tensor_transpose(backend, args, ssa),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add),
         TensorOp::Map(ScalarOp::Sub) => binop(backend, args, ssa, B::sub),
         TensorOp::Map(ScalarOp::Pow) => binop(backend, args, ssa, B::pow),
@@ -194,6 +195,31 @@ fn tensor_reshape<B: Backend>(
     }
 }
 
+fn tensor_transpose<B: Backend>(
+    backend: &B,
+    mut args: Vec<Value<B>>,
+    ssa: &CoreSSA,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 3 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    // Args are: [new_shape, tensor] - reshape(builder, new_shape, tensor)
+    if let (Value::NdArray(x), Value::Nat(dim0), Value::Nat(dim1)) =
+        (args.remove(0), args.remove(0), args.remove(0))
+    {
+        let result = backend.transpose(x, dim0, dim1);
+        Ok(vec![Value::NdArray(result)])
+    } else {
+        Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }))
+    }
+}
 fn tensor_broadcast<B: Backend>(
     backend: &B,
     mut args: Vec<Value<B>>,

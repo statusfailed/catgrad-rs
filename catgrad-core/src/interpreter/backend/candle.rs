@@ -215,6 +215,13 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([CandleTensor(Self::transpose_tensor(arr.0, dim0, dim1))]),
+            U32([arr]) => U32([CandleTensor(Self::transpose_tensor(arr.0, dim0, dim1))]),
+        }
+    }
     fn arange(&self, end: usize) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         let r = Tensor::arange(0, end as u32, &self.device).unwrap();
@@ -318,6 +325,10 @@ impl CandleBackend {
 
     fn reshape_tensor(tensor: Tensor, new_shape: Shape) -> Tensor {
         tensor.reshape(&*new_shape.0).unwrap()
+    }
+
+    fn transpose_tensor(tensor: Tensor, dim0: usize, dim1: usize) -> Tensor {
+        tensor.transpose(dim0, dim1).unwrap()
     }
 
     fn index_tensor(tensor: Tensor, dim: usize, indices: Tensor) -> Tensor {

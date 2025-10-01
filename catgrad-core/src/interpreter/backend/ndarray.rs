@@ -130,6 +130,14 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::transpose_ndarray(arr, dim0, dim1)]),
+            U32([arr]) => U32([Self::transpose_ndarray(arr, dim0, dim1)]),
+        }
+    }
+
     fn index(
         &self,
         x: TaggedNdArray<Self>,
@@ -203,6 +211,10 @@ impl NdArrayBackend {
         // Use ndarray's broadcast to expand dimensions
         let broadcasted = arr.broadcast(ndarray::IxDyn(&new_shape)).unwrap();
         broadcasted.to_owned()
+    }
+
+    fn transpose_ndarray<D: HasDtype>(arr: ArrayD<D>, dim0: usize, dim1: usize) -> ArrayD<D> {
+        arr.view().permuted_axes(vec![dim0, dim1]).to_owned()
     }
 
     fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, dim: usize, indices: ArrayD<u32>) -> ArrayD<D> {
