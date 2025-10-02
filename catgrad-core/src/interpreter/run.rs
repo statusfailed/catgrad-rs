@@ -18,6 +18,8 @@ pub struct Parameters<B: Backend>(HashMap<Path, TaggedNdArray<B>>);
 #[derive(Clone, Debug)]
 pub struct Environment {
     pub definitions: HashMap<Path, core::Term>,
+    /// *declarations* in the stdlib, so we can translate a lang::Term with [`Interpreter::run`].
+    pub declarations: HashMap<Path, core::Operation>,
 }
 
 // Needed so Backend doesn't have to implement Default
@@ -68,7 +70,7 @@ impl<B: Backend> Interpreter<B> {
         term: lang::Term,
         values: Vec<Value<B>>,
     ) -> Result<Vec<Value<B>>, InterpreterError> {
-        self.run_core(to_core(term), values)
+        self.run_core(to_core(term, &self.env.declarations), values)
     }
 
     /// Run the interpreter with specified input values
