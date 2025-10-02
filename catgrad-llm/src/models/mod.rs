@@ -1,3 +1,4 @@
+pub mod deepseek;
 pub mod gemma;
 pub mod gpt2;
 pub mod gpt_oss;

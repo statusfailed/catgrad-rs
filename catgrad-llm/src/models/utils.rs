@@ -230,6 +230,7 @@ pub trait ModelBuilder {
     fn post_load(&mut self, _tensors: &mut HashMap<String, TaggedNdArray>) {}
 }
 
+use super::deepseek::Model as DeepSeekV3Model;
 use super::gemma::Model as GemmaModel;
 use super::gpt_oss::Model as GPTOssModel;
 use super::gpt2::Model as GPT2Model;
@@ -251,6 +252,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Qwen3MoeForCausalLM" => Ok(Box::new(QwenMoeModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
+        "DeepseekV3ForCausalLM" => Ok(Box::new(DeepSeekV3Model {})),
         "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GptOssForCausalLM" => Ok(Box::new(GPTOssModel {})),
