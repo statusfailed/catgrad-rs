@@ -57,20 +57,29 @@ impl ModelRunner {
 
             if self.use_kv_cache {
                 // Shape of KV cache entries up to current sequence length
-                let kv_cache_type = NdArrayType::new(
+                let k_cache_type = NdArrayType::new(
                     Shape(vec![
                         batches,
                         config.get_num_kv_heads(),
                         self.total_tokens,
-                        config.get_head_dim(),
+                        config.get_qk_head_dim(),
                     ]),
                     config.dtype,
                 );
 
+                let v_cache_type = NdArrayType::new(
+                    Shape(vec![
+                        batches,
+                        config.get_num_kv_heads(),
+                        self.total_tokens,
+                        config.get_v_head_dim(),
+                    ]),
+                    config.dtype,
+                );
                 for layer_id in 0..config.num_hidden_layers {
                     cache.in_kv_cache[layer_id] = (
-                        Var::new(builder.clone(), kv_cache_type.clone()),
-                        Var::new(builder.clone(), kv_cache_type.clone()),
+                        Var::new(builder.clone(), k_cache_type.clone()),
+                        Var::new(builder.clone(), v_cache_type.clone()),
                     );
                 }
             }
@@ -266,6 +275,7 @@ pub fn main() -> Result<()> {
         ("qwen3", "Qwen/Qwen3-0.6B"),
         ("qwen2", "Qwen/Qwen2.5-0.5B"),
         ("qwenmoe", "Qwen/Qwen3-30B-A3B-Instruct-2507"),
+        ("deepseek", "tiny-random/deepseek-v3.1"),
         ("granitemoe", "ibm-granite/granite-3.1-1b-a400m-instruct"),
         ("granite", "ibm-granite/granite-3.3-2b-instruct"),
         ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),

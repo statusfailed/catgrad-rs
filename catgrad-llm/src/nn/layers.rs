@@ -152,9 +152,13 @@ pub fn squeeze(builder: &Builder, dim: usize, x: Var) -> Var {
     reshape(builder, Shape(output_shape), x)
 }
 
-pub fn unsqueeze(builder: &Builder, dim: usize, x: Var) -> Var {
+pub fn unsqueeze(builder: &Builder, dim: isize, x: Var) -> Var {
     let mut output_shape = x.label.shape.0.clone();
-    output_shape.insert(dim, 1);
+    let mut dim = dim;
+    if dim == -1 {
+        dim = output_shape.len() as isize;
+    }
+    output_shape.insert(dim as usize, 1);
     reshape(builder, Shape(output_shape), x)
 }
 
@@ -233,6 +237,22 @@ pub fn arange(builder: &Builder, count: usize, dtype: Dtype) -> Var {
 }
 
 pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
+    let x_shape = x.label.shape.0.clone();
+    let out_shape = shape.0.clone();
+    assert!(x_shape.len() <= out_shape.len());
+
+    let dim = out_shape.len() - x_shape.len();
+
+    for i in 0..x_shape.len() {
+        assert!(
+            x_shape[i] == out_shape[i + dim] || x_shape[i] == 1,
+            "Expand shape mismatch at dimension {} {:?} != {:?}",
+            dim + i,
+            x_shape,
+            out_shape
+        );
+    }
+
     let out_t = NdArrayType::new(shape.clone(), x.label.dtype);
     let op = Operation::Broadcast(shape);
     operation(builder, &[x], out_t, op)
@@ -243,6 +263,41 @@ pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
     let out_t = NdArrayType::new(shape, x.label.dtype);
     let op = Operation::Reshape;
     operation(builder, &[x], out_t, op)
+}
+
+// Reshape a tensor to a new shape with a flexible dimension.
+// This function allows one dimension to be -1, which will be inferred from the remaining dimensions.
+pub fn reshape_flex(builder: &Builder, sizes: &[isize], x: Var) -> Var {
+    let mut l = sizes.iter().product::<isize>();
+    if l < 0 {
+        l = -l;
+    }
+    assert_eq!(x.label.shape.size() % l as usize, 0);
+    let total_size = x.label.shape.size();
+    let mut new_sizes: Vec<usize> = Vec::new();
+    let mut neg_one_index = None;
+    let mut known_product = 1usize;
+
+    for (i, &size) in sizes.iter().enumerate() {
+        if size == -1 {
+            if neg_one_index.is_some() {
+                panic!("Only one dimension can be -1");
+            }
+            neg_one_index = Some(i);
+            new_sizes.push(0); // placeholder
+        } else {
+            let size_u = size as usize;
+            new_sizes.push(size_u);
+            known_product *= size_u;
+        }
+    }
+
+    if let Some(index) = neg_one_index {
+        let inferred_size = total_size / known_product;
+        new_sizes[index] = inferred_size;
+    }
+    let shape = Shape(new_sizes.to_vec());
+    reshape(builder, shape, x)
 }
 
 pub fn inverse(builder: &Builder, x: Var) -> Var {
