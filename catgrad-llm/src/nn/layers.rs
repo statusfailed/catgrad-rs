@@ -261,6 +261,41 @@ pub fn reshape(builder: &Builder, shape: Shape, x: Var) -> Var {
     operation(builder, &[x], out_t, op)
 }
 
+// Reshape a tensor to a new shape with a flexible dimension.
+// This function allows one dimension to be -1, which will be inferred from the remaining dimensions.
+pub fn reshape_flex(builder: &Builder, sizes: &[isize], x: Var) -> Var {
+    let mut l = sizes.iter().product::<isize>();
+    if l < 0 {
+        l = -l;
+    }
+    assert_eq!(x.label.shape.size() % l as usize, 0);
+    let total_size = x.label.shape.size();
+    let mut new_sizes: Vec<usize> = Vec::new();
+    let mut neg_one_index = None;
+    let mut known_product = 1usize;
+
+    for (i, &size) in sizes.iter().enumerate() {
+        if size == -1 {
+            if neg_one_index.is_some() {
+                panic!("Only one dimension can be -1");
+            }
+            neg_one_index = Some(i);
+            new_sizes.push(0); // placeholder
+        } else {
+            let size_u = size as usize;
+            new_sizes.push(size_u);
+            known_product *= size_u;
+        }
+    }
+
+    if let Some(index) = neg_one_index {
+        let inferred_size = total_size / known_product;
+        new_sizes[index] = inferred_size;
+    }
+    let shape = Shape(new_sizes.to_vec());
+    reshape(builder, shape, x)
+}
+
 pub fn inverse(builder: &Builder, x: Var) -> Var {
     let one = constant(builder, x.label.clone(), 1.0);
     one / x
