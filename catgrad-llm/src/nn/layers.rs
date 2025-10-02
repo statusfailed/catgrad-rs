@@ -152,9 +152,13 @@ pub fn squeeze(builder: &Builder, dim: usize, x: Var) -> Var {
     reshape(builder, Shape(output_shape), x)
 }
 
-pub fn unsqueeze(builder: &Builder, dim: usize, x: Var) -> Var {
+pub fn unsqueeze(builder: &Builder, dim: isize, x: Var) -> Var {
     let mut output_shape = x.label.shape.0.clone();
-    output_shape.insert(dim, 1);
+    let mut dim = dim;
+    if dim == -1 {
+        dim = output_shape.len() as isize;
+    }
+    output_shape.insert(dim as usize, 1);
     reshape(builder, Shape(output_shape), x)
 }
 
