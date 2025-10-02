@@ -57,20 +57,29 @@ impl ModelRunner {
 
             if self.use_kv_cache {
                 // Shape of KV cache entries up to current sequence length
-                let kv_cache_type = NdArrayType::new(
+                let k_cache_type = NdArrayType::new(
                     Shape(vec![
                         batches,
                         config.get_num_kv_heads(),
                         self.total_tokens,
-                        config.get_head_dim(),
+                        config.get_qk_head_dim(),
                     ]),
                     config.dtype,
                 );
 
+                let v_cache_type = NdArrayType::new(
+                    Shape(vec![
+                        batches,
+                        config.get_num_kv_heads(),
+                        self.total_tokens,
+                        config.get_v_head_dim(),
+                    ]),
+                    config.dtype,
+                );
                 for layer_id in 0..config.num_hidden_layers {
                     cache.in_kv_cache[layer_id] = (
-                        Var::new(builder.clone(), kv_cache_type.clone()),
-                        Var::new(builder.clone(), kv_cache_type.clone()),
+                        Var::new(builder.clone(), k_cache_type.clone()),
+                        Var::new(builder.clone(), v_cache_type.clone()),
                     );
                 }
             }
