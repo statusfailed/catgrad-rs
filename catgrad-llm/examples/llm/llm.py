@@ -2,6 +2,10 @@ import torch
 import argparse
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from transformers import logging
+
+logging.set_verbosity_error()
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
