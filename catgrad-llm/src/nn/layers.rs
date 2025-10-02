@@ -233,6 +233,22 @@ pub fn arange(builder: &Builder, count: usize, dtype: Dtype) -> Var {
 }
 
 pub fn expand(builder: &Builder, shape: Shape, x: Var) -> Var {
+    let x_shape = x.label.shape.0.clone();
+    let out_shape = shape.0.clone();
+    assert!(x_shape.len() <= out_shape.len());
+
+    let dim = out_shape.len() - x_shape.len();
+
+    for i in 0..x_shape.len() {
+        assert!(
+            x_shape[i] == out_shape[i + dim] || x_shape[i] == 1,
+            "Expand shape mismatch at dimension {} {:?} != {:?}",
+            dim + i,
+            x_shape,
+            out_shape
+        );
+    }
+
     let out_t = NdArrayType::new(shape.clone(), x.label.dtype);
     let op = Operation::Broadcast(shape);
     operation(builder, &[x], out_t, op)
