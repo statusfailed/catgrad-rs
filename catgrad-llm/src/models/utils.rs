@@ -65,6 +65,18 @@ pub struct Config {
     #[serde(alias = "num_experts")]
     pub num_local_experts: usize,
     pub moe_intermediate_size: usize,
+    pub first_k_dense_replace: usize,
+    pub q_lora_rank: usize,
+    pub kv_lora_rank: usize,
+    pub qk_head_dim: usize,
+    pub qk_nope_head_dim: usize,
+    pub qk_rope_head_dim: usize,
+    pub routed_scaling_factor: f32,
+    pub n_group: usize,
+    pub topk_group: usize,
+    pub n_routed_experts: usize,
+    pub n_shared_experts: usize,
+    pub v_head_dim: usize,
     pub norm_topk_prob: bool,
     pub attention_multiplier: f32,
     pub embedding_multiplier: f32,
@@ -98,10 +110,30 @@ pub struct Config {
 impl Config {
     // Sometimes the head_dim fields is missing
     pub fn get_head_dim(&self) -> usize {
-        if self.head_dim == 0 {
+        if self.qk_rope_head_dim != 0 {
+            self.qk_rope_head_dim
+        } else if self.head_dim == 0 {
             self.hidden_size / self.num_attention_heads
         } else {
             self.head_dim
+        }
+    }
+
+    // DeepSeek Multihead Latent Attention uses different head dimensions for queries, keys and values
+    pub fn get_qk_head_dim(&self) -> usize {
+        let qk_head_dim = self.qk_nope_head_dim + self.qk_rope_head_dim;
+        if qk_head_dim != 0 {
+            qk_head_dim
+        } else {
+            self.get_head_dim()
+        }
+    }
+
+    pub fn get_v_head_dim(&self) -> usize {
+        if self.v_head_dim != 0 {
+            self.v_head_dim
+        } else {
+            self.get_head_dim()
         }
     }
 
