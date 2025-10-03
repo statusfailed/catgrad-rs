@@ -66,6 +66,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["cartesian", "copy"], Operation::Copy),
         // tensor ops (which actually affect tensor data)
         (path!["tensor", "add"], Operation::Tensor(Map(Add))),
+        (path!["tensor", "sub"], Operation::Tensor(Map(Sub))),
         (path!["tensor", "neg"], Operation::Tensor(Map(Neg))),
         (path!["tensor", "mul"], Operation::Tensor(Map(Mul))),
         (path!["tensor", "div"], Operation::Tensor(Map(Div))),
