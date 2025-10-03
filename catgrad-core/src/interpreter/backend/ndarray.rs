@@ -1,7 +1,7 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, NdArray};
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{ArrayD, Axis, IxDyn};
 
 #[derive(Clone, Debug)]
 pub struct NdArrayBackend;
@@ -220,7 +220,7 @@ impl NdArrayBackend {
     fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, dim: usize, indices: ArrayD<u32>) -> ArrayD<D> {
         let idx = indices.iter().map(|&i| i as usize).collect::<Vec<_>>();
 
-        arr.select(ndarray::Axis(dim), &idx)
+        arr.select(Axis(dim), &idx)
     }
 
     fn slice_ndarray<D: HasDtype>(
@@ -229,12 +229,12 @@ impl NdArrayBackend {
         start: usize,
         len: usize,
     ) -> ArrayD<D> {
-        let r = arr.slice_axis(ndarray::Axis(dim), (start..start + len).into());
+        let r = arr.slice_axis(Axis(dim), (start..start + len).into());
         r.to_owned()
     }
 
     fn concat_ndarray<D: HasDtype>(a: ArrayD<D>, b: ArrayD<D>, dim: usize) -> ArrayD<D> {
-        ndarray::concatenate(ndarray::Axis(dim), &[a.view(), b.view()]).unwrap()
+        ndarray::concatenate(Axis(dim), &[a.view(), b.view()]).unwrap()
     }
 
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
@@ -294,13 +294,15 @@ impl NdArrayBackend {
     fn max_f32(x: ArrayD<f32>) -> ArrayD<f32> {
         // across the last dimension
         let axis = x.ndim() - 1;
-        x.fold_axis(ndarray::Axis(axis), f32::MIN, |acc, &x| acc.max(x))
+        x.fold_axis(Axis(axis), f32::MIN, |acc, &x| acc.max(x))
+            .insert_axis(Axis(axis))
     }
 
     fn max_u32(x: ArrayD<u32>) -> ArrayD<u32> {
         // across the last dimension
         let axis = x.ndim() - 1;
-        x.fold_axis(ndarray::Axis(axis), u32::MIN, |acc, x| *acc.max(x))
+        x.fold_axis(Axis(axis), u32::MIN, |acc, x| *acc.max(x))
+            .insert_axis(Axis(axis))
     }
 
     fn sum<D>(x: ArrayD<D>) -> ArrayD<D>
@@ -309,7 +311,7 @@ impl NdArrayBackend {
     {
         // across the last dimension
         let axis = x.ndim() - 1;
-        x.sum_axis(ndarray::Axis(axis))
+        x.sum_axis(Axis(axis)).insert_axis(Axis(axis))
     }
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
@@ -511,9 +513,9 @@ fn test_sum() {
 
     let result = NdArrayBackend::sum(x);
 
-    // Expected: [1+2+3, 4+5+6] = [6, 15]
+    // Expected: [1+2+3, 4+5+6] = [[6], [15]]
     let expected = [6u32, 15];
-    assert_eq!(result.shape(), &[2]);
+    assert_eq!(result.shape(), &[2, 1]);
 
     let result_flat = result.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
@@ -523,7 +525,7 @@ fn test_sum() {
         );
     }
 
-    // Test with 3D tensor: [2, 2, 3] -> [2, 2]
+    // Test with 3D tensor: [2, 2, 3] -> [2, 2, 1]
     let x_data_3d = vec![
         1.0f32, 2.0, 3.0, // [0,0,:]
         4.0, 5.0, 6.0, // [0,1,:]
@@ -534,9 +536,9 @@ fn test_sum() {
 
     let result_3d = NdArrayBackend::sum(x_3d);
 
-    // Expected: [[1+2+3, 4+5+6], [7+8+9, 10+11+12]] = [[6, 15], [24, 33]]
+    // Expected: [[1+2+3, 4+5+6], [7+8+9, 10+11+12]] = [[6], [15], [24], [33]]
     let expected_3d = [6.0f32, 15.0, 24.0, 33.0];
-    assert_eq!(result_3d.shape(), &[2, 2]);
+    assert_eq!(result_3d.shape(), &[2, 2, 1]);
 
     let result_3d_flat = result_3d.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_3d_flat.iter().zip(expected_3d.iter()).enumerate() {
@@ -550,15 +552,15 @@ fn test_sum() {
 fn test_max() {
     use ndarray::ArrayD;
 
-    // Test max across last dimension: [2, 3] -> [2]
+    // Test max across last dimension: [2, 3] -> [2, 1]
     let x_data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();
 
     let result = NdArrayBackend::max_f32(x);
 
-    // Expected: [max(1,5,3), max(2,8,4)] = [5, 8]
+    // Expected: [max(1,5,3), max(2,8,4)] = [[5], [8]]
     let expected = [5.0f32, 8.0];
-    assert_eq!(result.shape(), &[2]);
+    assert_eq!(result.shape(), &[2, 1]);
 
     let result_flat = result.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_flat.iter().zip(expected.iter()).enumerate() {
@@ -574,9 +576,9 @@ fn test_max() {
 
     let result_u32 = NdArrayBackend::max_u32(x_u32);
 
-    // Expected: [max(1,5), max(3,2)] = [5, 3]
+    // Expected: [max(1,5), max(3,2)] = [[5], [3]]
     let expected_u32 = [5u32, 3];
-    assert_eq!(result_u32.shape(), &[2]);
+    assert_eq!(result_u32.shape(), &[2, 1]);
 
     let result_u32_flat = result_u32.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_u32_flat.iter().zip(expected_u32.iter()).enumerate() {
@@ -586,7 +588,7 @@ fn test_max() {
         );
     }
 
-    // Test with 3D tensor: [2, 2, 3] -> [2, 2]
+    // Test with 3D tensor: [2, 2, 3] -> [2, 2, 1]
     let x_data_3d = vec![
         1.0f32, 2.0, 3.0, // [0,0,:]
         4.0, 5.0, 6.0, // [0,1,:]
@@ -597,9 +599,9 @@ fn test_max() {
 
     let result_3d = NdArrayBackend::max_f32(x_3d);
 
-    // Expected: [[max(1,2,3), max(4,5,6)], [max(7,8,9), max(10,11,12)]] = [[3, 6], [9, 12]]
+    // Expected: [[max(1,2,3), max(4,5,6)], [max(7,8,9), max(10,11,12)]] = [[[3], [6]], [[9], [12]]]
     let expected_3d = [3.0f32, 6.0, 9.0, 12.0];
-    assert_eq!(result_3d.shape(), &[2, 2]);
+    assert_eq!(result_3d.shape(), &[2, 2, 1]);
 
     let result_3d_flat = result_3d.as_slice().unwrap();
     for (i, (&actual, &expected)) in result_3d_flat.iter().zip(expected_3d.iter()).enumerate() {

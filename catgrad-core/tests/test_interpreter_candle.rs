@@ -130,7 +130,7 @@ fn test_candle_backend_max() {
     let result = backend.max(TaggedNdArray::F32([tensor]));
     match result {
         TaggedNdArray::F32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2]); // Max reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected F32 result"),
     }
@@ -144,7 +144,7 @@ fn test_candle_backend_max() {
     let result = backend.max(TaggedNdArray::U32([tensor_u32]));
     match result {
         TaggedNdArray::U32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2]); // Max reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected U32 result"),
     }
@@ -163,7 +163,7 @@ fn test_candle_backend_sum() {
     let result = backend.sum(TaggedNdArray::F32([tensor]));
     match result {
         TaggedNdArray::F32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2]); // Sum reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected F32 result"),
     }
@@ -177,7 +177,7 @@ fn test_candle_backend_sum() {
     let result = backend.sum(TaggedNdArray::U32([tensor_u32]));
     match result {
         TaggedNdArray::U32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2]); // Sum reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected U32 result"),
     }
@@ -612,12 +612,12 @@ fn test_candle_backend_single_element_operations() {
         _ => panic!("Expected F32 result for neg"),
     }
 
-    // Test max and sum (reduce last dimension, so [1] -> [])
+    // Test max and sum
     match max_result {
         TaggedNdArray::F32([arr]) => {
             assert_eq!(
                 arr.0.shape().dims(),
-                &[] as &[usize],
+                &[1],
                 "max result should have shape []"
             );
         }
@@ -628,7 +628,7 @@ fn test_candle_backend_single_element_operations() {
         TaggedNdArray::F32([arr]) => {
             assert_eq!(
                 arr.0.shape().dims(),
-                &[] as &[usize],
+                &[1],
                 "sum result should have shape []"
             );
         }
@@ -662,14 +662,14 @@ fn test_candle_backend_large_tensor() {
 
     match sum_result {
         TaggedNdArray::F32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[10]); // Sum reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[10, 1]);
         }
         _ => panic!("Expected F32 result for sum"),
     }
 
     match max_result {
         TaggedNdArray::F32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[10]); // Max reduces last dimension
+            assert_eq!(arr.0.shape().dims(), &[10, 1]);
         }
         _ => panic!("Expected F32 result for max"),
     }
