@@ -45,7 +45,7 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self>;
+    fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self>;
     fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self>;
     fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self>;
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
