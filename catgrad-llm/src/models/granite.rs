@@ -164,6 +164,29 @@ impl Model {
         )
     }
 
+    // MLP layer for Granite 4 models.
+    pub fn shared_mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+        let gate_up = linear_no_bias(
+            builder,
+            config.hidden_size,
+            2 * config.intermediate_size,
+            &format!("{name}.input_linear"),
+            x,
+        );
+
+        let gate_up = chunk(builder, 2, 2, gate_up);
+        let gate = gate_up[0].clone();
+        let up = gate_up[1].clone();
+        let x = silu(builder, gate) * up; // SwiGLU
+
+        linear_no_bias(
+            builder,
+            config.intermediate_size,
+            config.hidden_size,
+            &format!("{name}.output_linear"),
+            x,
+        )
+    }
     pub fn moe(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let moe_input_type = NdArrayType::new(
             Shape(vec![
@@ -314,8 +337,12 @@ impl Model {
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-        let x = if config.model_type == "granite" {
-            Model::mlp(builder, config, &format!("{name}.mlp"), x)
+        let x = if config.num_experts_per_tok == 0 {
+            if config.model_type == "granitemoehybrid" {
+                Model::shared_mlp(builder, config, &format!("{name}.shared_mlp"), x)
+            } else {
+                Model::mlp(builder, config, &format!("{name}.mlp"), x)
+            }
         } else {
             Model::moe(builder, config, &format!("{name}.block_sparse_moe"), x)
         };
