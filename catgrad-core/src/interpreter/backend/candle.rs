@@ -396,11 +396,11 @@ impl CandleBackend {
     }
 
     fn sum(x: CandleTensor) -> CandleTensor {
-        CandleTensor(x.0.sum(D::Minus1).unwrap())
+        CandleTensor(x.0.sum_keepdim(D::Minus1).unwrap())
     }
 
     fn max(x: CandleTensor) -> CandleTensor {
-        CandleTensor(x.0.max(D::Minus1).unwrap())
+        CandleTensor(x.0.max_keepdim(D::Minus1).unwrap())
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {
