@@ -82,7 +82,8 @@ impl Model {
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
 
-        let qkv = linear_no_bias(builder, dim, 3 * dim, &format!("{name}.qkv_proj"), x);
+        let op_size = head_dim * (num_heads + 2 * num_kv_heads);
+        let qkv = linear_no_bias(builder, dim, op_size, &format!("{name}.qkv_proj"), x);
 
         let q = narrow(builder, 2, 0, num_heads * head_dim, qkv.clone());
         let k = narrow(
