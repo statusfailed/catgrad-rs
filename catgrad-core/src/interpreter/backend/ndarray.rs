@@ -106,6 +106,22 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([arr.sin()]),
+            _ => panic!("Invalid input types for sin"),
+        }
+    }
+
+    fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([arr.cos()]),
+            _ => panic!("Invalid input types for cos"),
+        }
+    }
+
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {

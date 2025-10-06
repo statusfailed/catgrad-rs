@@ -183,6 +183,22 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::sin(arr)]),
+            _ => panic!("Invalid type for sin"),
+        }
+    }
+
+    fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => F32([Self::cos(arr)]),
+            _ => panic!("Invalid type for cos"),
+        }
+    }
+
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -386,6 +402,14 @@ impl CandleBackend {
 
     fn neg(x: CandleTensor) -> CandleTensor {
         CandleTensor(x.0.neg().unwrap())
+    }
+
+    fn sin(x: CandleTensor) -> CandleTensor {
+        CandleTensor(x.0.sin().unwrap())
+    }
+
+    fn cos(x: CandleTensor) -> CandleTensor {
+        CandleTensor(x.0.cos().unwrap())
     }
 
     fn pow(x: CandleTensor, y: CandleTensor) -> CandleTensor {

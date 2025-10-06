@@ -94,6 +94,14 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
+    fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        x
+    }
+
+    fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        x
+    }
+
     fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         x
     }

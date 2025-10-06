@@ -80,6 +80,14 @@ pub fn pow(builder: &Builder, value: Var, exponent: Var) -> Var {
     )
 }
 
+pub fn sin(builder: &Builder, value: Var) -> Var {
+    var::fn_operation(builder, &[value], Object::Tensor, op!["tensor", "sin"])
+}
+
+pub fn cos(builder: &Builder, value: Var) -> Var {
+    var::fn_operation(builder, &[value], Object::Tensor, op!["tensor", "cos"])
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Declarations
 
