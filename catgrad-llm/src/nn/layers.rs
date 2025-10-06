@@ -131,7 +131,14 @@ pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var>
     outputs
 }
 
-pub fn chunk(builder: &Builder, dim: usize, chunks: usize, x: Var) -> Vec<Var> {
+pub fn chunk(builder: &Builder, dim: isize, chunks: usize, x: Var) -> Vec<Var> {
+    let dims = x.label.shape.0.len() as isize;
+
+    let dim = if dim < 0 {
+        (dim + dims) as usize
+    } else {
+        dim as usize
+    };
     assert!(x.label.shape.0[dim].is_multiple_of(chunks));
 
     let d = x.label.shape.0[dim] / chunks;
