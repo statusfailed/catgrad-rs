@@ -167,6 +167,22 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn lt(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::lt(x, y)]),
+            U32([x, y]) => U32([Self::lt(x, y)]),
+        }
+    }
+
+    fn eq(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::eq(x, y)]),
+            U32([x, y]) => U32([Self::eq(x, y)]),
+        }
+    }
+
     fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match lhs {
@@ -398,6 +414,22 @@ impl CandleBackend {
             panic!("Shape mismatch in operation");
         }
         CandleTensor((&x.0 / &y.0).unwrap())
+    }
+
+    fn lt(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+
+        CandleTensor((x.0.lt(&y.0)).unwrap())
+    }
+
+    fn eq(x: CandleTensor, y: CandleTensor) -> CandleTensor {
+        if x.0.dims() != y.0.dims() {
+            panic!("Shape mismatch in operation");
+        }
+
+        CandleTensor((x.0.eq(&y.0)).unwrap())
     }
 
     fn neg(x: CandleTensor) -> CandleTensor {

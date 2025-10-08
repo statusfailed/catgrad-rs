@@ -98,6 +98,34 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn lt(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => {
+                let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x < y);
+                F32([res.mapv(|x| x as u32 as f32)])
+            }
+            U32([x, y]) => {
+                let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x < y);
+                U32([res.mapv(|x| x as u32)])
+            }
+        }
+    }
+
+    fn eq(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => {
+                let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x == y);
+                F32([res.mapv(|x| x as u32 as f32)])
+            }
+            U32([x, y]) => {
+                let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x == y);
+                U32([res.mapv(|x| x as u32)])
+            }
+        }
+    }
+
     fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {

@@ -55,43 +55,31 @@ impl Backend for ShapeOnlyBackend {
     }
 
     fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
-        match lhs {
-            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
-            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
-        }
+        self.exact_match(lhs)
     }
 
     fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
-        match lhs {
-            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
-            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
-        }
+        self.exact_match(lhs)
     }
 
     fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
-        match lhs {
-            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
-            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
-        }
+        self.exact_match(lhs)
     }
 
     fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
-        match lhs {
-            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
-            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
-        }
+        self.exact_match(lhs)
     }
 
     fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
-        match lhs {
-            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
-            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
-        }
+        self.exact_match(lhs)
+    }
+
+    fn lt(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        self.exact_match(lhs)
+    }
+
+    fn eq(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        self.exact_match(lhs)
     }
 
     fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
@@ -262,6 +250,14 @@ impl ShapeOnlyBackend {
         result_shape.push(rhs_n);
 
         ShapeOnly(Shape(result_shape))
+    }
+
+    fn exact_match(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match lhs {
+            F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
+            U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
+        }
     }
 
     fn exact_shape_match(x: ShapeOnly, y: ShapeOnly) -> ShapeOnly {
