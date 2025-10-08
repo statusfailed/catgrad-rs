@@ -209,6 +209,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Max => tensor_max(args),
         TensorOp::Broadcast => tensor_broadcast(args),
         TensorOp::Index => tensor_index(args),
+        TensorOp::Slice => tensor_slice(args),
         TensorOp::Arange => tensor_arange(args),
         TensorOp::Scalar => tensor_scalar(args),
         TensorOp::Transpose => tensor_transpose(args),
@@ -368,6 +369,31 @@ fn tensor_index(args: &[Value]) -> ApplyResult {
             (ShapeExpr::Shape(input_shape), ShapeExpr::Shape(idx_shape)) => {
                 let mut out_shape = input_shape.clone();
                 out_shape[*n] = idx_shape[0].clone();
+                Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                    dtype: input.dtype.clone(),
+                    shape: ShapeExpr::Shape(out_shape),
+                }))])
+            }
+            _ => Err(ApplyError::TypeError),
+        },
+        _ => Err(ApplyError::TypeError),
+    }
+}
+
+fn tensor_slice(args: &[Value]) -> ApplyResult {
+    if args.len() != 4 {
+        return Err(ApplyError::ArityError);
+    }
+    match (&args[0], &args[1], &args[2], &args[3]) {
+        (
+            Value::Tensor(TypeExpr::NdArrayType(input)),
+            Value::Nat(NatExpr::Constant(dim)),
+            Value::Nat(NatExpr::Constant(_start)),
+            Value::Nat(NatExpr::Constant(len)),
+        ) => match &input.shape {
+            ShapeExpr::Shape(input_shape) => {
+                let mut out_shape = input_shape.clone();
+                out_shape[*dim] = NatExpr::Constant(*len);
                 Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                     dtype: input.dtype.clone(),
                     shape: ShapeExpr::Shape(out_shape),

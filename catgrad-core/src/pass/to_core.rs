@@ -81,6 +81,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "broadcast"], Operation::Tensor(Broadcast)),
         (path!["tensor", "cast"], Operation::Tensor(Cast)),
         (path!["tensor", "index"], Operation::Tensor(Index)),
+        (path!["tensor", "slice"], Operation::Tensor(Slice)),
         (path!["tensor", "sum"], Operation::Tensor(Sum)),
         (path!["tensor", "max"], Operation::Tensor(Max)),
         (path!["tensor", "arange"], Operation::Tensor(Arange)),

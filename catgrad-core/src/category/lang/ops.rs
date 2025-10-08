@@ -178,7 +178,7 @@ pub fn index(builder: &Builder, x: Var, dim: Var, idx: Var) -> Var {
     )
 }
 
-pub fn slice(builder: &Builder, x: Var, dim: Var, start: Var, len: Var) -> Var {
+pub fn slice(builder: &Builder, dim: Var, start: Var, len: Var, x: Var) -> Var {
     var::fn_operation(
         builder,
         &[x, dim, start, len],
