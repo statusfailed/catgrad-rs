@@ -212,6 +212,14 @@ pub fn scalar(builder: &Builder, nat: Var) -> Var {
     var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "scalar"])
 }
 
+pub fn lt(builder: &Builder, x: Var, y: Var) -> Var {
+    var::fn_operation(builder, &[x, y], Object::Tensor, op!["tensor", "lt"])
+}
+
+pub fn eq(builder: &Builder, x: Var, y: Var) -> Var {
+    var::fn_operation(builder, &[x, y], Object::Tensor, op!["tensor", "eq"])
+}
+
 /// Batch matmul
 pub fn matmul(builder: &Builder, f: Var, g: Var) -> Var {
     // checked during shapechecking, but errors easier to follow here.
