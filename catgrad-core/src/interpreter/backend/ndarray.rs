@@ -253,7 +253,9 @@ impl NdArrayBackend {
     }
 
     fn transpose_ndarray<D: HasDtype>(arr: ArrayD<D>, dim0: usize, dim1: usize) -> ArrayD<D> {
-        arr.view().permuted_axes(vec![dim0, dim1]).to_owned()
+        let mut res = arr.to_owned();
+        res.swap_axes(dim0, dim1);
+        res
     }
 
     fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, dim: usize, indices: ArrayD<u32>) -> ArrayD<D> {
