@@ -415,6 +415,28 @@ fn test_candle_backend_broadcast() {
 }
 
 #[test]
+#[should_panic]
+fn test_candle_backend_broadcast_bad_shape() {
+    let backend = CandleBackend::new();
+
+    // Test F32 broadcasting
+    let data = vec![1.0f32, 2.0, 3.0, 4.0];
+    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+        .unwrap();
+
+    // Broadcast to add a dimension at the front: [2, 2] -> [2, 2, 2]
+    // This should fail because the shape is not compatible
+    let broadcasted = backend.broadcast(TaggedNdArray::F32([tensor]), Shape(vec![2, 2, 2]));
+    match broadcasted {
+        TaggedNdArray::F32([arr]) => {
+            assert_eq!(arr.0.shape().dims(), &[1, 2, 2]);
+        }
+        _ => panic!("Expected F32 result"),
+    }
+}
+
+#[test]
 fn test_candle_backend_broadcast_scalar() {
     let backend = CandleBackend::new();
 
