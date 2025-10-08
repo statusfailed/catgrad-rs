@@ -166,11 +166,11 @@ impl Backend for NdArrayBackend {
         }
     }
 
-    fn broadcast(&self, x: TaggedNdArray<Self>, shape_prefix: Shape) -> TaggedNdArray<Self> {
+    fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
-            F32([arr]) => F32([Self::broadcast_ndarray(arr, shape_prefix)]),
-            U32([arr]) => U32([Self::broadcast_ndarray(arr, shape_prefix)]),
+            F32([arr]) => F32([Self::broadcast_ndarray(arr, shape)]),
+            U32([arr]) => U32([Self::broadcast_ndarray(arr, shape)]),
         }
     }
 
@@ -247,18 +247,15 @@ impl NdArrayBackend {
         arr.to_shape(new_dims).unwrap().to_owned()
     }
 
-    fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape_prefix: Shape) -> ArrayD<D> {
-        let current_shape = arr.shape().to_vec();
-        let mut new_shape = shape_prefix.0;
-        new_shape.extend_from_slice(&current_shape);
-
-        // Use ndarray's broadcast to expand dimensions
-        let broadcasted = arr.broadcast(ndarray::IxDyn(&new_shape)).unwrap();
+    fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape: Shape) -> ArrayD<D> {
+        let broadcasted = arr.broadcast(ndarray::IxDyn(&shape.0)).unwrap();
         broadcasted.to_owned()
     }
 
     fn transpose_ndarray<D: HasDtype>(arr: ArrayD<D>, dim0: usize, dim1: usize) -> ArrayD<D> {
-        arr.view().permuted_axes(vec![dim0, dim1]).to_owned()
+        let mut res = arr.to_owned();
+        res.swap_axes(dim0, dim1);
+        res
     }
 
     fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, dim: usize, indices: ArrayD<u32>) -> ArrayD<D> {

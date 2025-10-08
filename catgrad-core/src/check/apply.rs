@@ -306,17 +306,44 @@ fn tensor_reduce(args: &[Value]) -> ApplyResult {
 fn tensor_sum(args: &[Value]) -> ApplyResult {
     tensor_reduce(args)
 }
+
 fn tensor_max(args: &[Value]) -> ApplyResult {
     tensor_reduce(args)
 }
+
+fn compat_shapes(from_shape: &ShapeExpr, to_shape: &ShapeExpr) -> bool {
+    match (from_shape, to_shape) {
+        (ShapeExpr::Shape(x), ShapeExpr::Shape(y)) => {
+            let d = y.len() as isize - x.len() as isize;
+            if d < 0 {
+                return false;
+            }
+            let d = d as usize;
+            for i in 0..x.len() {
+                if x[i] != y[i + d]
+                    && x[i] != NatExpr::Constant(1)
+                    && y[i + d] != NatExpr::Constant(1)
+                {
+                    return false;
+                }
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
 fn tensor_broadcast(args: &[Value]) -> ApplyResult {
+    if args.len() != 2 {
+        return Err(ApplyError::ArityError);
+    }
     match (&args[0], &args[1]) {
         (Value::Tensor(TypeExpr::NdArrayType(t)), Value::Shape(shape)) => {
             match (&t.shape, &shape) {
-                (ShapeExpr::Shape(s1), ShapeExpr::Shape(s2)) => {
+                (ShapeExpr::Shape(_), ShapeExpr::Shape(s2)) if compat_shapes(&t.shape, shape) => {
                     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                         dtype: t.dtype.clone(),
-                        shape: ShapeExpr::Shape([s1.clone(), s2.clone()].concat()),
+                        shape: ShapeExpr::Shape(s2.clone()),
                     }))])
                 }
                 (ShapeExpr::Shape(s), ShapeExpr::Var(v)) if s.is_empty() => {
