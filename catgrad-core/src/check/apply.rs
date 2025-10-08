@@ -289,7 +289,8 @@ fn tensor_reduce(args: &[Value]) -> ApplyResult {
         TypeExpr::Var(_) => return Err(ApplyError::TypeError),
         TypeExpr::NdArrayType(n) => match &n.shape {
             ShapeExpr::Shape(input_shape) => {
-                let out_shape = input_shape[..input_shape.len() - 1].to_vec();
+                let mut out_shape = input_shape.clone();
+                out_shape[input_shape.len() - 1] = NatExpr::Constant(1);
                 TypeExpr::NdArrayType(NdArrayType {
                     dtype: n.dtype.clone(),
                     shape: ShapeExpr::Shape(out_shape),
