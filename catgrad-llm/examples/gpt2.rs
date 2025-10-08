@@ -163,29 +163,170 @@ impl GPT2Model {
         te + pe
     }
 
-    // fn gpt_linear(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
-    //     let w = param(
-    //         builder,
-    //         &p.concat(&path(vec!["weight"]).expect("invalid param path")),
-    //     );
-    //     let b = param(
-    //         builder,
-    //         &p.concat(&path(vec!["bias"]).expect("invalid param path")),
-    //     );
+    fn gpt_linear(
+        &self,
+        builder: &Builder,
+        _in_dim: usize,
+        _out_dim: usize,
+        p: Path,
+        x: Var,
+    ) -> Var {
+        let w = param(
+            builder,
+            &p.concat(&path(vec!["weight"]).expect("invalid param path")),
+        );
+        let b = param(
+            builder,
+            &p.concat(&path(vec!["bias"]).expect("invalid param path")),
+        );
 
-    //     // w is already transposed in GPT-2 checkpoints
-    //     let mut w_t = w;
+        // w is already transposed in GPT-2 checkpoints
+        let w_t = w;
 
-    //     // if x.label.shape.0.len() == 3 {
-    //     //     let batch_size = x.label.shape.0[0];
-    //     //     w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
-    //     // }
+        // hack batch size
+        let sh = shape(builder, w_t.clone());
+        let [seq_len, hidden_dim] = unpack::<2>(builder, sh);
+        let batch_size = constant_nat(builder, 1);
+        let sh = pack::<3>(builder, [batch_size, seq_len, hidden_dim]);
 
-    //     let m = matmul(builder, x, w_t);
-    //     // let bb = broadcast(builder, m.label.shape.clone(), b);
-    //     // m +bb
-    //     m
-    // }
+        let w_t = reshape(builder, sh, w_t);
+
+        let m = matmul(builder, x, w_t);
+        let sh = shape(builder, m.clone());
+        let bb = broadcast_to(builder, b, sh);
+        m + bb
+    }
+
+    fn mlp(&self, builder: &Builder, dim: usize, p: Path, x: Var) -> Var {
+        let x = self.gpt_linear(
+            builder,
+            dim,
+            dim * 4,
+            p.concat(&path(vec!["c_fc"]).expect("invalid param path")),
+            x,
+        );
+        let x = nn::gelu(builder, x);
+        self.gpt_linear(
+            builder,
+            dim * 4,
+            dim,
+            p.concat(&path(vec!["c_proj"]).expect("invalid param path")),
+            x,
+        )
+    }
+
+    fn attention(
+        &self,
+        builder: &Builder,
+        _layer_id: usize,
+        config: &Config,
+        p: Path,
+        x: Var,
+    ) -> Var {
+        let dim = config.hidden_size;
+        let num_heads = config.num_attention_heads;
+        let head_dim = dim / num_heads;
+
+        let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
+
+        let c_attn = self.gpt_linear(
+            builder,
+            dim,
+            3 * dim,
+            p.concat(&path(vec!["c_attn"]).expect("invalid param path")),
+            x,
+        );
+
+        // TODO: use this instead of explicit slices below
+        // let a = nn::chunk(builder, 2, 3, c_attn);
+        // let q = a[0].clone();
+        // let k = a[1].clone();
+        // let v = a[2].clone();
+
+        let ddim = constant_nat(builder, 2);
+        let len = constant_nat(builder, dim as u32);
+        let qs = constant_nat(builder, 0);
+        let q = slice(builder, ddim.clone(), qs, len.clone(), c_attn.clone());
+        let ks = constant_nat(builder, dim as u32);
+        let k = slice(builder, ddim.clone(), ks, len.clone(), c_attn.clone());
+        let vs = constant_nat(builder, dim as u32 * 2);
+        let v = slice(builder, ddim, vs, len, c_attn);
+
+        let hd = constant_nat(builder, head_dim as u32);
+        let nh = constant_nat(builder, num_heads as u32);
+        let sh = pack::<4>(builder, [b.clone(), s.clone(), nh, hd]);
+        let q = reshape(builder, sh.clone(), q);
+        let k = reshape(builder, sh.clone(), k);
+        let v = reshape(builder, sh, v);
+
+        let dim1 = constant_nat(builder, 1);
+        let dim2 = constant_nat(builder, 2);
+        let dim3 = constant_nat(builder, 3);
+        let q = transpose(builder, dim1.clone(), dim2.clone(), q);
+        let k = transpose(builder, dim1.clone(), dim2.clone(), k);
+        let v = transpose(builder, dim1.clone(), dim2.clone(), v);
+
+        let tk = transpose(builder, dim2.clone(), dim3, k);
+        let attn = matmul(builder, q, tk);
+        let sh = shape(builder, attn.clone());
+        let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
+        let mut attn = attn / denom;
+
+        // TODO: check for seqlen > 1
+        // if s > 1 {
+        let mask = nn::causal_mask(builder, s.clone());
+        let mask = broadcast_to(builder, mask, sh);
+        attn = attn + mask;
+        // }
+
+        let attn = nn::softmax(builder, attn);
+        let attn = matmul(builder, attn, v);
+
+        let attn = transpose(builder, dim1, dim2, attn);
+        let ddim = constant_nat(builder, dim as u32);
+        let sh = pack::<3>(builder, [b, s, ddim]);
+        let attn = reshape(builder, sh, attn);
+
+        self.gpt_linear(
+            builder,
+            dim,
+            dim,
+            p.concat(&path(vec!["c_proj"]).expect("invalid param path")),
+            attn,
+        )
+    }
+
+    fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
+        let res = x.clone();
+        let x = self.layernorm(
+            builder,
+            self.config.layer_norm_epsilon,
+            p.concat(&path(vec!["ln_1"]).expect("invalid param path")),
+            x,
+        );
+        let x = self.attention(
+            builder,
+            _layer_id,
+            &self.config,
+            p.concat(&path(vec!["attn"]).expect("invalid param path")),
+            x,
+        );
+        let x = res + x;
+        let res = x.clone();
+        let x = self.layernorm(
+            builder,
+            self.config.layer_norm_epsilon,
+            p.concat(&path(vec!["ln_2"]).expect("invalid param path")),
+            x,
+        );
+        let x = self.mlp(
+            builder,
+            self.config.hidden_size,
+            p.concat(&path(vec!["mlp"]).expect("invalid param path")),
+            x,
+        );
+        x + res
+    }
 }
 
 // Implement `Def`: this is like torch's `Module`.
@@ -195,21 +336,37 @@ impl Module<1, 1> for GPT2Model {
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
-        // let [_batch_size, _seq] = unpack::<2>(builder, shape(builder, x.clone()));
-
         let root = self.path();
 
         // self.info();
 
-        let x = self.embeddings(builder, root, x);
+        let mut x = self.embeddings(builder, root.clone(), x);
 
-        // let _ln_f = self.layernorm(
-        //     builder,
-        //     self.config.layer_norm_epsilon,
-        //     root.concat(&path(vec!["ln_f"]).expect("invalid param path")),
-        //     x.clone(),
-        // );
-        // let _ln_f = self.layernorm_raw(builder, self.config.layer_norm_epsilon, x.clone());
+        for i in 0..self.config.num_hidden_layers {
+            x = self.layer(
+                builder,
+                i,
+                root.concat(&path(vec!["h", &i.to_string()]).unwrap()),
+                x,
+            );
+        }
+
+        x = self.layernorm(
+            builder,
+            self.config.layer_norm_epsilon,
+            root.concat(&path(vec!["ln_f"]).expect("invalid param path")),
+            x,
+        );
+
+        // weight tied lm_head
+        x = nn::linear_no_bias(
+            builder,
+            self.config.hidden_size,
+            self.config.vocab_size,
+            root.concat(&path(vec!["wte"]).expect("invalid param path")),
+            x,
+        );
+
         [x]
     }
 
