@@ -23,7 +23,6 @@ fn main() -> Result<()> {
 
     // Get the model as a typed term
     let typed_term = model.term().expect("Failed to create typed term");
-    save_svg(&typed_term.term, &format!("{}.svg", model.path()))?;
 
     // Get stdlib environment and extend with parameter declarations
     let mut env = stdlib();
@@ -31,13 +30,8 @@ fn main() -> Result<()> {
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Shapecheck the model
-    let check_result = check::check(&env, &parameters, typed_term.clone())
+    check::check(&env, &parameters, typed_term.clone())
         .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
-
-    // Diagram of term with shapes inferred
-    let labeled_term = typed_term.term.clone().with_nodes(|_| check_result);
-    let filename = &format!("{}_typed.svg", model.path());
-    save_svg(&labeled_term.unwrap(), filename)?;
 
     // Run interpreter
     run_interpreter(&typed_term, env, interpreter_params)?;
@@ -442,23 +436,4 @@ fn load_model<B: interpreter::Backend>(
         check::Parameters::from(type_map),
         config,
     ))
-}
-
-pub fn save_svg<
-    O: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
-    A: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
->(
-    term: &open_hypergraphs::lax::OpenHypergraph<O, A>,
-    filename: &str,
-) -> Result<()> {
-    use catgrad_core::svg::to_svg;
-    let bytes = to_svg(term)?;
-    let output_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("examples")
-        .join("images");
-    std::fs::create_dir_all(&output_dir)?;
-    let output_path = output_dir.join(filename);
-    println!("saving svg to {output_path:?}");
-    std::fs::write(output_path, bytes).expect("write diagram file");
-    Ok(())
 }

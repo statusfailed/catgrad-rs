@@ -416,12 +416,12 @@ fn tensor_slice(args: &[Value]) -> ApplyResult {
         (
             Value::Tensor(TypeExpr::NdArrayType(input)),
             Value::Nat(NatExpr::Constant(dim)),
-            Value::Nat(NatExpr::Constant(_start)),
-            Value::Nat(NatExpr::Constant(len)),
+            Value::Nat(_start),
+            Value::Nat(len),
         ) => match &input.shape {
             ShapeExpr::Shape(input_shape) => {
                 let mut out_shape = input_shape.clone();
-                out_shape[*dim] = NatExpr::Constant(*len);
+                out_shape[*dim] = len.clone();
                 Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                     dtype: input.dtype.clone(),
                     shape: ShapeExpr::Shape(out_shape),
