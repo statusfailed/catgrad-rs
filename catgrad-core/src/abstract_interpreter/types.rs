@@ -2,7 +2,7 @@
 use open_hypergraphs::lax::{EdgeId, NodeId};
 use std::fmt::Debug;
 
-use crate::category::core::{Object, Operation};
+use crate::category::core::{Object, Operation, TensorOp};
 use crate::definition::Def;
 use crate::path::Path;
 use crate::ssa::{SSA, SSAError};
@@ -18,28 +18,34 @@ pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
 /// Each associated type must implement its corresopnding trait. So for example Nats can be added,
 /// multiplied etc, while Dtypes have constants, and so on.
 pub trait ValueTypes: Clone {
-    type Nat: Nat;
-    type Dtype: Dtype;
-    type Shape: Shape;
-    type NdArrayType: NdArrayType;
-    type Tensor: Tensor;
+    type Nat: Clone + Debug;
+    type Dtype: Clone + Debug;
+    type Shape: Clone + Debug;
+    type NdArrayType: Clone + Debug;
+    type Tensor: Clone + Debug;
 
     // type ops
     fn pack(dims: Vec<Self::Nat>) -> Self::Shape;
-    fn unpack(shape: Self::Shape) -> Vec<Self::Nat>;
-    fn shape(tensor: Self::Tensor) -> Self::Shape;
-    fn dtype(tensor: Self::Tensor) -> Self::Dtype;
+    fn unpack(shape: Self::Shape) -> Option<Vec<Self::Nat>>;
+    fn shape(tensor: Self::Tensor) -> Option<Self::Shape>;
+    fn dtype(tensor: Self::Tensor) -> Option<Self::Dtype>;
 
-    // tensor ops
-    fn matmul(f: Self::Tensor, g: Self::Tensor) -> EvalResult<Self::Tensor>;
+    /// Handler for Def(path) ops.
+    fn handle_definition(
+        ssa: &CoreSSA,
+        args: Vec<Value<Self>>,
+        path: &Path,
+    ) -> EvalResultValues<Self>;
+
+    // tensor ops are very backend-specific, so we let the interpreter handle them directly
+    // TODO: rename handle_tensor_op
+    fn tensor_op(
+        &self,
+        ssa: &CoreSSA,
+        args: Vec<Value<Self>>,
+        op: &TensorOp,
+    ) -> EvalResultValues<Self>;
 }
-
-// TODO!
-pub trait Nat: Clone + Debug {}
-pub trait Dtype: Clone + Debug {}
-pub trait Shape: Clone + Debug {}
-pub trait NdArrayType: Clone + Debug {}
-pub trait Tensor: Clone + Debug {}
 
 /// Interpreting is the process of associating a `Value<V>` with each wire of a term
 #[derive(Debug, Clone)]

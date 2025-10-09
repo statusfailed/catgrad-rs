@@ -122,6 +122,7 @@ fn apply_type_op<V: ValueTypes>(
             let shape = to_shape(ssa, arg)?;
             // .. and unpack it into its constituent dimensions
             Ok(V::unpack(shape)
+                .ok_or(InterpreterError::TypeError(ssa.edge_id))?
                 .into_iter()
                 .map(|dim| Value::Nat(dim))
                 .collect())
@@ -131,13 +132,17 @@ fn apply_type_op<V: ValueTypes>(
             // Get exactly 1 tensor argument
             let [arg] = get_exact_arity(ssa, args)?;
             let tensor = to_tensor(ssa, arg)?;
-            Ok(vec![Value::Shape(V::shape(tensor))])
+            Ok(vec![Value::Shape(
+                V::shape(tensor).ok_or(InterpreterError::TypeError(ssa.edge_id))?,
+            )])
         }
         // Map a tensor to its dtype
         TypeOp::Dtype => {
             let [arg] = get_exact_arity(ssa, args)?;
             let tensor = to_tensor(ssa, arg)?;
-            Ok(vec![Value::Dtype(V::dtype(tensor))])
+            Ok(vec![Value::Dtype(
+                V::dtype(tensor).ok_or(InterpreterError::TypeError(ssa.edge_id))?,
+            )])
         }
     }
 }
