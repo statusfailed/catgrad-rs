@@ -2,16 +2,19 @@
 
 use super::types::*;
 
-use crate::category::lang::Term;
-use crate::prelude::{Object, Operation};
-use crate::ssa::{SSA, parallel_ssa};
+//use crate::category::lang::Term;
+use crate::category::core::*;
+use crate::definition::Def;
+use crate::path::Path;
+use crate::ssa::parallel_ssa;
 
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
 /// Run the interpreter with specified input values
-/// TODO: abstract backend/state ?
-pub fn eval<V: InterpreterValue>(term: Term, values: Vec<Value<V>>) -> EvalResult<V> {
+/// TODO: backend/state ?
+pub fn eval<V: InterpreterValue>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+    // TODO: replace with Err
     assert_eq!(values.len(), term.sources.len());
 
     // create initial state by moving argument values into state
@@ -60,6 +63,98 @@ pub fn eval<V: InterpreterValue>(term: Term, values: Vec<Value<V>>) -> EvalResul
     Ok(target_values)
 }
 
-fn apply<V: InterpreterValue>(_op: &SSA<Object, Operation>, _args: Vec<Value<V>>) -> EvalResult<V> {
-    todo!();
+fn apply<V: InterpreterValue>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+    match &ssa.op {
+        Def::Def(path) => apply_definition(ssa, args, path),
+        Def::Arr(op) => apply_op(ssa, args, op),
+    }
+}
+
+fn apply_definition<V: InterpreterValue>(
+    _ssa: &CoreSSA,
+    _args: Vec<Value<V>>,
+    _path: &Path,
+) -> EvalResult<Vec<Value<V>>> {
+    todo!("fetch definition from environment, eval it")
+}
+
+fn apply_op<V: InterpreterValue>(
+    ssa: &CoreSSA,
+    args: Vec<Value<V>>,
+    op: &Operation,
+) -> EvalResultValues<V> {
+    match op {
+        Operation::Type(type_op) => apply_type_op(ssa, args, type_op),
+        Operation::Nat(_nat_op) => todo!(),
+        Operation::DtypeConstant(_dtype) => todo!(),
+        Operation::Tensor(_tensor_op) => todo!(), // apply_tensor_op(ssa, args, tensor_op),
+        Operation::Copy => apply_copy(ssa, args),
+        Operation::Load(_path) => todo!("apply_load"),
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Handlers for each possible op type.
+// General convention is apply_<typename>
+
+use super::util::{get_exact_arity, to_nat, to_shape, to_tensor};
+
+////////////////////////////////////////
+// Type ops
+
+fn apply_type_op<V: InterpreterValue>(
+    ssa: &CoreSSA,
+    args: Vec<Value<V>>,
+    type_op: &TypeOp,
+) -> EvalResultValues<V> {
+    match type_op {
+        // Pack dimensions into a shape
+        TypeOp::Pack => {
+            // Get all args (dims) and pack into result shape.
+            let dims: EvalResult<Vec<V::Nat>> = args.into_iter().map(|v| to_nat(ssa, v)).collect();
+            Ok(vec![Value::Shape(V::pack(dims?))])
+        }
+        // Unpack a shape into dimensions
+        TypeOp::Unpack => {
+            // Get exactly 1 argument...
+            let [arg] = get_exact_arity(ssa, args)?;
+            // ... which is a shape ...
+            let shape = to_shape(ssa, arg)?;
+            // .. and unpack it into its constituent dimensions
+            Ok(V::unpack(shape)
+                .into_iter()
+                .map(|dim| Value::Nat(dim))
+                .collect())
+        }
+        // Map a tensor to its shape
+        TypeOp::Shape => {
+            // Get exactly 1 tensor argument
+            let [arg] = get_exact_arity(ssa, args)?;
+            let tensor = to_tensor(ssa, arg)?;
+            Ok(vec![Value::Shape(V::shape(tensor))])
+        }
+        // Map a tensor to its dtype
+        TypeOp::Dtype => {
+            let [arg] = get_exact_arity(ssa, args)?;
+            let tensor = to_tensor(ssa, arg)?;
+            Ok(vec![Value::Dtype(V::dtype(tensor))])
+        }
+    }
+}
+
+////////////////////////////////////////
+// Copy
+
+fn apply_copy<V: InterpreterValue>(
+    ssa: &CoreSSA,
+    args: Vec<Value<V>>,
+) -> EvalResult<Vec<Value<V>>> {
+    let [v] = get_exact_arity(ssa, args)?;
+    let n = ssa.targets.len();
+    let mut result = Vec::with_capacity(n);
+    result.push(v);
+    for _ in 1..n {
+        result.push(result[0].clone())
+    }
+    Ok(result)
 }
