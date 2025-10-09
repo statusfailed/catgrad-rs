@@ -9,15 +9,15 @@ use crate::ssa::{SSA, SSAError};
 
 pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
 
-/// [`InterpreterValue`] defines a set of types which the interpreter will use to represent values
-/// at runtime. For example, the `Nat` type might be...
+/// [`ValueTypes`] defines a set of types which the interpreter will use to represent values
+/// at runtime. For example:
 ///
 /// - In the tensor backend `Nat` is a `usize`
-/// - In the typechecker, `Nat` is an *expressions* over natural numbers
+/// - In the typechecker, `Nat` is an *expression* over natural numbers
 ///
 /// Each associated type must implement its corresopnding trait. So for example Nats can be added,
 /// multiplied etc, while Dtypes have constants, and so on.
-pub trait InterpreterValue: Clone {
+pub trait ValueTypes: Clone {
     type Nat: Nat;
     type Dtype: Dtype;
     type Shape: Shape;
@@ -43,7 +43,7 @@ pub trait Tensor: Clone + Debug {}
 
 /// Interpreting is the process of associating a `Value<V>` with each wire of a term
 #[derive(Debug, Clone)]
-pub enum Value<V: InterpreterValue> {
+pub enum Value<V: ValueTypes> {
     Nat(V::Nat),
     Dtype(V::Dtype),
     Shape(V::Shape),

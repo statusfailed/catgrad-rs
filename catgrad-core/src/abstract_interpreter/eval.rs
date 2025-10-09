@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 /// Run the interpreter with specified input values
 /// TODO: backend/state ?
-pub fn eval<V: InterpreterValue>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+pub fn eval<V: ValueTypes>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
     // TODO: replace with Err
     assert_eq!(values.len(), term.sources.len());
 
@@ -63,14 +63,14 @@ pub fn eval<V: InterpreterValue>(term: Term, values: Vec<Value<V>>) -> EvalResul
     Ok(target_values)
 }
 
-fn apply<V: InterpreterValue>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+fn apply<V: ValueTypes>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
     match &ssa.op {
         Def::Def(path) => apply_definition(ssa, args, path),
         Def::Arr(op) => apply_op(ssa, args, op),
     }
 }
 
-fn apply_definition<V: InterpreterValue>(
+fn apply_definition<V: ValueTypes>(
     _ssa: &CoreSSA,
     _args: Vec<Value<V>>,
     _path: &Path,
@@ -78,7 +78,7 @@ fn apply_definition<V: InterpreterValue>(
     todo!("fetch definition from environment, eval it")
 }
 
-fn apply_op<V: InterpreterValue>(
+fn apply_op<V: ValueTypes>(
     ssa: &CoreSSA,
     args: Vec<Value<V>>,
     op: &Operation,
@@ -102,7 +102,7 @@ use super::util::{get_exact_arity, to_nat, to_shape, to_tensor};
 ////////////////////////////////////////
 // Type ops
 
-fn apply_type_op<V: InterpreterValue>(
+fn apply_type_op<V: ValueTypes>(
     ssa: &CoreSSA,
     args: Vec<Value<V>>,
     type_op: &TypeOp,
@@ -145,10 +145,7 @@ fn apply_type_op<V: InterpreterValue>(
 ////////////////////////////////////////
 // Copy
 
-fn apply_copy<V: InterpreterValue>(
-    ssa: &CoreSSA,
-    args: Vec<Value<V>>,
-) -> EvalResult<Vec<Value<V>>> {
+fn apply_copy<V: ValueTypes>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
     let [v] = get_exact_arity(ssa, args)?;
     let n = ssa.targets.len();
     let mut result = Vec::with_capacity(n);
