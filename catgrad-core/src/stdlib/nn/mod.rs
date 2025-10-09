@@ -1,5 +1,5 @@
 use crate::category::lang::*;
-use crate::stdlib::def::*;
+use crate::stdlib::module::*;
 use std::f32::consts::{E, PI};
 
 ////////////////////////////////////////
