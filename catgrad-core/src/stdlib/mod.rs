@@ -4,5 +4,5 @@ pub use ops::*;
 
 pub mod nn;
 
-mod def;
-pub use def::*;
+mod module;
+pub use module::*;
