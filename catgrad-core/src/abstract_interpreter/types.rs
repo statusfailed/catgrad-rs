@@ -2,7 +2,10 @@
 use open_hypergraphs::lax::{EdgeId, NodeId};
 use std::fmt::Debug;
 
-use crate::category::core::{Object, Operation, TensorOp};
+use crate::category::{
+    core,
+    core::{Object, Operation, TensorOp},
+};
 use crate::definition::Def;
 use crate::path::Path;
 use crate::ssa::{SSA, SSAError};
@@ -17,7 +20,7 @@ pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
 ///
 /// Each associated type must implement its corresopnding trait. So for example Nats can be added,
 /// multiplied etc, while Dtypes have constants, and so on.
-pub trait ValueTypes: Clone {
+pub trait Interpreter: Clone {
     type Nat: Clone + Debug;
     type Dtype: Clone + Debug;
     type Shape: Clone + Debug;
@@ -30,8 +33,17 @@ pub trait ValueTypes: Clone {
     fn shape(tensor: Self::Tensor) -> Option<Self::Shape>;
     fn dtype(tensor: Self::Tensor) -> Option<Self::Dtype>;
 
+    // Dtype ops
+    fn dtype_constant(dtype: core::Dtype) -> Self::Dtype;
+
+    // Nat ops
+    fn nat_constant(nat: usize) -> Self::Nat;
+    fn nat_add(a: Self::Nat, b: Self::Nat) -> Self::Nat;
+    fn nat_mul(a: Self::Nat, b: Self::Nat) -> Self::Nat;
+
     /// Handler for Def(path) ops.
     fn handle_definition(
+        &self,
         ssa: &CoreSSA,
         args: Vec<Value<Self>>,
         path: &Path,
@@ -49,7 +61,7 @@ pub trait ValueTypes: Clone {
 
 /// Interpreting is the process of associating a `Value<V>` with each wire of a term
 #[derive(Debug, Clone)]
-pub enum Value<V: ValueTypes> {
+pub enum Value<V: Interpreter> {
     Nat(V::Nat),
     Dtype(V::Dtype),
     Shape(V::Shape),

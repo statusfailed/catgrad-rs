@@ -5,7 +5,6 @@ use super::types::*;
 //use crate::category::lang::Term;
 use crate::category::core::*;
 use crate::definition::Def;
-use crate::path::Path;
 use crate::ssa::parallel_ssa;
 
 use open_hypergraphs::lax::NodeId;
@@ -13,12 +12,16 @@ use std::collections::HashMap;
 
 /// Run the interpreter with specified input values
 /// TODO: backend/state ?
-pub fn eval<V: ValueTypes>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+pub fn eval<I: Interpreter>(
+    interpreter: I,
+    term: Term,
+    values: Vec<Value<I>>,
+) -> EvalResultValues<I> {
     // TODO: replace with Err
     assert_eq!(values.len(), term.sources.len());
 
     // create initial state by moving argument values into state
-    let mut state = HashMap::<NodeId, Value<V>>::new();
+    let mut state = HashMap::<NodeId, Value<I>>::new();
     for (node_id, value) in term.sources.iter().zip(values) {
         state.insert(*node_id, value);
     }
@@ -29,21 +32,25 @@ pub fn eval<V: ValueTypes>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<
     // Iterate through partially-ordered SSA ops
     for par in parallel_ssa(term.to_strict())? {
         // PERFORMANCE: we can do these ops in parallel. Does it get speedups?
-        for op in par {
+        for ssa in par {
             // get args: Vec<Value> by popping each id in op.sources from state - take
             // ownership.
             let mut args = Vec::new();
-            for (node_id, _) in &op.sources {
+            for (node_id, _) in &ssa.sources {
                 match state.remove(node_id) {
                     Some(value) => args.push(value),
                     None => return Err(InterpreterError::MultipleRead(*node_id)),
                 }
             }
 
-            let results = apply(&op, args)?;
+            // Dispatch: ops are either definitions or core ops.
+            let results = match &ssa.op {
+                Def::Def(path) => interpreter.handle_definition(&ssa, args, &path),
+                Def::Arr(op) => apply_op(&interpreter, &ssa, args, &op),
+            }?;
 
             // write each result into state at op.targets ids
-            for ((node_id, _), result) in op.targets.iter().zip(results) {
+            for ((node_id, _), result) in ssa.targets.iter().zip(results) {
                 if state.insert(*node_id, result).is_some() {
                     return Err(InterpreterError::MultipleWrite(*node_id));
                 }
@@ -63,33 +70,19 @@ pub fn eval<V: ValueTypes>(term: Term, values: Vec<Value<V>>) -> EvalResult<Vec<
     Ok(target_values)
 }
 
-fn apply<V: ValueTypes>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
-    match &ssa.op {
-        Def::Def(path) => apply_definition(ssa, args, path),
-        Def::Arr(op) => apply_op(ssa, args, op),
-    }
-}
-
-fn apply_definition<V: ValueTypes>(
-    _ssa: &CoreSSA,
-    _args: Vec<Value<V>>,
-    _path: &Path,
-) -> EvalResult<Vec<Value<V>>> {
-    todo!("fetch definition from environment, eval it")
-}
-
-fn apply_op<V: ValueTypes>(
+fn apply_op<I: Interpreter>(
+    interpreter: &I,
     ssa: &CoreSSA,
-    args: Vec<Value<V>>,
+    args: Vec<Value<I>>,
     op: &Operation,
-) -> EvalResultValues<V> {
+) -> EvalResultValues<I> {
     match op {
         Operation::Type(type_op) => apply_type_op(ssa, args, type_op),
-        Operation::Nat(_nat_op) => todo!(),
-        Operation::DtypeConstant(_dtype) => todo!(),
-        Operation::Tensor(_tensor_op) => todo!(), // apply_tensor_op(ssa, args, tensor_op),
+        Operation::Nat(nat_op) => apply_nat_op(ssa, args, nat_op),
+        Operation::DtypeConstant(dtype) => Ok(vec![Value::Dtype(I::dtype_constant(dtype.clone()))]),
+        Operation::Tensor(tensor_op) => interpreter.tensor_op(ssa, args, tensor_op),
         Operation::Copy => apply_copy(ssa, args),
-        Operation::Load(_path) => todo!("apply_load"),
+        Operation::Load(_path) => todo!("Load"),
     }
 }
 
@@ -97,12 +90,25 @@ fn apply_op<V: ValueTypes>(
 // Handlers for each possible op type.
 // General convention is apply_<typename>
 
-use super::util::{get_exact_arity, to_nat, to_shape, to_tensor};
+////////////////////////////////////////
+// Copy
 
+fn apply_copy<V: Interpreter>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+    let [v] = get_exact_arity(ssa, args)?;
+    let n = ssa.targets.len();
+    let mut result = Vec::with_capacity(n);
+    result.push(v);
+    for _ in 1..n {
+        result.push(result[0].clone())
+    }
+    Ok(result)
+}
+
+use super::util::{get_exact_arity, to_nat, to_shape, to_tensor};
 ////////////////////////////////////////
 // Type ops
 
-fn apply_type_op<V: ValueTypes>(
+fn apply_type_op<V: Interpreter>(
     ssa: &CoreSSA,
     args: Vec<Value<V>>,
     type_op: &TypeOp,
@@ -148,15 +154,27 @@ fn apply_type_op<V: ValueTypes>(
 }
 
 ////////////////////////////////////////
-// Copy
+// Nat ops
 
-fn apply_copy<V: ValueTypes>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
-    let [v] = get_exact_arity(ssa, args)?;
-    let n = ssa.targets.len();
-    let mut result = Vec::with_capacity(n);
-    result.push(v);
-    for _ in 1..n {
-        result.push(result[0].clone())
+fn apply_nat_op<I: Interpreter>(
+    ssa: &CoreSSA,
+    args: Vec<Value<I>>,
+    op: &NatOp,
+) -> EvalResultValues<I> {
+    // Ensure all args are nats.
+    let args: EvalResult<Vec<I::Nat>> = args.into_iter().map(|n| to_nat(ssa, n)).collect();
+    match op {
+        NatOp::Constant(n) => {
+            let [] = get_exact_arity(ssa, args?)?;
+            Ok(vec![Value::Nat(I::nat_constant(*n))])
+        }
+        NatOp::Add => {
+            let [a, b] = get_exact_arity(ssa, args?)?;
+            Ok(vec![Value::Nat(I::nat_add(a, b))])
+        }
+        NatOp::Mul => {
+            let [a, b] = get_exact_arity(ssa, args?)?;
+            Ok(vec![Value::Nat(I::nat_mul(a, b))])
+        }
     }
-    Ok(result)
 }

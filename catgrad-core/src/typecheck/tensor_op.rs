@@ -1,0 +1,296 @@
+use super::interpreter::{ResultValues, Value};
+use super::value_types::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
+
+use crate::abstract_interpreter::{
+    CoreSSA, EvalResult, InterpreterError,
+    util::{ensure_profile, get_exact_arity, to_dtype, to_nat, to_shape, to_tensor},
+};
+use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
+
+pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> ResultValues {
+    match op {
+        TensorOp::Map(scalar_op) => tensor_map(ssa, args, scalar_op),
+        TensorOp::Scalar => tensor_scalar(ssa, args),
+        TensorOp::Cast => tensor_cast(ssa, args),
+        TensorOp::MatMul => tensor_matmul(ssa, args),
+        TensorOp::Constant(c) => tensor_constant(ssa, args, c.clone()),
+        TensorOp::Sum | TensorOp::Max => tensor_reduce(ssa, args),
+        TensorOp::Argmax => todo!("todo: typecheck argmax"),
+        TensorOp::Broadcast => tensor_broadcast(ssa, args),
+        TensorOp::Reshape => tensor_reshape(ssa, args),
+        TensorOp::Transpose => tensor_transpose(ssa, args),
+        TensorOp::Slice => tensor_slice(ssa, args),
+        TensorOp::Concat => todo!("todo: typecheck TensorOp::Concat"),
+        TensorOp::Arange => tensor_arange(ssa, args),
+        TensorOp::Index => tensor_index(ssa, args),
+        TensorOp::Copy => todo!("TODO: remove TensorOp::Copy"),
+    }
+}
+
+fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
+    let (arity, coarity) = op.profile();
+    let args = ensure_profile(ssa, args, arity, coarity)?;
+    // check all args are tensors
+    let types = args
+        .into_iter()
+        .map(|t| to_tensor(ssa, t))
+        .collect::<EvalResult<Vec<_>>>()?;
+    // FIXME: do Sin/Cos work on non-floating types? Are LT/EQ supposed to return U32 or F32?
+
+    // ensure all types are the same
+    if types.len() == 0 || types.iter().all(|x| *x == types[0]) {
+        Ok((0..coarity)
+            .map(|_| Value::Tensor(types[0].clone()))
+            .collect())
+    } else {
+        Err(InterpreterError::TypeError(ssa.edge_id))
+    }
+}
+
+fn tensor_scalar(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [n] = get_exact_arity(ssa, args)?;
+    let _ = to_nat(ssa, n)?; // ensure arg is a nat
+    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![]),
+    }))])
+}
+
+fn tensor_cast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [tensor, dtype] = get_exact_arity(ssa, args)?;
+    let (tensor, dtype) = (to_tensor(ssa, tensor)?, to_dtype(ssa, dtype)?);
+    let type_expr = match tensor {
+        // Shape of v, but dtype
+        TypeExpr::Var(v) => TypeExpr::NdArrayType(NdArrayType {
+            dtype: dtype.clone(),
+            shape: ShapeExpr::OfType(v),
+        }),
+
+        // Replace dtype of existing NdArrayType
+        TypeExpr::NdArrayType(s) => TypeExpr::NdArrayType(NdArrayType {
+            dtype: dtype.clone(),
+            shape: s.shape.clone(),
+        }),
+    };
+    Ok(vec![Value::Tensor(type_expr)])
+}
+
+fn tensor_matmul(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [t, u] = get_exact_arity(ssa, args)?;
+    let (t, u) = match (to_tensor(ssa, t)?, to_tensor(ssa, u)?) {
+        (TypeExpr::NdArrayType(t), TypeExpr::NdArrayType(u)) if t.dtype == u.dtype => Ok((t, u)),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+    let dtype = t.dtype.clone();
+
+    if let (ShapeExpr::Shape(t), ShapeExpr::Shape(u)) = (t.shape, u.shape) {
+        // Ensure equal ranks, at least 2 dims, and contraction dimension must match
+        if t.len() != u.len() || t.len() < 2 || t[t.len() - 1] != u[u.len() - 2] {
+            return Err(InterpreterError::TypeError(ssa.edge_id));
+        }
+
+        // check prefix dimensions match - e.g. N0..Nk for (N0, ..., Nk, A, B) and (N0..Nk, B, C)
+        let prefix_len = t.len() - 2;
+        if t[..prefix_len] != u[..prefix_len] {
+            return Err(InterpreterError::TypeError(ssa.edge_id));
+        }
+
+        // Result shape: all but last element of t, then append final element of u
+        let mut shape = t[..t.len() - 1].to_vec();
+        shape.push(u[u.len() - 1].clone());
+
+        Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype,
+            shape: ShapeExpr::Shape(shape),
+        }))])
+    } else {
+        return Err(InterpreterError::TypeError(ssa.edge_id));
+    }
+}
+
+fn tensor_constant(ssa: &CoreSSA, args: Vec<Value>, c: Constant) -> ResultValues {
+    let [] = get_exact_arity(ssa, args)?; // ensure 0 args
+    let d = match c {
+        Constant::F32(_) => Dtype::F32,
+        Constant::U32(_) => Dtype::U32,
+    };
+    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(d),
+        shape: ShapeExpr::Shape(vec![]),
+    }))])
+}
+
+fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [tensor] = get_exact_arity(ssa, args)?;
+    let type_expr = match to_tensor(ssa, tensor)? {
+        TypeExpr::NdArrayType(n) => match n.shape {
+            ShapeExpr::Shape(mut shape) => {
+                let k = shape.len();
+                shape[k - 1] = NatExpr::Constant(1);
+                TypeExpr::NdArrayType(NdArrayType {
+                    dtype: n.dtype,
+                    shape: ShapeExpr::Shape(shape),
+                })
+            }
+            _ => return Err(InterpreterError::TypeError(ssa.edge_id)),
+        },
+        TypeExpr::Var(_) => return Err(InterpreterError::TypeError(ssa.edge_id)),
+    };
+
+    Ok(vec![Value::Tensor(type_expr)])
+}
+
+fn compat_shapes(x: &Vec<NatExpr>, y: &Vec<NatExpr>) -> bool {
+    let d = y.len() as isize - x.len() as isize;
+    if d < 0 {
+        return false;
+    }
+    let d = d as usize;
+    for i in 0..x.len() {
+        // FIXME: this is wrong in general; see issue #238
+        if x[i] != y[i + d] && x[i] != NatExpr::Constant(1) && y[i + d] != NatExpr::Constant(1) {
+            return false;
+        }
+    }
+    true
+}
+
+fn tensor_broadcast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [t, s] = get_exact_arity(ssa, args)?;
+    let (t, s) = (to_tensor(ssa, t)?, to_shape(ssa, s)?);
+    // Ensure t has a known shape
+    let (t_shape, dtype) = match t {
+        TypeExpr::NdArrayType(NdArrayType { shape, dtype }) => Ok((shape, dtype)),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    let shape = match (t_shape, &s) {
+        // unit () is always broadcastable
+        (ShapeExpr::Shape(ts), ShapeExpr::Var(_)) if ts.is_empty() => Ok(s),
+        // otherwise check compatibility
+        (ShapeExpr::Shape(ts), ShapeExpr::Shape(ss)) if compat_shapes(&ts, &ss) => Ok(s),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    let result_type = TypeExpr::NdArrayType(NdArrayType { shape, dtype });
+    Ok(vec![Value::Tensor(result_type)])
+}
+
+fn tensor_transpose(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [t, dim0, dim1] = get_exact_arity(ssa, args)?;
+    let (t, dim0, dim1) = (to_tensor(ssa, t)?, to_nat(ssa, dim0)?, to_nat(ssa, dim1)?);
+
+    // FIXME: normalize dim0, dim1 to constants; if this is not possible, then error.
+    let (dim0, dim1) = match (dim0, dim1) {
+        (NatExpr::Constant(dim0), NatExpr::Constant(dim1)) => Ok((dim0, dim1)),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    let input: NdArrayType = match t {
+        TypeExpr::NdArrayType(input) => Ok(input),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    match input.shape {
+        ShapeExpr::Shape(mut shape) => {
+            shape.swap(dim0, dim1);
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: input.dtype,
+                shape: ShapeExpr::Shape(shape),
+            }))])
+        }
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }
+}
+
+fn tensor_slice(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [input, dim, _start, len] = get_exact_arity(ssa, args)?;
+    let (input, dim, len) = (
+        to_tensor(ssa, input)?.as_ndarraytype(ssa)?,
+        to_nat(ssa, dim)?,
+        to_nat(ssa, len)?,
+    );
+
+    // FIXME: normalize dim
+    let (dim, len) = match (dim, len) {
+        (NatExpr::Constant(dim), NatExpr::Constant(len)) => Ok((dim, len)),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    match input.shape {
+        ShapeExpr::Shape(mut shape) => {
+            shape[dim] = NatExpr::Constant(len);
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: input.dtype,
+                shape: ShapeExpr::Shape(shape),
+            }))])
+        }
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }
+}
+
+fn tensor_arange(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [n] = get_exact_arity(ssa, args)?;
+    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![to_nat(ssa, n)?]),
+    }))])
+}
+
+fn tensor_index(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [input, n, idx] = get_exact_arity(ssa, args)?;
+    let (input, n, idx) = (
+        to_tensor(ssa, input)?.as_ndarraytype(ssa)?,
+        to_nat(ssa, n)?,
+        to_tensor(ssa, idx)?.as_ndarraytype(ssa)?,
+    );
+
+    // FIXME: normalize nat
+    let n = match n {
+        NatExpr::Constant(n) => Ok(n),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    match (input.shape, idx.shape) {
+        (ShapeExpr::Shape(mut input_shape), ShapeExpr::Shape(idx_shape)) => {
+            input_shape[n] = idx_shape[0].clone();
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: input.dtype.clone(),
+                shape: ShapeExpr::Shape(input_shape),
+            }))])
+        }
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }
+}
+
+fn tensor_reshape(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [target_shape, tensor] = get_exact_arity(ssa, args)?;
+    let (target_shape, (shape, dtype)) = (
+        to_shape(ssa, target_shape)?,
+        to_tensor(ssa, tensor)?.as_shapeexpr_dtype(ssa)?,
+    );
+
+    if !shapes_isomorphic(&shape, &target_shape) {
+        // FIXME: better error type here
+        return Err(InterpreterError::TypeError(ssa.edge_id));
+    }
+
+    let target_type = NdArrayType {
+        shape: target_shape,
+        dtype: dtype,
+    };
+    Ok(vec![Value::Tensor(TypeExpr::NdArrayType(target_type))])
+}
+
+// Return normalized shapes for s, t
+// TODO: return ApplyResult
+fn shapes_isomorphic(s: &ShapeExpr, t: &ShapeExpr) -> bool {
+    match (s, t) {
+        (ShapeExpr::Var(v), ShapeExpr::Var(u)) => v == u,
+        (ShapeExpr::OfType(v), ShapeExpr::OfType(u)) => v == u,
+        (ShapeExpr::Shape(s), ShapeExpr::Shape(t)) => {
+            super::isomorphism::isomorphic(s.clone(), t.clone())
+        }
+        _ => false,
+    }
+}
