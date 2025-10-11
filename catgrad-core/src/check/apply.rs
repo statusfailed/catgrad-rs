@@ -207,6 +207,7 @@ fn tensor_op(op: &TensorOp, args: &[Value]) -> ApplyResult {
         TensorOp::Cast => tensor_cast(args),
         TensorOp::Sum => tensor_sum(args),
         TensorOp::Max => tensor_max(args),
+        TensorOp::Argmax => tensor_argmax(args),
         TensorOp::Broadcast => tensor_broadcast(args),
         TensorOp::Index => tensor_index(args),
         TensorOp::Slice => tensor_slice(args),
@@ -308,6 +309,10 @@ fn tensor_sum(args: &[Value]) -> ApplyResult {
 }
 
 fn tensor_max(args: &[Value]) -> ApplyResult {
+    tensor_reduce(args)
+}
+
+fn tensor_argmax(args: &[Value]) -> ApplyResult {
     tensor_reduce(args)
 }
 

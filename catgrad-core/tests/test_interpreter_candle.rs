@@ -151,6 +151,41 @@ fn test_candle_backend_max() {
 }
 
 #[test]
+fn test_candle_backend_argmax() {
+    let backend = CandleBackend::new();
+
+    // Test F32 argmax
+    let data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
+    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
+        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+        .unwrap();
+
+    let result = backend.argmax(TaggedNdArray::F32([tensor]));
+    match result {
+        TaggedNdArray::U32([arr]) => {
+            println!("argmax result: {:?}", arr);
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
+        }
+        _ => panic!("Expected U32 result"),
+    }
+
+    // Test U32 max
+    let data_u32 = vec![1u32, 5, 3, 2];
+    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
+        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
+        .unwrap();
+
+    let result = backend.argmax(TaggedNdArray::U32([tensor_u32]));
+    match result {
+        TaggedNdArray::U32([arr]) => {
+            println!("argmax result: {:?}", arr);
+            assert_eq!(arr.0.shape().dims(), &[2, 1]);
+        }
+        _ => panic!("Expected U32 result"),
+    }
+}
+
+#[test]
 fn test_candle_backend_sum() {
     let backend = CandleBackend::new();
 

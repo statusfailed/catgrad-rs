@@ -231,6 +231,14 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => U32([Self::argmax(arr)]),
+            U32([arr]) => U32([Self::argmax(arr)]),
+        }
+    }
+
     fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -444,6 +452,10 @@ impl CandleBackend {
 
     fn max(x: CandleTensor) -> CandleTensor {
         CandleTensor(x.0.max_keepdim(D::Minus1).unwrap())
+    }
+
+    fn argmax(x: CandleTensor) -> CandleTensor {
+        CandleTensor(x.0.argmax_keepdim(D::Minus1).unwrap())
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {
