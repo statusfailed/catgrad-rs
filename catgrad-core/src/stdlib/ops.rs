@@ -3,15 +3,10 @@ use crate::category::lang;
 
 use super::module::*;
 
-use std::collections::HashMap;
+pub use crate::pass::to_core::Environment;
+use crate::pass::to_core::core_declarations;
 
-/// Declared and defined operations.
-/// Currently, a declaration must map to a Core operation (subject to change!)
-#[derive(Debug, Clone)]
-pub struct Environment {
-    pub definitions: HashMap<lang::Path, lang::TypedTerm>,
-    pub declarations: HashMap<lang::Path, core::Operation>,
-}
+use std::collections::HashMap;
 
 // helper to simplify stdlib defs list
 fn to_pair<const A: usize, const B: usize, T: Module<A, B>>(
@@ -34,8 +29,6 @@ fn definitions() -> HashMap<lang::Path, lang::TypedTerm> {
 
 /// Standard library declarations and definitions
 pub fn stdlib() -> Environment {
-    use crate::pass::to_core::core_declarations;
-
     Environment {
         declarations: core_declarations(),
         definitions: definitions(),
