@@ -37,9 +37,9 @@ impl Environment {
 /// If a Definition or Declaration was not a core operation, it is assumed to be a definition in
 /// [`core`].
 pub fn to_core(term: lang::Term, core_ops: &HashMap<lang::Path, core::Operation>) -> core::Term {
-    // **NOTE: this function *must* preserve edge IDs of input term**
-    // In future, if we need to map a lang::Path to *multiple* core operations, this must be done
-    // by introducing a new definition.
+    // **NOTE: this function *must* preserve node and edge IDs of input term**
+    // In future, if we need to map a lang::Path to *multiple* core operations, preserving edge IDs
+    // must be done by definitions; we can assume map_edges and map_nodes don't change IDs.
     // This allows us to map errors and type inference back up to the original input term.
     term.map_edges(|e| op_to_core(e, core_ops))
 }
