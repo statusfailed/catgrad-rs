@@ -1,4 +1,4 @@
-//! Abstract interpreter and types
+//! Type-parametric value for evaluation
 use open_hypergraphs::lax::{EdgeId, NodeId};
 use std::fmt::Debug;
 
@@ -12,14 +12,13 @@ use crate::ssa::{SSA, SSAError};
 
 pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
 
-/// [`ValueTypes`] defines a set of types which the interpreter will use to represent values
-/// at runtime. For example:
+/// An [`Interpreter`] defines a set of types used to represent values at runtime. For example:
 ///
 /// - In the tensor backend `Nat` is a `usize`
 /// - In the typechecker, `Nat` is an *expression* over natural numbers
 ///
-/// Each associated type must implement its corresopnding trait. So for example Nats can be added,
-/// multiplied etc, while Dtypes have constants, and so on.
+/// In addition, functions like `pack`, `unpack`, etc. allow the interpreter to parametrise
+/// the behaviour of [`eval`](super::eval::eval).
 pub trait Interpreter: Clone {
     type Nat: Clone + Debug + PartialEq;
     type Dtype: Clone + Debug + PartialEq;

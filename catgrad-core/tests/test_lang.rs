@@ -52,7 +52,7 @@ fn test_check_exp() {
 pub fn run_check_test(
     term: Option<catgrad_core::category::lang::TypedTerm>,
     svg_filename: &str,
-) -> Result<(), TypecheckError> {
+) -> Result<(), InterpreterError> {
     let TypedTerm {
         term, source_type, ..
     } = term.unwrap();

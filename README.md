@@ -59,14 +59,14 @@ is provided in [examples/hidden.rs](./catgrad-core/examples/hidden.rs).
 
 ### Defining Models
 
-Construct a model or layer by implementing [`crate::stdlib::Def`].
+Construct a model or layer by implementing [`crate::stdlib::Module`].
 Here's how the standard library defines the `Sigmoid` layer:
 
 ```rust,ignore
 use catgrad_core::prelude::*;
 
 struct Sigmoid;
-impl Def<1, 1> for Sigmoid {
+impl Module<1, 1> for Sigmoid {
     // Name of the model/definition
     fn path(&self) -> Path {
         path(vec!["nn", "sigmoid"]).unwrap()

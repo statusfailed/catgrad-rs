@@ -1,4 +1,4 @@
-//! Abstract interpreter and types
+//! Abstract evaluation
 use super::types::*;
 
 use crate::category::core::*;
@@ -8,6 +8,7 @@ use crate::ssa::parallel_ssa;
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
+/// Evaluate a [`Term`] using an abstract [`Interpreter`]
 pub fn eval<I: Interpreter>(
     interpreter: &I,
     term: Term,
@@ -16,7 +17,8 @@ pub fn eval<I: Interpreter>(
     eval_with(interpreter, term, values, |_, _| ())
 }
 
-/// Run the interpreter with specified input values
+/// Evaluate a [`Term`] using an abstract [`Interpreter`], and call the `on_write` callback after
+/// every node has an intermediate value assigned.
 pub fn eval_with<I: Interpreter, F: FnMut(NodeId, &Value<I>)>(
     interpreter: &I,
     term: Term,
