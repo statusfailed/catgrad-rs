@@ -1,8 +1,9 @@
+use catgrad_core::abstract_interpreter::Value;
 use catgrad_core::category::core::Dtype;
 use catgrad_core::category::core::Shape;
-use catgrad_core::check::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr, Value};
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad_core::prelude::*;
+use catgrad_core::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
 
 use catgrad_core::interpreter;
 
@@ -30,7 +31,7 @@ fn main() -> Result<()> {
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Shapecheck the model
-    check::check(&env, &parameters, typed_term.clone())
+    typecheck::check(&env, &parameters, typed_term.clone())
         .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
 
     // Run interpreter
@@ -366,8 +367,6 @@ impl Module<1, 1> for GPT2Model {
 
     // This should return the *detailed* type of the model
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        use catgrad_core::check::*;
-
         let batch_size = NatExpr::Var(0);
         let seq_len = NatExpr::Var(1);
 
@@ -390,7 +389,7 @@ impl Module<1, 1> for GPT2Model {
 fn load_model<B: interpreter::Backend>(
     model_name: &str,
     backend: &B,
-) -> Result<(interpreter::Parameters<B>, check::Parameters, Config)> {
+) -> Result<(interpreter::Parameters<B>, typecheck::Parameters, Config)> {
     let (model_paths, config_path, _tokenizer_path, _) = get_model_files(model_name, "main")?;
 
     let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
@@ -433,7 +432,7 @@ fn load_model<B: interpreter::Backend>(
     }
     Ok((
         interpreter::Parameters::from(data_map),
-        check::Parameters::from(type_map),
+        typecheck::Parameters::from(type_map),
         config,
     ))
 }

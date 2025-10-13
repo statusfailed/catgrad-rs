@@ -1,6 +1,6 @@
 use catgrad_core::category::lang::*;
-use catgrad_core::check::*;
 use catgrad_core::stdlib::*;
+use catgrad_core::typecheck::*;
 
 pub mod test_utils;
 use test_utils::{get_forget_core_declarations, save_diagram_if_enabled};
@@ -19,19 +19,14 @@ fn test_construct_linear_sigmoid() {
 #[test]
 fn test_graph_sigmoid() {
     let term = nn::Sigmoid.term().unwrap().term;
-    use open_hypergraphs::lax::functor::*;
-
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+    let term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
     save_diagram_if_enabled("test_graph_sigmoid.svg", &term);
 }
 
 #[test]
 fn test_graph_linear_sigmoid() {
     let term = LinearSigmoid.term().unwrap().term;
-
-    use open_hypergraphs::lax::functor::*;
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
-
+    let term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
     save_diagram_if_enabled("test_graph_linear_sigmoid.svg", &term);
 }
 
@@ -57,19 +52,20 @@ fn test_check_exp() {
 pub fn run_check_test(
     term: Option<catgrad_core::category::lang::TypedTerm>,
     svg_filename: &str,
-) -> Result<(), ShapeCheckError> {
-    use open_hypergraphs::lax::functor::*;
+) -> Result<(), InterpreterError> {
     let TypedTerm {
         term, source_type, ..
     } = term.unwrap();
 
-    let term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&term);
+    let term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
     let env = get_forget_core_declarations();
 
     let result = check_with(&env, &Parameters::default(), term.clone(), source_type)?;
     println!("result: {result:?}");
 
-    let typed_term = term.with_nodes(|_| result).unwrap();
+    let typed_term = term
+        .with_nodes(|_| result.into_iter().map(|e| format!("{e:?}")).collect())
+        .unwrap();
     save_diagram_if_enabled(svg_filename, &typed_term);
 
     Ok(())

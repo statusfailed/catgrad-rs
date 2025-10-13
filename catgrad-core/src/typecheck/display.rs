@@ -1,7 +1,8 @@
 use crate::category::core::Dtype;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use super::types::*;
+use super::interpreter::Value;
+use super::value_types::*;
 
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {

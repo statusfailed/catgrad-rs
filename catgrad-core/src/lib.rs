@@ -9,11 +9,12 @@ pub mod pass;
 pub mod path;
 
 // Shapechecking & Evaluation
-pub mod check;
 pub mod interpreter;
 pub mod ssa;
+pub mod typecheck;
 
 // general compiler tools
+pub mod abstract_interpreter;
 pub mod definition;
 
 // Utilities

@@ -27,10 +27,9 @@ pub fn save_diagram_if_enabled<
 }
 
 pub fn get_forget_core_declarations() -> Environment {
-    use open_hypergraphs::lax::functor::*;
     let mut env = stdlib();
     for def in env.definitions.values_mut() {
-        def.term = open_hypergraphs::lax::var::forget::Forget.map_arrow(&def.term);
+        def.term = open_hypergraphs::lax::var::forget::forget_monogamous(&def.term);
     }
     env
 }

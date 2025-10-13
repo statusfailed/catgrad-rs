@@ -1,4 +1,4 @@
-use super::types::NatExpr;
+use super::value_types::NatExpr;
 use std::collections::HashSet;
 
 /// Check if shapes of known rank are isomorphic

@@ -1,6 +1,7 @@
+use catgrad_core::abstract_interpreter::Value;
 use catgrad_core::category::lang::*;
-use catgrad_core::check::*;
 use catgrad_core::stdlib::{nn::*, *};
+use catgrad_core::typecheck::value_types::*;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Example program
