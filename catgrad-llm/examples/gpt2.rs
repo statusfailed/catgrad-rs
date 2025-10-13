@@ -1,8 +1,9 @@
+use catgrad_core::abstract_interpreter::Value;
 use catgrad_core::category::core::Dtype;
 use catgrad_core::category::core::Shape;
-use catgrad_core::check::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr, Value};
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad_core::prelude::*;
+use catgrad_core::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
 
 use catgrad_core::interpreter;
 
