@@ -138,6 +138,14 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
+    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => U32([Self::reduce_last_dim(arr)]),
+            U32([arr]) => U32([Self::reduce_last_dim(arr)]),
+        }
+    }
+
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
         use TaggedNdArrayTuple::*;
         match x {

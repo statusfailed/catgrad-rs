@@ -18,7 +18,7 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Sum => tensor_sum(backend, args, ssa),
         TensorOp::Max => tensor_max(backend, args, ssa),
         TensorOp::Arange => tensor_arange(backend, args, ssa),
-        TensorOp::Argmax => todo!("argmax"),
+        TensorOp::Argmax => tensor_argmax(backend, args, ssa),
         TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
         TensorOp::Reshape => tensor_reshape(backend, args, ssa),
         TensorOp::Transpose => tensor_transpose(backend, args, ssa),
@@ -171,6 +171,31 @@ fn tensor_max<B: Backend>(
     };
 
     let result = backend.max(x.clone());
+    Ok(vec![Value::NdArray(result)])
+}
+
+fn tensor_argmax<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &CoreSSA,
+) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    if args.len() != 1 {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::ArityError,
+            ssa: ssa.clone(),
+        }));
+    }
+
+    let tensor = &args[0];
+
+    let Value::NdArray(x) = tensor else {
+        return Err(Box::new(ApplyError {
+            kind: ApplyErrorKind::TypeError,
+            ssa: ssa.clone(),
+        }));
+    };
+
+    let result = backend.argmax(x.clone());
     Ok(vec![Value::NdArray(result)])
 }
 

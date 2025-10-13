@@ -84,6 +84,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "slice"], Operation::Tensor(Slice)),
         (path!["tensor", "sum"], Operation::Tensor(Sum)),
         (path!["tensor", "max"], Operation::Tensor(Max)),
+        (path!["tensor", "argmax"], Operation::Tensor(Argmax)),
         (path!["tensor", "arange"], Operation::Tensor(Arange)),
         (path!["tensor", "concat"], Operation::Tensor(Concat)),
         (path!["tensor", "scalar"], Operation::Tensor(Scalar)),
@@ -93,6 +94,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         // Shape ops
         (path!["shape", "pack"], Operation::Type(TypeOp::Pack)),
         (path!["shape", "unpack"], Operation::Type(TypeOp::Unpack)),
+        (path!["nat", "add"], Operation::Nat(NatOp::Add)),
         (path!["nat", "mul"], Operation::Nat(NatOp::Mul)),
     ])
 }

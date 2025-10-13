@@ -222,6 +222,10 @@ pub fn sum(builder: &Builder, x: Var) -> Var {
     var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "sum"])
 }
 
+pub fn argmax(builder: &Builder, x: Var) -> Var {
+    var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "argmax"])
+}
+
 pub fn scalar(builder: &Builder, nat: Var) -> Var {
     var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "scalar"])
 }

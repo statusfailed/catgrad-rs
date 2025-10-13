@@ -166,6 +166,14 @@ impl Backend for NdArrayBackend {
         }
     }
 
+    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+        use TaggedNdArrayTuple::*;
+        match x {
+            F32([arr]) => U32([Self::argmax_f32(arr)]),
+            U32([arr]) => U32([Self::argmax_u32(arr)]),
+        }
+    }
+
     fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self> {
         use TaggedNdArrayTuple::*;
         match x {
@@ -344,6 +352,32 @@ impl NdArrayBackend {
         let axis = x.ndim() - 1;
         x.fold_axis(Axis(axis), u32::MIN, |acc, x| *acc.max(x))
             .insert_axis(Axis(axis))
+    }
+
+    fn argmax_f32(x: ArrayD<f32>) -> ArrayD<u32> {
+        // across the last dimension
+        let axis = x.ndim() - 1;
+        x.map_axis(Axis(axis), |view| {
+            view.iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.total_cmp(b))
+                .map(|(idx, _)| idx as u32)
+                .unwrap()
+        })
+        .insert_axis(Axis(axis))
+    }
+
+    fn argmax_u32(x: ArrayD<u32>) -> ArrayD<u32> {
+        // across the last dimension
+        let axis = x.ndim() - 1;
+        x.map_axis(Axis(axis), |view| {
+            view.iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.cmp(b))
+                .map(|(idx, _)| idx as u32)
+                .unwrap()
+        })
+        .insert_axis(Axis(axis))
     }
 
     fn sum<D>(x: ArrayD<D>) -> ArrayD<D>

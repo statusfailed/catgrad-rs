@@ -50,6 +50,7 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self>;
     fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
+    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
     fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool;
     fn concat(
         &self,
