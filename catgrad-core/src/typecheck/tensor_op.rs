@@ -38,7 +38,7 @@ fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
     // FIXME: do Sin/Cos work on non-floating types? Are LT/EQ supposed to return U32 or F32?
 
     // ensure all types are the same
-    if types.len() == 0 || types.iter().all(|x| *x == types[0]) {
+    if types.is_empty() || types.iter().all(|x| *x == types[0]) {
         Ok((0..coarity)
             .map(|_| Value::Tensor(types[0].clone()))
             .collect())
@@ -104,7 +104,7 @@ fn tensor_matmul(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
             shape: ShapeExpr::Shape(shape),
         }))])
     } else {
-        return Err(InterpreterError::TypeError(ssa.edge_id));
+        Err(InterpreterError::TypeError(ssa.edge_id))
     }
 }
 
@@ -140,7 +140,7 @@ fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     Ok(vec![Value::Tensor(type_expr)])
 }
 
-fn compat_shapes(x: &Vec<NatExpr>, y: &Vec<NatExpr>) -> bool {
+fn compat_shapes(x: &[NatExpr], y: &[NatExpr]) -> bool {
     let d = y.len() as isize - x.len() as isize;
     if d < 0 {
         return false;
@@ -168,7 +168,7 @@ fn tensor_broadcast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         // unit () is always broadcastable
         (ShapeExpr::Shape(ts), ShapeExpr::Var(_)) if ts.is_empty() => Ok(s),
         // otherwise check compatibility
-        (ShapeExpr::Shape(ts), ShapeExpr::Shape(ss)) if compat_shapes(&ts, &ss) => Ok(s),
+        (ShapeExpr::Shape(ts), ShapeExpr::Shape(ss)) if compat_shapes(&ts, ss) => Ok(s),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
 
@@ -206,7 +206,7 @@ fn tensor_transpose(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 fn tensor_slice(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [input, dim, _start, len] = get_exact_arity(ssa, args)?;
     let (input, dim, len) = (
-        to_tensor(ssa, input)?.as_ndarraytype(ssa)?,
+        to_tensor(ssa, input)?.into_ndarraytype(ssa)?,
         to_nat(ssa, dim)?,
         to_nat(ssa, len)?,
     );
@@ -240,9 +240,9 @@ fn tensor_arange(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 fn tensor_index(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [input, n, idx] = get_exact_arity(ssa, args)?;
     let (input, n, idx) = (
-        to_tensor(ssa, input)?.as_ndarraytype(ssa)?,
+        to_tensor(ssa, input)?.into_ndarraytype(ssa)?,
         to_nat(ssa, n)?,
-        to_tensor(ssa, idx)?.as_ndarraytype(ssa)?,
+        to_tensor(ssa, idx)?.into_ndarraytype(ssa)?,
     );
 
     // FIXME: normalize nat
@@ -267,7 +267,7 @@ fn tensor_reshape(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [target_shape, tensor] = get_exact_arity(ssa, args)?;
     let (target_shape, (shape, dtype)) = (
         to_shape(ssa, target_shape)?,
-        to_tensor(ssa, tensor)?.as_shapeexpr_dtype(ssa)?,
+        to_tensor(ssa, tensor)?.into_shapeexpr_dtype(ssa)?,
     );
 
     if !shapes_isomorphic(&shape, &target_shape) {
@@ -277,7 +277,7 @@ fn tensor_reshape(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 
     let target_type = NdArrayType {
         shape: target_shape,
-        dtype: dtype,
+        dtype,
     };
     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(target_type))])
 }

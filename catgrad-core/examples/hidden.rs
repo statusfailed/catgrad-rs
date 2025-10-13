@@ -140,7 +140,7 @@ impl Module<1, 1> for SimpleMNISTModel {
     // This should return the *detailed* type of the model
     // TODO: NOTE: API for writing types is still WIP. Lots of boilerplate here!
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        use catgrad_core::check::*;
+        use catgrad_core::typecheck::*;
 
         let batch_size = NatExpr::Var(0);
 
@@ -171,7 +171,9 @@ impl Module<1, 1> for SimpleMNISTModel {
 // NOTE: you would normally create this data by reading the safetensors file!
 fn load_param_types() -> check::Parameters {
     use catgrad_core::category::core::Dtype;
-    use catgrad_core::check::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr, Value};
+    use catgrad_core::typecheck::value_types::{
+        DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr,
+    };
 
     let mut map = HashMap::new();
 

@@ -60,7 +60,7 @@ pub trait Interpreter: Clone {
 }
 
 /// Tagged value types for a given [`Interpreter`] type
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value<V: Interpreter> {
     Nat(V::Nat),
     Dtype(V::Dtype),

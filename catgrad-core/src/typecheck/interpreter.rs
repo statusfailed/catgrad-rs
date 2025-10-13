@@ -7,8 +7,14 @@ use super::tensor_op::tensor_op;
 pub type Value = abstract_interpreter::Value<Interpreter>;
 pub type ResultValues = abstract_interpreter::EvalResultValues<Interpreter>;
 
-#[derive(Clone, std::fmt::Debug)]
+#[derive(Clone, std::fmt::Debug, PartialEq)]
 pub struct Interpreter {}
+
+impl Interpreter {
+    pub(crate) fn new() -> Self {
+        Interpreter {}
+    }
+}
 
 impl abstract_interpreter::Interpreter for Interpreter {
     type Nat = NatExpr;

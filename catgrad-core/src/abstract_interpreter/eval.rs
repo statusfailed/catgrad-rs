@@ -42,8 +42,8 @@ pub fn eval<I: Interpreter>(
 
             // Dispatch: ops are either definitions or core ops.
             let results = match &ssa.op {
-                Def::Def(path) => interpreter.handle_definition(&ssa, args, &path),
-                Def::Arr(op) => apply_op(&interpreter, &ssa, args, &op),
+                Def::Def(path) => interpreter.handle_definition(&ssa, args, path),
+                Def::Arr(op) => apply_op(&interpreter, &ssa, args, op),
             }?;
 
             // write each result into state at op.targets ids

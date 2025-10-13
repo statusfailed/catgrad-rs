@@ -44,14 +44,14 @@ pub enum DtypeExpr {
 // Helper impls
 
 impl TypeExpr {
-    pub(crate) fn as_ndarraytype(self, ssa: &CoreSSA) -> EvalResult<NdArrayType> {
+    pub(crate) fn into_ndarraytype(self, ssa: &CoreSSA) -> EvalResult<NdArrayType> {
         match self {
             Self::NdArrayType(t) => Ok(t),
             _ => Err(InterpreterError::TypeError(ssa.edge_id)),
         }
     }
 
-    pub(crate) fn as_shapeexpr_dtype(self, ssa: &CoreSSA) -> EvalResult<(ShapeExpr, DtypeExpr)> {
+    pub(crate) fn into_shapeexpr_dtype(self, ssa: &CoreSSA) -> EvalResult<(ShapeExpr, DtypeExpr)> {
         match self {
             Self::NdArrayType(NdArrayType { shape, dtype }) => Ok((shape, dtype)),
             _ => Err(InterpreterError::TypeError(ssa.edge_id)),

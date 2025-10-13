@@ -27,6 +27,10 @@ impl Environment {
     pub fn op_to_core(&self, op: lang::Operation) -> Def<Path, core::Operation> {
         op_to_core(op, &self.declarations)
     }
+
+    pub fn to_core(&self, term: lang::Term) -> core::Term {
+        to_core(term, &self.declarations)
+    }
 }
 
 /// Lower a `lang::Term` to a `core::Term`.
