@@ -62,14 +62,14 @@ fn tensor_cast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let type_expr = match tensor {
         // Shape of v, but dtype
         TypeExpr::Var(v) => TypeExpr::NdArrayType(NdArrayType {
-            dtype: dtype.clone(),
+            dtype,
             shape: ShapeExpr::OfType(v),
         }),
 
         // Replace dtype of existing NdArrayType
         TypeExpr::NdArrayType(s) => TypeExpr::NdArrayType(NdArrayType {
-            dtype: dtype.clone(),
-            shape: s.shape.clone(),
+            dtype,
+            shape: s.shape,
         }),
     };
     Ok(vec![Value::Tensor(type_expr)])
@@ -255,7 +255,7 @@ fn tensor_index(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         (ShapeExpr::Shape(mut input_shape), ShapeExpr::Shape(idx_shape)) => {
             input_shape[n] = idx_shape[0].clone();
             Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                dtype: input.dtype.clone(),
+                dtype: input.dtype,
                 shape: ShapeExpr::Shape(input_shape),
             }))])
         }
