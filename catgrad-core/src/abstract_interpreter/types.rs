@@ -21,11 +21,11 @@ pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
 /// Each associated type must implement its corresopnding trait. So for example Nats can be added,
 /// multiplied etc, while Dtypes have constants, and so on.
 pub trait Interpreter: Clone {
-    type Nat: Clone + Debug;
-    type Dtype: Clone + Debug;
-    type Shape: Clone + Debug;
-    type NdArrayType: Clone + Debug;
-    type Tensor: Clone + Debug;
+    type Nat: Clone + Debug + PartialEq;
+    type Dtype: Clone + Debug + PartialEq;
+    type Shape: Clone + Debug + PartialEq;
+    type NdArrayType: Clone + Debug + PartialEq;
+    type Tensor: Clone + Debug + PartialEq;
 
     // type ops
     fn pack(dims: Vec<Self::Nat>) -> Self::Shape;
@@ -40,6 +40,9 @@ pub trait Interpreter: Clone {
     fn nat_constant(nat: usize) -> Self::Nat;
     fn nat_add(a: Self::Nat, b: Self::Nat) -> Self::Nat;
     fn nat_mul(a: Self::Nat, b: Self::Nat) -> Self::Nat;
+
+    /// TODO: handle loads as declarations - see Issue #245
+    fn handle_load(&self, ssa: &CoreSSA, path: &Path) -> Option<Vec<Value<Self>>>;
 
     /// Handler for Def(path) ops.
     fn handle_definition(
@@ -60,7 +63,7 @@ pub trait Interpreter: Clone {
 }
 
 /// Tagged value types for a given [`Interpreter`] type
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Value<V: Interpreter> {
     Nat(V::Nat),
     Dtype(V::Dtype),
@@ -69,9 +72,23 @@ pub enum Value<V: Interpreter> {
     Tensor(V::Tensor),
 }
 
+impl<I: Interpreter> PartialEq for Value<I> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Nat(l0), Self::Nat(r0)) => l0 == r0,
+            (Self::Dtype(l0), Self::Dtype(r0)) => l0 == r0,
+            (Self::Shape(l0), Self::Shape(r0)) => l0 == r0,
+            (Self::Type(l0), Self::Type(r0)) => l0 == r0,
+            (Self::Tensor(l0), Self::Tensor(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
 pub type EvalResult<T> = std::result::Result<T, InterpreterError>;
 pub type EvalResultValues<V> = std::result::Result<Vec<Value<V>>, InterpreterError>;
 
+#[derive(Clone, Debug)]
 pub enum InterpreterError {
     /// A node appeared as a *source* of multiple hyperedges, and so interpreting tried to read a
     /// value that had already been consumed.
@@ -85,6 +102,8 @@ pub enum InterpreterError {
     TypeError(EdgeId),
     /// Unexpected number of arguments to an operation
     ArityError(EdgeId),
+    /// Interpreter failed to handle a Load operation
+    Load(EdgeId, Path),
 }
 
 impl From<SSAError> for InterpreterError {

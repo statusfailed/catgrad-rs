@@ -1,18 +1,35 @@
+use super::Parameters;
 use super::value_types::*;
-use crate::category::{core, core::TensorOp};
-use crate::{abstract_interpreter, abstract_interpreter::CoreSSA};
+
+use crate::category::{core, core::TensorOp, lang};
+use crate::{
+    abstract_interpreter,
+    abstract_interpreter::{CoreSSA, eval},
+};
+
+use crate::pass::to_core::Environment;
 
 use super::tensor_op::tensor_op;
 
 pub type Value = abstract_interpreter::Value<Interpreter>;
 pub type ResultValues = abstract_interpreter::EvalResultValues<Interpreter>;
 
-#[derive(Clone, std::fmt::Debug, PartialEq)]
-pub struct Interpreter {}
+#[derive(Clone, std::fmt::Debug)]
+pub struct Interpreter {
+    pub(crate) environment: Environment,
+    pub(crate) parameters: Parameters,
+}
 
 impl Interpreter {
-    pub(crate) fn new() -> Self {
-        Interpreter {}
+    pub(crate) fn new(environment: Environment, parameters: Parameters) -> Self {
+        Interpreter {
+            environment,
+            parameters,
+        }
+    }
+
+    pub fn check_with(&self, term: core::Term, source_values: Vec<Value>) -> ResultValues {
+        eval(self, term, source_values)
     }
 }
 
@@ -65,13 +82,21 @@ impl abstract_interpreter::Interpreter for Interpreter {
         NatExpr::Mul(vec![a, b])
     }
 
+    fn handle_load(&self, _ssa: &CoreSSA, path: &crate::prelude::Path) -> Option<Vec<Value>> {
+        self.parameters.0.get(path).map(|t| vec![t.clone()])
+    }
+
     fn handle_definition(
         &self,
         _ssa: &CoreSSA,
-        _args: Vec<abstract_interpreter::Value<Self>>,
-        _path: &crate::prelude::Path,
+        args: Vec<abstract_interpreter::Value<Self>>,
+        path: &crate::prelude::Path,
     ) -> abstract_interpreter::EvalResultValues<Self> {
-        todo!("todo: typecheck definitions")
+        let source_values = args.to_vec();
+        let lang::TypedTerm { term, .. } = self.environment.definitions.get(path).unwrap();
+        // TODO: can we remove this clone?
+        let term = self.environment.to_core(term.clone());
+        self.check_with(term, source_values)
     }
 
     fn tensor_op(

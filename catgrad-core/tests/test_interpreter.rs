@@ -2,7 +2,7 @@
 
 use catgrad_core::category::core::Shape;
 use catgrad_core::category::lang::*;
-use catgrad_core::{check, check::*};
+use catgrad_core::{typecheck, typecheck::*};
 
 use catgrad_core::stdlib::*;
 
@@ -32,7 +32,7 @@ where
     // Typecheck
     let _result = check_with(
         &env,
-        &check::Parameters::default(),
+        &typecheck::Parameters::default(),
         term.clone(),
         source_type,
     )

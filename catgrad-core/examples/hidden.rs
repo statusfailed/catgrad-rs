@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Shapecheck the model
     let check_result =
-        check::check(&env, &parameters, typed_term.clone()).expect("typecheck failed");
+        typecheck::check(&env, &parameters, typed_term.clone()).expect("typecheck failed");
 
     // Diagram of term with shapes inferred
     let labeled_term = typed_term.term.clone().with_nodes(|_| check_result);
@@ -169,7 +169,7 @@ impl Module<1, 1> for SimpleMNISTModel {
 // NOTE: in reality, this would be done by loading e.g. a safetensors file.
 
 // NOTE: you would normally create this data by reading the safetensors file!
-fn load_param_types() -> check::Parameters {
+fn load_param_types() -> typecheck::Parameters {
     use catgrad_core::category::core::Dtype;
     use catgrad_core::typecheck::value_types::{
         DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr,
@@ -200,7 +200,7 @@ fn load_param_types() -> check::Parameters {
         layer2_type,
     );
 
-    check::Parameters::from(map)
+    typecheck::Parameters::from(map)
 }
 
 // NOTE: you would normally create this data by reading the safetensors file!

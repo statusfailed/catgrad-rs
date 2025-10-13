@@ -1,5 +1,6 @@
 //! Trait helpers for creating the stdlib and defining models/layers/etc.
 use crate::category::lang::*;
+use crate::typecheck::Value;
 use crate::util::build_typed;
 
 use open_hypergraphs::lax::var;
@@ -83,7 +84,6 @@ pub trait Module<const A: usize, const B: usize> {
 /// Get the corresponding [`Object`] (sort) for a given [`Type`]
 // TODO: move?
 fn to_sort(value: Type) -> Object {
-    use crate::check::Value;
     match value {
         Value::Type(_) => Object::NdArrayType,
         Value::Shape(_) => Object::Shape,

@@ -126,7 +126,7 @@ use catgrad_core::prelude::*;
 let model = nn::Sigmoid;
 let term = model.term().unwrap(); // extract graph
 
-check::check(&stdlib(), &check::Parameters::from([]), term).expect("typechecking failed");
+typecheck::check(&stdlib(), &typecheck::Parameters::from([]), term).expect("typechecking failed");
 ```
 
 The `stdlib` and `parameters` arguments define what definitions and parameters are in scope when typechecking.

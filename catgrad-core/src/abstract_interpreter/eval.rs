@@ -8,11 +8,20 @@ use crate::ssa::parallel_ssa;
 use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
-/// Run the interpreter with specified input values
 pub fn eval<I: Interpreter>(
-    interpreter: I,
+    interpreter: &I,
     term: Term,
     values: Vec<Value<I>>,
+) -> EvalResultValues<I> {
+    eval_with(interpreter, term, values, |_, _| ())
+}
+
+/// Run the interpreter with specified input values
+pub fn eval_with<I: Interpreter, F: FnMut(NodeId, &Value<I>)>(
+    interpreter: &I,
+    term: Term,
+    values: Vec<Value<I>>,
+    mut on_write: F,
 ) -> EvalResultValues<I> {
     // TODO: replace with Err
     assert_eq!(values.len(), term.sources.len());
@@ -20,6 +29,7 @@ pub fn eval<I: Interpreter>(
     // create initial state by moving argument values into state
     let mut state = HashMap::<NodeId, Value<I>>::new();
     for (node_id, value) in term.sources.iter().zip(values) {
+        on_write(*node_id, &value);
         state.insert(*node_id, value);
     }
 
@@ -43,11 +53,12 @@ pub fn eval<I: Interpreter>(
             // Dispatch: ops are either definitions or core ops.
             let results = match &ssa.op {
                 Def::Def(path) => interpreter.handle_definition(&ssa, args, path),
-                Def::Arr(op) => apply_op(&interpreter, &ssa, args, op),
+                Def::Arr(op) => apply_op(interpreter, &ssa, args, op),
             }?;
 
             // write each result into state at op.targets ids
             for ((node_id, _), result) in ssa.targets.iter().zip(results) {
+                on_write(*node_id, &result);
                 if state.insert(*node_id, result).is_some() {
                     return Err(InterpreterError::MultipleWrite(*node_id));
                 }
@@ -79,7 +90,9 @@ fn apply_op<I: Interpreter>(
         Operation::DtypeConstant(dtype) => Ok(vec![Value::Dtype(I::dtype_constant(dtype.clone()))]),
         Operation::Tensor(tensor_op) => interpreter.tensor_op(ssa, args, tensor_op),
         Operation::Copy => apply_copy(ssa, args),
-        Operation::Load(_path) => todo!("Load"),
+        Operation::Load(path) => interpreter
+            .handle_load(ssa, path)
+            .ok_or(InterpreterError::Load(ssa.edge_id, path.clone())),
     }
 }
 

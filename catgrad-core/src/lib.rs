@@ -9,7 +9,6 @@ pub mod pass;
 pub mod path;
 
 // Shapechecking & Evaluation
-pub mod check;
 pub mod interpreter;
 pub mod ssa;
 pub mod typecheck;
