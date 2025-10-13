@@ -59,7 +59,7 @@ pub trait Interpreter: Clone {
     ) -> EvalResultValues<Self>;
 }
 
-/// Interpreting is the process of associating a `Value<V>` with each wire of a term
+/// Tagged value types for a given [`Interpreter`] type
 #[derive(Debug, Clone)]
 pub enum Value<V: Interpreter> {
     Nat(V::Nat),
@@ -69,7 +69,6 @@ pub enum Value<V: Interpreter> {
     Tensor(V::Tensor),
 }
 
-//pub type EvalResult<V> = std::result::Result<Vec<Value<V>>, InterpreterError>;
 pub type EvalResult<T> = std::result::Result<T, InterpreterError>;
 pub type EvalResultValues<V> = std::result::Result<Vec<Value<V>>, InterpreterError>;
 

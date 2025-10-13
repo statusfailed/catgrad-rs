@@ -1,8 +1,6 @@
 //! Abstract interpreter and types
-
 use super::types::*;
 
-//use crate::category::lang::Term;
 use crate::category::core::*;
 use crate::definition::Def;
 use crate::ssa::parallel_ssa;
@@ -11,7 +9,6 @@ use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
 /// Run the interpreter with specified input values
-/// TODO: backend/state ?
 pub fn eval<I: Interpreter>(
     interpreter: I,
     term: Term,
