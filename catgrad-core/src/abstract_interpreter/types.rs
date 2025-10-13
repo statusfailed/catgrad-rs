@@ -24,7 +24,7 @@ pub trait Interpreter: Clone {
     type Dtype: Clone + Debug + PartialEq;
     type Shape: Clone + Debug + PartialEq;
     type NdArrayType: Clone + Debug + PartialEq;
-    type Tensor: Clone + Debug + PartialEq;
+    type Tensor: Clone + Debug;
 
     // type ops
     fn pack(dims: Vec<Self::Nat>) -> Self::Shape;
@@ -71,7 +71,10 @@ pub enum Value<V: Interpreter> {
     Tensor(V::Tensor),
 }
 
-impl<I: Interpreter> PartialEq for Value<I> {
+impl<I: Interpreter> PartialEq for Value<I>
+where
+    I::Tensor: PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Nat(l0), Self::Nat(r0)) => l0 == r0,

@@ -5,9 +5,7 @@ use std::collections::HashMap;
 
 use crate::category::{core, lang};
 use crate::definition::Def;
-use crate::interpreter;
 use crate::path::Path;
-use crate::stdlib;
 use std::fmt::Debug;
 
 /// [`Environment`] tells the [`to_core`] pass how to translate
@@ -69,24 +67,8 @@ fn op_to_core(
 }
 
 /// Lower an entire stdlib::Environment to the core, discarding type maps.
-pub fn env_to_core(env: crate::stdlib::Environment) -> interpreter::Environment {
-    let stdlib::Environment {
-        definitions,
-        declarations,
-    } = env;
-
-    let definitions = definitions
-        .into_iter()
-        .map(|(k, v)| {
-            let v = to_core(v.term, &declarations);
-            (k, v)
-        })
-        .collect();
-
-    interpreter::Environment {
-        definitions,
-        declarations,
-    }
+pub fn env_to_core(env: Environment) -> Environment {
+    env
 }
 
 ////////////////////////////////////////////////////////////////////////////////

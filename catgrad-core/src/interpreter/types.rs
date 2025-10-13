@@ -1,56 +1,12 @@
 //! Catgrad reference interpreter
 
-use crate::category::core::{Dtype, Object, Operation};
-use crate::ssa::SSA;
-
 use super::backend::*;
-use crate::category::core::{NdArrayType, Shape};
+use super::interpreter::Interpreter;
+use crate::abstract_interpreter;
+use crate::category::core::{Dtype, Shape};
 
-use crate::definition::Def;
-use crate::path::Path;
-
-pub(crate) type CoreSSA = SSA<Object, Def<Path, Operation>>;
-
-#[derive(Debug, Clone)]
-pub struct ApplyError {
-    pub kind: ApplyErrorKind,
-    pub ssa: CoreSSA,
-}
-
-#[derive(Debug, Clone)]
-pub enum ApplyErrorKind {
-    TypeError,
-    ArityError,
-    NatOverflow,             // Nat was not representable as a u32
-    MissingOperation(Path),  // Operation declaration not found in ops
-    MissingDefinition(Path), // Operation definition not found in env
-    BackendError(BackendError),
-}
-
-impl From<BackendError> for ApplyErrorKind {
-    fn from(error: BackendError) -> Self {
-        ApplyErrorKind::BackendError(error)
-    }
-}
-
-// Actual values produced by the interpreter #[derive(Debug, Clone)]
-#[derive(Debug, Clone)]
-pub enum Value<B: Backend> {
-    /// A concrete natural number
-    Nat(usize),
-
-    /// A concrete dtype
-    Dtype(Dtype),
-
-    /// A concrete shape (list of natural numbers)
-    Shape(Shape),
-
-    /// A concrete NdArrayType (dtype + shape)
-    Type(NdArrayType),
-
-    /// A tensor with actual data
-    NdArray(TaggedNdArray<B>),
-}
+pub type Value<B> = abstract_interpreter::Value<Interpreter<B>>;
+pub type ResultValues<B> = abstract_interpreter::EvalResultValues<Interpreter<B>>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Multiple tagged ndarrays

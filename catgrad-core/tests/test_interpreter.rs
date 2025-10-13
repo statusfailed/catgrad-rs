@@ -64,10 +64,7 @@ fn test_run_add() {
 
     let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (
-            Value::NdArray(TaggedNdArray::U32([actual])),
-            Value::NdArray(TaggedNdArray::U32([exp])),
-        ) => {
+        (Value::Tensor(TaggedNdArray::U32([actual])), Value::Tensor(TaggedNdArray::U32([exp]))) => {
             assert!(
                 backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
@@ -106,10 +103,7 @@ fn test_run_batch_matmul() {
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
     let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (
-            Value::NdArray(TaggedNdArray::F32([actual])),
-            Value::NdArray(TaggedNdArray::F32([exp])),
-        ) => {
+        (Value::Tensor(TaggedNdArray::F32([actual])), Value::Tensor(TaggedNdArray::F32([exp]))) => {
             assert!(
                 backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
@@ -139,7 +133,7 @@ fn test_run_exp() {
     // make sure actual result is a single F32 array
     use catgrad_core::interpreter::{TaggedNdArray, Value};
     let actual = match &result[..] {
-        [Value::NdArray(TaggedNdArray::F32([actual]))] => actual,
+        [Value::Tensor(TaggedNdArray::F32([actual]))] => actual,
         xs => panic!("wrong output type: {xs:?}"),
     };
 
@@ -149,7 +143,7 @@ fn test_run_exp() {
     let expected_tensor = tensor(&backend, Shape(vec![2, 2]), &expected).unwrap();
 
     match (&expected_tensor, actual) {
-        (Value::NdArray(TaggedNdArray::F32([exp])), actual_arr) => {
+        (Value::Tensor(TaggedNdArray::F32([exp])), actual_arr) => {
             // For floating point, we need to use approximate equality
             // Since compare uses exact equality, we'll keep the allclose check for now
             // TODO: Consider adding an approximate equality method to the Backend trait
