@@ -232,20 +232,10 @@ impl GPT2Model {
             x,
         );
 
-        // TODO: use this instead of explicit slices below
-        // let a = nn::chunk(builder, 2, 3, c_attn);
-        // let q = a[0].clone();
-        // let k = a[1].clone();
-        // let v = a[2].clone();
-
-        let ddim = constant_nat(builder, 2);
-        let len = constant_nat(builder, dim as u32);
-        let qs = constant_nat(builder, 0);
-        let q = slice(builder, ddim.clone(), qs, len.clone(), c_attn.clone());
-        let ks = constant_nat(builder, dim as u32);
-        let k = slice(builder, ddim.clone(), ks, len.clone(), c_attn.clone());
-        let vs = constant_nat(builder, dim as u32 * 2);
-        let v = slice(builder, ddim, vs, len, c_attn);
+        let a = nn::chunk(builder, 2, 3, config.hidden_size, c_attn);
+        let q = a[0].clone();
+        let k = a[1].clone();
+        let v = a[2].clone();
 
         let hd = constant_nat(builder, head_dim as u32);
         let nh = constant_nat(builder, num_heads as u32);

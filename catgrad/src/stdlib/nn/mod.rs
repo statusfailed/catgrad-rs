@@ -123,13 +123,8 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
     ex / bsum
 }
 
-pub fn chunk(builder: &Builder, dim: isize, chunks: usize, x: Var) -> Vec<Var> {
-    let x_shape = shape(builder, x.clone());
-
-    let sh = unpack::<3>(builder, x_shape);
-
-    let d = sh[dim as usize].clone() / constant_nat(builder, chunks as u32);
-
+pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
+    let d = constant_nat(builder, chunk_size as u32);
     let ddim = constant_nat(builder, dim as u32);
     let mut outputs = vec![];
     for i in 0..chunks {
