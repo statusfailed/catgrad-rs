@@ -56,7 +56,7 @@ impl<B: Backend> abstract_interpreter::Interpreter for Interpreter<B> {
 
     fn handle_load(&self, _ssa: &CoreSSA, path: &crate::prelude::Path) -> Option<Vec<Value<B>>> {
         // TODO: remove clone?
-        self.parameters.0.get(path).map(|t| vec![Value::Tensor(t.clone())])
+        self.parameters.0.get(path).map(|t| vec![t.clone()])
     }
 
     fn handle_definition(
