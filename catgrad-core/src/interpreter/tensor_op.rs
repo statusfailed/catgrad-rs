@@ -143,7 +143,6 @@ fn tensor_arange<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) ->
 fn tensor_index<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
     let [x, d, ix] = get_exact_arity(ssa, args)?;
     let (input, dim, indices) = (to_tensor(ssa, x)?, to_nat(ssa, d)?, to_tensor(ssa, ix)?);
-    println!("{input:?} {dim:?} {indices:?}");
     Ok(vec![Value::Tensor(backend.index(input, dim, indices))])
 }
 
