@@ -37,7 +37,6 @@ pub(crate) fn tensor_op<B: Backend>(
         TensorOp::Concat => tensor_concat(backend, args, ssa),
         TensorOp::Arange => tensor_arange(backend, args, ssa),
         TensorOp::Index => tensor_index(backend, args, ssa),
-        TensorOp::Copy => todo!("FIXME: remove TensorOp::Copy"),
     }
 }
 
@@ -47,11 +46,13 @@ fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
     data: &[T],
 ) -> ResultValues<B> {
     // TODO: remove unwrap here!
-    let value = TaggedNdArray::from_slice(backend, data, shape.clone()).expect(&format!(
-        "Unable to create tensor from data of length {:?} with shape {:?}",
-        data.len(),
-        shape,
-    ));
+    let value = TaggedNdArray::from_slice(backend, data, shape.clone()).unwrap_or_else(|_| {
+        panic!(
+            "Unable to create tensor from data of length {:?} with shape {:?}",
+            data.len(),
+            shape,
+        )
+    });
     Ok(vec![Value::Tensor(value)])
 }
 

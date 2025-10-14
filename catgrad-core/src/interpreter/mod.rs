@@ -1,6 +1,7 @@
 pub mod types;
 pub use types::*;
 
+#[allow(clippy::module_inception)]
 pub mod interpreter;
 pub use interpreter::*;
 
