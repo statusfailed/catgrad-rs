@@ -264,3 +264,11 @@ pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     let beta = broadcast_to(builder, beta, lr_shape);
     lr + beta
 }
+
+pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    let x_shape = shape(builder, x.clone());
+    let mut s = unpack::<N>(builder, x_shape).to_vec();
+    s.insert(dim, constant_nat(builder, 1));
+    let new_shape = pack::<M>(builder, s.try_into().unwrap());
+    reshape(builder, new_shape, x)
+}
