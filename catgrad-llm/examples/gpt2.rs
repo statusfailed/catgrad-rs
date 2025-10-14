@@ -137,14 +137,7 @@ impl GPT2Model {
         // w is already transposed in GPT-2 checkpoints
         let w_t = w;
 
-        // hack batch size
-        let sh = shape(builder, w_t.clone());
-        let [seq_len, hidden_dim] = unpack::<2>(builder, sh);
-        let batch_size = constant_nat(builder, 1);
-        let sh = pack::<3>(builder, [batch_size, seq_len, hidden_dim]);
-
-        let w_t = reshape(builder, sh, w_t);
-
+        let w_t = nn::unsqueeze::<2, 3>(builder, 0, w_t);
         let m = matmul(builder, x, w_t);
         let sh = shape(builder, m.clone());
         let bb = broadcast_to(builder, b, sh);
