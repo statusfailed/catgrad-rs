@@ -265,10 +265,41 @@ pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     lr + beta
 }
 
+/// Add an additional dimension of extent 1 to a tensor
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
     let x_shape = shape(builder, x.clone());
     let mut s = unpack::<N>(builder, x_shape).to_vec();
     s.insert(dim, constant_nat(builder, 1));
     let new_shape = pack::<M>(builder, s.try_into().unwrap());
     reshape(builder, new_shape, x)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Helpers
+
+/// Transpose a tensor using either symbolic (Var) or static (u32) dims
+pub fn transpose(builder: &Builder, a: impl IntoNatVar, b: impl IntoNatVar, x: Var) -> Var {
+    crate::category::lang::transpose(builder, a.to_var(builder), b.to_var(builder), x)
+}
+
+pub trait IntoNatVar {
+    fn to_var(&self, builder: &Builder) -> Var;
+}
+
+impl IntoNatVar for Var {
+    fn to_var(&self, _builder: &Builder) -> Var {
+        self.clone()
+    }
+}
+
+impl IntoNatVar for u32 {
+    fn to_var(&self, builder: &Builder) -> Var {
+        constant_nat(builder, *self)
+    }
+}
+
+impl IntoNatVar for usize {
+    fn to_var(&self, builder: &Builder) -> Var {
+        constant_nat(builder, (*self).try_into().unwrap())
+    }
 }

@@ -30,6 +30,12 @@ impl Path {
         components.extend(other.0.clone());
         Path(components)
     }
+
+    pub fn push(&self, component: &str) -> Option<Path> {
+        let mut components = self.0.clone();
+        components.push(component.to_string().try_into().ok()?);
+        Some(Path(components))
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

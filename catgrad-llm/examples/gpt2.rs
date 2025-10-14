@@ -177,34 +177,23 @@ impl GPT2Model {
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
 
-        let c_attn = self.gpt_linear(
-            builder,
-            dim,
-            3 * dim,
-            p.concat(&path(vec!["c_attn"]).expect("invalid param path")),
-            x,
-        );
+        let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.push("c_attn").unwrap(), x);
 
         let a = nn::chunk(builder, 2, 3, config.hidden_size, c_attn);
         let q = a[0].clone();
         let k = a[1].clone();
         let v = a[2].clone();
 
-        let hd = constant_nat(builder, head_dim as u32);
-        let nh = constant_nat(builder, num_heads as u32);
-        let sh = pack::<4>(builder, [b.clone(), s.clone(), nh, hd]);
+        let sh = shape!(builder, b, s, num_heads, head_dim);
         let q = reshape(builder, sh.clone(), q);
         let k = reshape(builder, sh.clone(), k);
         let v = reshape(builder, sh, v);
 
-        let dim1 = constant_nat(builder, 1);
-        let dim2 = constant_nat(builder, 2);
-        let dim3 = constant_nat(builder, 3);
-        let q = transpose(builder, dim1.clone(), dim2.clone(), q);
-        let k = transpose(builder, dim1.clone(), dim2.clone(), k);
-        let v = transpose(builder, dim1.clone(), dim2.clone(), v);
+        let q = nn::transpose(builder, 1u32, 2u32, q);
+        let k = nn::transpose(builder, 1u32, 2u32, k);
+        let v = nn::transpose(builder, 1u32, 2u32, v);
 
-        let tk = transpose(builder, dim2.clone(), dim3, k);
+        let tk = nn::transpose(builder, 2u32, 3u32, k);
         let attn = matmul(builder, q, tk);
         let sh = shape(builder, attn.clone());
         let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
@@ -220,18 +209,12 @@ impl GPT2Model {
         let attn = nn::softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
-        let attn = transpose(builder, dim1, dim2, attn);
+        let attn = nn::transpose(builder, 1u32, 2u32, attn);
         let ddim = constant_nat(builder, dim as u32);
         let sh = pack::<3>(builder, [b, s, ddim]);
         let attn = reshape(builder, sh, attn);
 
-        self.gpt_linear(
-            builder,
-            dim,
-            dim,
-            p.concat(&path(vec!["c_proj"]).expect("invalid param path")),
-            attn,
-        )
+        self.gpt_linear(builder, dim, dim, p.push("c_proj").unwrap(), attn)
     }
 
     fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
