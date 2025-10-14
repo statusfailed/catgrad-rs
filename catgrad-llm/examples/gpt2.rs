@@ -90,48 +90,6 @@ impl GPT2Model {
         println!("Config: {:#?}", self.config);
     }
 
-    fn layernorm_raw(&self, builder: &Builder, eps: f32, x: Var) -> Var {
-        let x_shape = shape(builder, x.clone());
-        let [_, _, n] = unpack::<3>(builder, x_shape.clone());
-        let s = sum(builder, x.clone());
-
-        let constn = scalar(builder, n);
-        let constn = cast(builder, constn, dtype(builder, x.clone()));
-        let sh = shape(builder, s.clone());
-        let constn = broadcast_to(builder, constn, sh);
-
-        let mean = s / constn.clone();
-        let nom = x - broadcast_to(builder, mean, x_shape.clone());
-
-        let var = sum(builder, nom.clone() * nom.clone()) / constn;
-        let epsilon = constant_f32(builder, eps);
-        let sh = shape(builder, var.clone());
-        let epsilon = broadcast_to(builder, epsilon, sh);
-        // let stddev = nn::sqrt(builder, var + epsilon);
-        let stddev = nn::Sqrt.call(builder, [var + epsilon]);
-        let denom = broadcast_to(builder, stddev, x_shape);
-
-        nom / denom
-    }
-
-    pub fn layernorm(&self, builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
-        let gamma = param(
-            builder,
-            &p.concat(&path(vec!["weight"]).expect("invalid param path")),
-        );
-        let lr = self.layernorm_raw(builder, eps, x);
-        let lr_shape = shape(builder, lr.clone());
-        let gamma = broadcast_to(builder, gamma, lr_shape.clone());
-        let lr = lr * gamma;
-
-        let beta = param(
-            builder,
-            &p.concat(&path(vec!["bias"]).expect("invalid param path")),
-        );
-        let beta = broadcast_to(builder, beta, lr_shape);
-        lr + beta
-    }
-
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(
             builder,
@@ -285,7 +243,7 @@ impl GPT2Model {
 
     fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
         let res = x.clone();
-        let x = self.layernorm(
+        let x = nn::layernorm(
             builder,
             self.config.layer_norm_epsilon,
             p.concat(&path(vec!["ln_1"]).expect("invalid param path")),
@@ -300,7 +258,7 @@ impl GPT2Model {
         );
         let x = res + x;
         let res = x.clone();
-        let x = self.layernorm(
+        let x = nn::layernorm(
             builder,
             self.config.layer_norm_epsilon,
             p.concat(&path(vec!["ln_2"]).expect("invalid param path")),
@@ -338,7 +296,7 @@ impl Module<1, 1> for GPT2Model {
             );
         }
 
-        x = self.layernorm(
+        x = nn::layernorm(
             builder,
             self.config.layer_norm_epsilon,
             root.concat(&path(vec!["ln_f"]).expect("invalid param path")),
