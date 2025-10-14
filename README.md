@@ -63,7 +63,7 @@ Construct a model or layer by implementing [`crate::stdlib::Module`].
 Here's how the standard library defines the `Sigmoid` layer:
 
 ```rust,ignore
-use catgrad_core::prelude::*;
+use catgrad::prelude::*;
 
 struct Sigmoid;
 impl Module<1, 1> for Sigmoid {
@@ -104,8 +104,8 @@ model above with the following code:
 
 ```rust
 # #[cfg(feature = "svg")] {
-use catgrad_core::prelude::*;
-use catgrad_core::svg::to_svg;
+use catgrad::prelude::*;
+use catgrad::svg::to_svg;
 let model = nn::Sigmoid;
 let svg_bytes = to_svg(&model.term().unwrap().term);
 # }
@@ -121,7 +121,7 @@ This produces a diagram of "boxes and wires" as below:
 Once you've constructed your model, you can typecheck it:
 
 ```rust
-use catgrad_core::prelude::*;
+use catgrad::prelude::*;
 
 let model = nn::Sigmoid;
 let term = model.term().unwrap(); // extract graph
@@ -143,7 +143,7 @@ Here's how to run the Sigmoid layer with the ndarray backend:
 
 ```rust
 # #[cfg(feature = "ndarray-backend")] {
-use catgrad_core::prelude::*;
+use catgrad::prelude::*;
 use interpreter::{Interpreter, Parameters, Shape, tensor, backend::ndarray::NdArrayBackend};
 
 // choose a backend and get the model as an Open Hypergraph

@@ -1,6 +1,6 @@
 use crate::{LLMError, Result};
-use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
-use catgrad::core::Shape;
+use catgrad_legacy::backend::cpu::ndarray::{NdArray, TaggedNdArray};
+use catgrad_legacy::core::Shape;
 use hf_hub::{Repo, RepoType, api::sync::Api};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;

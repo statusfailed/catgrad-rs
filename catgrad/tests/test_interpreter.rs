@@ -1,20 +1,20 @@
 #![cfg(feature = "ndarray-backend")]
 
-use catgrad_core::category::core::Shape;
-use catgrad_core::category::lang::*;
-use catgrad_core::{typecheck, typecheck::*};
+use catgrad::category::core::Shape;
+use catgrad::category::lang::*;
+use catgrad::{typecheck, typecheck::*};
 
-use catgrad_core::stdlib::*;
+use catgrad::stdlib::*;
 
-use catgrad_core::interpreter::backend::Backend;
-use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
-use catgrad_core::interpreter::{
+use catgrad::interpreter::backend::Backend;
+use catgrad::interpreter::backend::ndarray::NdArrayBackend;
+use catgrad::interpreter::{
     Interpreter, Parameters, TaggedTensor, TaggedTensorTuple, Value, tensor,
 };
 
 pub mod test_models;
 pub mod test_utils;
-use catgrad_core::stdlib::nn::Exp;
+use catgrad::stdlib::nn::Exp;
 use test_models::{Add, BatchMatMul};
 
 fn run_test_with_inputs<F>(
@@ -22,12 +22,12 @@ fn run_test_with_inputs<F>(
         term, source_type, ..
     }: TypedTerm,
     build_inputs: F,
-) -> Vec<catgrad_core::interpreter::Value<NdArrayBackend>>
+) -> Vec<catgrad::interpreter::Value<NdArrayBackend>>
 where
-    F: FnOnce(&NdArrayBackend) -> Vec<catgrad_core::interpreter::Value<NdArrayBackend>>,
+    F: FnOnce(&NdArrayBackend) -> Vec<catgrad::interpreter::Value<NdArrayBackend>>,
 {
     // Get stdlib / environment
-    let env = catgrad_core::stdlib::stdlib();
+    let env = catgrad::stdlib::stdlib();
 
     // Typecheck
     let _result = check_with(
@@ -131,7 +131,7 @@ fn test_run_exp() {
     });
 
     // make sure actual result is a single F32 array
-    use catgrad_core::interpreter::{TaggedTensor, Value};
+    use catgrad::interpreter::{TaggedTensor, Value};
     let actual = match &result[..] {
         [Value::Tensor(TaggedTensor::F32([actual]))] => actual,
         xs => panic!("wrong output type: {xs:?}"),

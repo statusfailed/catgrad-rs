@@ -1,6 +1,6 @@
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::backend::cpu::ndarray::TaggedNdArray;
-use catgrad::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
+use catgrad_legacy::backend::cpu::eval::Builder;
+use catgrad_legacy::backend::cpu::ndarray::TaggedNdArray;
+use catgrad_legacy::core::{Callback, Dtype, NdArrayType, Operation, PrimitiveType, Shape, Var};
 use open_hypergraphs::lax::var::fn_operation as operation;
 use std::f32::consts::{E, PI};
 
@@ -681,8 +681,8 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 #[allow(clippy::excessive_precision)]
 mod tests {
     use super::*;
-    use catgrad::backend::cpu::eval::EvalState;
-    use catgrad::backend::cpu::ndarray::{NdArray, TaggedNdArray};
+    use catgrad_legacy::backend::cpu::eval::EvalState;
+    use catgrad_legacy::backend::cpu::ndarray::{NdArray, TaggedNdArray};
     use std::collections::HashMap;
     use std::rc::Rc;
     use test_log::test;
@@ -893,7 +893,7 @@ mod tests {
         let y = NdArray::new(vec![1., 2., 3., 4., 5., 6.], Shape(vec![2, 3]));
         // result should be a 1×3 result
         let mut expected = NdArray::new(vec![0.; 3], Shape(vec![1, 3]));
-        catgrad::backend::cpu::kernel::batch_matmul::<f32>(&x, &y, &mut expected);
+        catgrad_legacy::backend::cpu::kernel::batch_matmul::<f32>(&x, &y, &mut expected);
 
         let [actual] = state.eval_with(vec![x.into(), y.into()])[..] else {
             panic!("unexpected coarity at eval time")

@@ -1,4 +1,4 @@
-use catgrad::{
+use catgrad_legacy::{
     backend::cpu::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},

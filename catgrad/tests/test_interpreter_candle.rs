@@ -1,9 +1,9 @@
 #![cfg(feature = "candle-backend")]
 
-use catgrad_core::category::core::Shape;
-use catgrad_core::interpreter::backend::Backend;
-use catgrad_core::interpreter::backend::candle::CandleBackend;
-use catgrad_core::interpreter::{TaggedTensor, TaggedTensorTuple, Value};
+use catgrad::category::core::Shape;
+use catgrad::interpreter::backend::Backend;
+use catgrad::interpreter::backend::candle::CandleBackend;
+use catgrad::interpreter::{TaggedTensor, TaggedTensorTuple, Value};
 
 // ============================================================================
 // CANDLE BACKEND UNIT TESTS
@@ -272,7 +272,7 @@ fn test_candle_backend_cast() {
     // Cast F32 to U32
     let casted = backend.cast(
         TaggedTensor::F32([tensor]),
-        catgrad_core::category::core::Dtype::U32,
+        catgrad::category::core::Dtype::U32,
     );
     match casted {
         TaggedTensor::U32([arr]) => {
@@ -751,11 +751,11 @@ fn test_candle_backend_large_tensor() {
 // These tests verify that the Candle backend works correctly through the
 // interpreter, including higher-level operations and model execution.
 
-use catgrad_core::category::lang::*;
-use catgrad_core::interpreter::{Interpreter, Parameters, tensor};
-use catgrad_core::stdlib::nn::Exp;
-use catgrad_core::stdlib::*;
-use catgrad_core::{typecheck, typecheck::*};
+use catgrad::category::lang::*;
+use catgrad::interpreter::{Interpreter, Parameters, tensor};
+use catgrad::stdlib::nn::Exp;
+use catgrad::stdlib::*;
+use catgrad::{typecheck, typecheck::*};
 
 pub mod test_models;
 use test_models::{Add, BatchMatMul};
@@ -765,12 +765,12 @@ fn run_candle_test_with_inputs<F>(
         term, source_type, ..
     }: TypedTerm,
     build_inputs: F,
-) -> Vec<catgrad_core::interpreter::Value<CandleBackend>>
+) -> Vec<catgrad::interpreter::Value<CandleBackend>>
 where
-    F: FnOnce(&CandleBackend) -> Vec<catgrad_core::interpreter::Value<CandleBackend>>,
+    F: FnOnce(&CandleBackend) -> Vec<catgrad::interpreter::Value<CandleBackend>>,
 {
     // Get stdlib / environment
-    let env = catgrad_core::stdlib::stdlib();
+    let env = catgrad::stdlib::stdlib();
 
     // Typecheck
     let _result = check_with(
@@ -879,7 +879,7 @@ fn test_candle_interpreter_exp() {
     });
 
     // make sure actual result is a single F32 array
-    use catgrad_core::interpreter::{TaggedTensor, Value};
+    use catgrad::interpreter::{TaggedTensor, Value};
     let actual = match &result[..] {
         [Value::Tensor(TaggedTensor::F32([actual]))] => actual,
         xs => panic!("wrong output type: {xs:?}"),

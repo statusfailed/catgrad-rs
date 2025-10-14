@@ -4,7 +4,7 @@ use crate::models::utils::{Cache, Config, ModelBuilder, get_model};
 use crate::nn::layers::{argmax, cast, reshape};
 use crate::serve;
 use crate::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
-use catgrad::{
+use catgrad_legacy::{
     backend::cpu::{
         eval::{Builder, EvalState},
         ndarray::{NdArray, TaggedNdArray},
