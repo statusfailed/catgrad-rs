@@ -33,45 +33,45 @@ pub trait Backend: Send + Sync + Clone + Debug {
         shape: Shape,
     ) -> Result<Self::NdArray<D>, BackendError>;
 
-    fn cast(&self, x: TaggedNdArray<Self>, target_dtype: Dtype) -> TaggedNdArray<Self>;
-    fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn lt(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn eq(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self>;
-    fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self>;
-    fn reshape(&self, x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self>;
-    fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self>;
-    fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self>;
-    fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool;
+    fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self>;
+    fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn add(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn sub(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn mul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn div(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn pow(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn lt(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn eq(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
+    fn sin(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn cos(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn neg(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn broadcast(&self, x: TaggedTensor<Self>, shape: Shape) -> TaggedTensor<Self>;
+    fn reshape(&self, x: TaggedTensor<Self>, new_shape: Shape) -> TaggedTensor<Self>;
+    fn transpose(&self, x: TaggedTensor<Self>, dim0: usize, dim1: usize) -> TaggedTensor<Self>;
+    fn max(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn sum(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn argmax(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self>;
+    fn compare(&self, x: TaggedTensorTuple<Self, 2>) -> bool;
     fn concat(
         &self,
-        x: TaggedNdArray<Self>,
-        y: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
+        y: TaggedTensor<Self>,
         dim: usize,
-    ) -> TaggedNdArray<Self>;
+    ) -> TaggedTensor<Self>;
     fn index(
         &self,
-        x: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
         dim: usize,
-        indices: TaggedNdArray<Self>,
-    ) -> TaggedNdArray<Self>;
+        indices: TaggedTensor<Self>,
+    ) -> TaggedTensor<Self>;
     fn slice(
         &self,
-        x: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
         dim: usize,
         start: usize,
         len: usize,
-    ) -> TaggedNdArray<Self>;
-    fn arange(&self, end: usize) -> TaggedNdArray<Self>;
+    ) -> TaggedTensor<Self>;
+    fn arange(&self, end: usize) -> TaggedTensor<Self>;
 }
 
 pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug {

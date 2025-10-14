@@ -1,6 +1,6 @@
 //! Tensor operation implementations for the interpreter
 use super::backend::*;
-use super::{ResultValues, TaggedNdArray, TaggedNdArrayTuple, Value};
+use super::{ResultValues, TaggedTensor, TaggedTensorTuple, Value};
 use crate::abstract_interpreter::util::{get_exact_arity, to_dtype, to_nat, to_shape, to_tensor};
 use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
 use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
@@ -46,7 +46,7 @@ fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
     shape: super::Shape,
     data: &[T],
 ) -> ResultValues<B> {
-    let value = TaggedNdArray::from_slice(backend, data, shape)
+    let value = TaggedTensor::from_slice(backend, data, shape)
         .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
     Ok(vec![Value::Tensor(value)])
 }
@@ -147,10 +147,10 @@ fn tensor_index<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> 
 }
 
 #[allow(type_alias_bounds)]
-type Binop<B: Backend> = fn(&B, TaggedNdArrayTuple<B, 2>) -> TaggedNdArrayTuple<B, 1>;
+type Binop<B: Backend> = fn(&B, TaggedTensorTuple<B, 2>) -> TaggedTensorTuple<B, 1>;
 
 #[allow(type_alias_bounds)]
-type Unaryop<B: Backend> = fn(&B, TaggedNdArray<B>) -> TaggedNdArray<B>;
+type Unaryop<B: Backend> = fn(&B, TaggedTensor<B>) -> TaggedTensor<B>;
 
 fn binop<B: Backend>(
     backend: &B,
@@ -178,14 +178,14 @@ fn unary_op<B: Backend>(
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     values: Vec<Value<B>>, // TODO: rename args
     ssa: &CoreSSA,
-) -> EvalResult<TaggedNdArrayTuple<B, N>> {
+) -> EvalResult<TaggedTensorTuple<B, N>> {
     // If no args, type is ambiguous, but this is a programmer error.
     if N == 0 {
         panic!("try_into_tagged_ndarrays is undefined for N <= 0");
     }
 
     // Get exactly N tensors
-    let tensors: Vec<TaggedNdArray<B>> = get_exact_arity::<N, _>(ssa, values)?
+    let tensors: Vec<TaggedTensor<B>> = get_exact_arity::<N, _>(ssa, values)?
         .into_iter()
         .map(|x| to_tensor(ssa, x))
         .collect::<Result<_, _>>()?;
@@ -196,8 +196,8 @@ pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     let mut u32_arrays = Vec::new();
     for x in tensors {
         match x {
-            TaggedNdArrayTuple::F32([x]) => f32_arrays.push(x),
-            TaggedNdArrayTuple::U32([x]) => u32_arrays.push(x),
+            TaggedTensorTuple::F32([x]) => f32_arrays.push(x),
+            TaggedTensorTuple::U32([x]) => u32_arrays.push(x),
         }
 
         // early exit: if one dtype didn't match, we bail. (only happens when product is nonzeroD)
@@ -207,8 +207,8 @@ pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     }
 
     Ok(match dtype {
-        Dtype::F32 => f32_arrays.try_into().ok().map(TaggedNdArrayTuple::F32),
-        Dtype::U32 => u32_arrays.try_into().ok().map(TaggedNdArrayTuple::U32),
+        Dtype::F32 => f32_arrays.try_into().ok().map(TaggedTensorTuple::F32),
+        Dtype::U32 => u32_arrays.try_into().ok().map(TaggedTensorTuple::U32),
     }
     .unwrap()) // unwrap OK: we already checked arity!
 }

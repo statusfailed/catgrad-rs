@@ -9,7 +9,7 @@ use catgrad_core::stdlib::*;
 use catgrad_core::interpreter::backend::Backend;
 use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad_core::interpreter::{
-    Interpreter, Parameters, TaggedNdArray, TaggedNdArrayTuple, Value, tensor,
+    Interpreter, Parameters, TaggedTensor, TaggedTensorTuple, Value, tensor,
 };
 
 pub mod test_models;
@@ -64,9 +64,9 @@ fn test_run_add() {
 
     let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (Value::Tensor(TaggedNdArray::U32([actual])), Value::Tensor(TaggedNdArray::U32([exp]))) => {
+        (Value::Tensor(TaggedTensor::U32([actual])), Value::Tensor(TaggedTensor::U32([exp]))) => {
             assert!(
-                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedTensorTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
             );
         }
@@ -103,9 +103,9 @@ fn test_run_batch_matmul() {
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
     let backend = NdArrayBackend;
     match (&result[0], &expected) {
-        (Value::Tensor(TaggedNdArray::F32([actual])), Value::Tensor(TaggedNdArray::F32([exp]))) => {
+        (Value::Tensor(TaggedTensor::F32([actual])), Value::Tensor(TaggedTensor::F32([exp]))) => {
             assert!(
-                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedTensorTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
             );
         }
@@ -131,9 +131,9 @@ fn test_run_exp() {
     });
 
     // make sure actual result is a single F32 array
-    use catgrad_core::interpreter::{TaggedNdArray, Value};
+    use catgrad_core::interpreter::{TaggedTensor, Value};
     let actual = match &result[..] {
-        [Value::Tensor(TaggedNdArray::F32([actual]))] => actual,
+        [Value::Tensor(TaggedTensor::F32([actual]))] => actual,
         xs => panic!("wrong output type: {xs:?}"),
     };
 
@@ -143,7 +143,7 @@ fn test_run_exp() {
     let expected_tensor = tensor(&backend, Shape(vec![2, 2]), &expected).unwrap();
 
     match (&expected_tensor, actual) {
-        (Value::Tensor(TaggedNdArray::F32([exp])), actual_arr) => {
+        (Value::Tensor(TaggedTensor::F32([exp])), actual_arr) => {
             // For floating point, we need to use approximate equality
             // Since compare uses exact equality, we'll keep the allclose check for now
             // TODO: Consider adding an approximate equality method to the Backend trait

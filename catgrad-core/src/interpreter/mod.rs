@@ -25,6 +25,6 @@ pub fn tensor<B: Backend, T: IntoTagged<B, 1>>(
     if shape.size() != data.len() {
         return Err(BackendError::ShapeError);
     }
-    let tagged = TaggedNdArray::from_slice(backend, data, shape)?;
+    let tagged = TaggedTensor::from_slice(backend, data, shape)?;
     Ok(Value::Tensor(tagged))
 }
