@@ -8,7 +8,7 @@ edition = "2024"
 rust-version = "1.87"
 
 [dependencies]
-catgrad = { version = "0.1.1", path = "../catgrad" }
+catgrad-legacy = { version = "0.1.1", path = "../catgrad-legacy" }
 open-hypergraphs = "0.2.3"
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"

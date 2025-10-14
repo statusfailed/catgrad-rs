@@ -1,7 +1,7 @@
 use super::layers::*;
 use crate::models::utils::{Llama3RopeScaling, YarnRopeScaling};
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::{Dtype, Shape, Var};
+use catgrad_legacy::backend::cpu::eval::Builder;
+use catgrad_legacy::core::{Dtype, Shape, Var};
 use std::f32::consts::PI;
 
 // Generate rope tables. This part is usually precomputed

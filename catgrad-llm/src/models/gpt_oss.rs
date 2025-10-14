@@ -3,8 +3,8 @@
 use super::utils::{Cache, Config, ModelBuilder};
 use crate::nn::layers::*;
 use crate::nn::rope::apply_rope_embedding;
-use catgrad::backend::cpu::eval::Builder;
-use catgrad::core::{Dtype, NdArrayType, Shape, Var};
+use catgrad_legacy::backend::cpu::eval::Builder;
+use catgrad_legacy::core::{Dtype, NdArrayType, Shape, Var};
 
 /// GPT-OSS specific SwiGLU
 pub fn gptoss_swiglu(builder: &Builder, alpha: f32, limit: f32, gate_up: Var) -> Var {
