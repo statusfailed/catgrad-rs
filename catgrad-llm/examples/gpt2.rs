@@ -107,7 +107,8 @@ impl GPT2Model {
         let epsilon = constant_f32(builder, eps);
         let sh = shape(builder, var.clone());
         let epsilon = broadcast_to(builder, epsilon, sh);
-        let stddev = nn::sqrt(builder, var + epsilon);
+        // let stddev = nn::sqrt(builder, var + epsilon);
+        let stddev = nn::Sqrt.call(builder, [var + epsilon]);
         let denom = broadcast_to(builder, stddev, x_shape);
 
         nom / denom
@@ -200,7 +201,8 @@ impl GPT2Model {
             p.concat(&path(vec!["c_fc"]).expect("invalid param path")),
             x,
         );
-        let x = nn::gelu(builder, x);
+        // let x = nn::gelu(builder, x);
+        let x = nn::Gelu.call(builder, [x]);
         self.gpt_linear(
             builder,
             dim * 4,
