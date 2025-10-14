@@ -265,7 +265,7 @@ impl<T: std::fmt::Display + Numeric> std::fmt::Display for NdArray<T> {
 }
 
 /// A disjoint union of typed arrays
-/// intuition: the "values" assigned to each node in a [`Term`].
+/// intuition: the "values" assigned to each node in a `Term`.
 #[derive(PartialEq, Debug, Clone)]
 pub enum TaggedNdArray {
     F16(NdArray<f16>),
