@@ -1,6 +1,6 @@
-use catgrad_core::category::lang::*;
-use catgrad_core::stdlib::*;
-use catgrad_core::typecheck::*;
+use catgrad::category::lang::*;
+use catgrad::stdlib::*;
+use catgrad::typecheck::*;
 
 pub mod test_utils;
 use test_utils::{get_forget_core_declarations, save_diagram_if_enabled};
@@ -50,7 +50,7 @@ fn test_check_exp() {
 
 #[allow(clippy::result_large_err)]
 pub fn run_check_test(
-    term: Option<catgrad_core::category::lang::TypedTerm>,
+    term: Option<catgrad::category::lang::TypedTerm>,
     svg_filename: &str,
 ) -> Result<(), InterpreterError> {
     let TypedTerm {

@@ -1,11 +1,11 @@
-use catgrad_core::abstract_interpreter::Value;
-use catgrad_core::category::core::Dtype;
-use catgrad_core::category::core::Shape;
-use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
-use catgrad_core::prelude::*;
-use catgrad_core::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
+use catgrad::abstract_interpreter::Value;
+use catgrad::category::core::Dtype;
+use catgrad::category::core::Shape;
+use catgrad::interpreter::backend::ndarray::NdArrayBackend;
+use catgrad::prelude::*;
+use catgrad::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
 
-use catgrad_core::interpreter;
+use catgrad::interpreter;
 
 use std::collections::HashMap;
 
@@ -62,7 +62,7 @@ fn run_interpreter(
 
     // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
-        use catgrad_core::interpreter::{TaggedTensor, Value};
+        use catgrad::interpreter::{TaggedTensor, Value};
         match output {
             Value::Tensor(TaggedTensor::U32([arr])) => {
                 println!("Output shape: {:?}", arr.shape());

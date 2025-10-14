@@ -1,5 +1,5 @@
-use catgrad_core::interpreter;
-use catgrad_core::prelude::*;
+use catgrad::interpreter;
+use catgrad::prelude::*;
 
 use std::collections::HashMap;
 
@@ -74,7 +74,7 @@ fn select_backend() -> Result<impl interpreter::Backend, Box<dyn std::error::Err
     #[cfg(feature = "candle-backend")]
     {
         println!("selected candle backend...");
-        use catgrad_core::interpreter::backend::candle::CandleBackend;
+        use catgrad::interpreter::backend::candle::CandleBackend;
         #[allow(clippy::needless_return)]
         return Ok(CandleBackend::new());
     }
@@ -82,7 +82,7 @@ fn select_backend() -> Result<impl interpreter::Backend, Box<dyn std::error::Err
     #[cfg(all(feature = "ndarray-backend", not(feature = "candle-backend")))]
     {
         println!("selected ndarray backend...");
-        use catgrad_core::interpreter::backend::ndarray::NdArrayBackend;
+        use catgrad::interpreter::backend::ndarray::NdArrayBackend;
         #[allow(clippy::needless_return)]
         return Ok(NdArrayBackend);
     }
@@ -140,7 +140,7 @@ impl Module<1, 1> for SimpleMNISTModel {
     // This should return the *detailed* type of the model
     // TODO: NOTE: API for writing types is still WIP. Lots of boilerplate here!
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        use catgrad_core::typecheck::*;
+        use catgrad::typecheck::*;
 
         let batch_size = NatExpr::Var(0);
 
@@ -170,10 +170,8 @@ impl Module<1, 1> for SimpleMNISTModel {
 
 // NOTE: you would normally create this data by reading the safetensors file!
 fn load_param_types() -> typecheck::Parameters {
-    use catgrad_core::category::core::Dtype;
-    use catgrad_core::typecheck::value_types::{
-        DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr,
-    };
+    use catgrad::category::core::Dtype;
+    use catgrad::typecheck::value_types::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
 
     let mut map = HashMap::new();
 
@@ -205,7 +203,7 @@ fn load_param_types() -> typecheck::Parameters {
 
 // NOTE: you would normally create this data by reading the safetensors file!
 fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Parameters<B> {
-    use catgrad_core::category::core::Shape;
+    use catgrad::category::core::Shape;
     use std::collections::HashMap;
 
     let mut map = HashMap::new();
@@ -245,7 +243,7 @@ pub fn save_svg<
     term: &open_hypergraphs::lax::OpenHypergraph<O, A>,
     filename: &str,
 ) -> Result<(), std::io::Error> {
-    use catgrad_core::svg::to_svg;
+    use catgrad::svg::to_svg;
     let bytes = match to_svg(term) {
         Ok(bytes) => bytes,
         Err(e) => {

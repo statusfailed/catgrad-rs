@@ -1,4 +1,4 @@
-use catgrad_core::stdlib::{Environment, stdlib};
+use catgrad::stdlib::{Environment, stdlib};
 
 pub fn save_diagram_if_enabled<
     O: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
@@ -10,7 +10,7 @@ pub fn save_diagram_if_enabled<
     #[cfg(feature = "svg")]
     {
         if std::env::var("SAVE_DIAGRAMS").is_ok() {
-            let svg_bytes = catgrad_core::svg::to_svg(term).expect("create svg");
+            let svg_bytes = catgrad::svg::to_svg(term).expect("create svg");
             let output_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("tests")
                 .join("images")
