@@ -23,6 +23,7 @@ fn definitions() -> HashMap<lang::Path, lang::TypedTerm> {
     HashMap::from([
         to_pair(Sigmoid),
         to_pair(Exp),
+        to_pair(Sqrt),
         //
     ])
 }

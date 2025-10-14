@@ -67,6 +67,31 @@ impl Module<1, 1> for Exp {
     }
 }
 
+pub struct Sqrt;
+
+impl Module<1, 1> for Sqrt {
+    // Type maps
+    fn ty(&self) -> ([Type; 1], [Type; 1]) {
+        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Var(0),
+            shape: ShapeExpr::Var(1),
+        }));
+        ([ty.clone()], [ty])
+    }
+
+    // Name of the op
+    fn path(&self) -> Path {
+        path(vec!["nn", "sqrt"]).unwrap()
+    }
+
+    // def
+    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        let sh = shape(graph, x.clone());
+        let e = constant(graph, 0.5, &sh);
+        [pow(graph, x, e)]
+    }
+}
+
 // Maybe turn these into Modules eventually
 
 pub fn sqrt(builder: &Builder, x: Var) -> Var {
