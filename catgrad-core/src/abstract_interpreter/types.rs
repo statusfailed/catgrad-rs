@@ -106,6 +106,8 @@ pub enum InterpreterError {
     ArityError(EdgeId),
     /// Interpreter failed to handle a Load operation
     Load(EdgeId, Path),
+    /// Interpreter-specific error while trying to apply an op
+    ApplyError(EdgeId),
 }
 
 impl From<SSAError> for InterpreterError {

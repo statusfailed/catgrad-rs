@@ -42,17 +42,12 @@ pub(crate) fn tensor_op<B: Backend>(
 
 fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
     backend: &B,
+    ssa: &CoreSSA,
     shape: super::Shape,
     data: &[T],
 ) -> ResultValues<B> {
-    // TODO: remove unwrap here!
-    let value = TaggedNdArray::from_slice(backend, data, shape.clone()).unwrap_or_else(|_| {
-        panic!(
-            "Unable to create tensor from data of length {:?} with shape {:?}",
-            data.len(),
-            shape,
-        )
-    });
+    let value = TaggedNdArray::from_slice(backend, data, shape.clone())
+        .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
     Ok(vec![Value::Tensor(value)])
 }
 
@@ -64,16 +59,17 @@ pub fn tensor_constant<B: Backend>(
 ) -> ResultValues<B> {
     let [] = get_exact_arity(ssa, args)?; // get 0 args
     match c {
-        Constant::F32(x) => tensor(backend, super::Shape(vec![]), &[*x]),
-        Constant::U32(x) => tensor(backend, super::Shape(vec![]), &[*x]),
+        Constant::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Constant::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
     }
 }
 
 fn tensor_scalar<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
     let [value] = get_exact_arity(ssa, args)?;
-    // TODO! don't unwrap- give error
-    let value: u32 = to_nat(ssa, value)?.try_into().unwrap();
-    tensor(backend, super::Shape(vec![]), &[value])
+    let value: u32 = to_nat(ssa, value)?
+        .try_into()
+        .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
+    tensor(backend, ssa, super::Shape(vec![]), &[value])
 }
 
 fn tensor_cast<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
