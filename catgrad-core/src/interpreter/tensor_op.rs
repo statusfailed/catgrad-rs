@@ -46,7 +46,7 @@ fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
     shape: super::Shape,
     data: &[T],
 ) -> ResultValues<B> {
-    let value = TaggedNdArray::from_slice(backend, data, shape.clone())
+    let value = TaggedNdArray::from_slice(backend, data, shape)
         .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
     Ok(vec![Value::Tensor(value)])
 }
