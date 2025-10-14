@@ -223,3 +223,44 @@ pub fn linear_no_bias(builder: &Builder, _in_dim: usize, _out_dim: usize, p: Pat
 
     matmul(builder, x, w_t)
 }
+
+pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
+    let x_shape = shape(builder, x.clone());
+    let [_, _, n] = unpack::<3>(builder, x_shape.clone());
+    let s = sum(builder, x.clone());
+
+    let constn = scalar(builder, n);
+    let constn = cast(builder, constn, dtype(builder, x.clone()));
+    let sh = shape(builder, s.clone());
+    let constn = broadcast_to(builder, constn, sh);
+
+    let mean = s / constn.clone();
+    let nom = x - broadcast_to(builder, mean, x_shape.clone());
+
+    let var = sum(builder, nom.clone() * nom.clone()) / constn;
+    let epsilon = constant_f32(builder, eps);
+    let sh = shape(builder, var.clone());
+    let epsilon = broadcast_to(builder, epsilon, sh);
+    let stddev = sqrt(builder, var + epsilon);
+    let denom = broadcast_to(builder, stddev, x_shape);
+
+    nom / denom
+}
+
+pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
+    let gamma = param(
+        builder,
+        &p.concat(&path(vec!["weight"]).expect("invalid param path")),
+    );
+    let lr = layernorm_raw(builder, eps, x);
+    let lr_shape = shape(builder, lr.clone());
+    let gamma = broadcast_to(builder, gamma, lr_shape.clone());
+    let lr = lr * gamma;
+
+    let beta = param(
+        builder,
+        &p.concat(&path(vec!["bias"]).expect("invalid param path")),
+    );
+    let beta = broadcast_to(builder, beta, lr_shape);
+    lr + beta
+}
