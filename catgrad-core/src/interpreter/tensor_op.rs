@@ -1,27 +1,18 @@
 //! Tensor operation implementations for the interpreter
-
 use super::backend::*;
-use super::types::CoreSSA;
-use super::{ApplyError, ApplyErrorKind, TaggedNdArray, TaggedNdArrayTuple, Value};
+use super::{ResultValues, TaggedNdArray, TaggedNdArrayTuple, Value};
+use crate::abstract_interpreter::util::{get_exact_arity, to_dtype, to_nat, to_shape, to_tensor};
+use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
 use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
 
 /// Apply a Tensor operation
-pub(crate) fn apply_tensor_op<B: Backend>(
+pub(crate) fn tensor_op<B: Backend>(
     backend: &B,
-    tensor_op: &TensorOp,
-    args: Vec<Value<B>>,
     ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+    args: Vec<Value<B>>,
+    tensor_op: &TensorOp,
+) -> ResultValues<B> {
     match tensor_op {
-        TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
-        TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
-        TensorOp::Sum => tensor_sum(backend, args, ssa),
-        TensorOp::Max => tensor_max(backend, args, ssa),
-        TensorOp::Arange => tensor_arange(backend, args, ssa),
-        TensorOp::Argmax => tensor_argmax(backend, args, ssa),
-        TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
-        TensorOp::Reshape => tensor_reshape(backend, args, ssa),
-        TensorOp::Transpose => tensor_transpose(backend, args, ssa),
         TensorOp::Map(ScalarOp::Add) => binop(backend, args, ssa, B::add),
         TensorOp::Map(ScalarOp::Sub) => binop(backend, args, ssa, B::sub),
         TensorOp::Map(ScalarOp::Pow) => binop(backend, args, ssa, B::pow),
@@ -32,347 +23,128 @@ pub(crate) fn apply_tensor_op<B: Backend>(
         TensorOp::Map(ScalarOp::Div) => binop(backend, args, ssa, B::div),
         TensorOp::Map(ScalarOp::LT) => binop(backend, args, ssa, B::lt),
         TensorOp::Map(ScalarOp::EQ) => binop(backend, args, ssa, B::eq),
-        TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::Scalar => tensor_scalar(backend, args, ssa),
-        TensorOp::Concat => tensor_concat(backend, args, ssa),
-        TensorOp::Index => tensor_index(backend, args, ssa),
+        TensorOp::Cast => tensor_cast(backend, args, ssa),
+        TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
+        TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
+        TensorOp::Sum => tensor_sum(backend, args, ssa),
+        TensorOp::Max => tensor_max(backend, args, ssa),
+        TensorOp::Argmax => tensor_argmax(backend, args, ssa),
+        TensorOp::Broadcast => tensor_broadcast(backend, args, ssa),
+        TensorOp::Reshape => tensor_reshape(backend, args, ssa),
+        TensorOp::Transpose => tensor_transpose(backend, args, ssa),
         TensorOp::Slice => tensor_slice(backend, args, ssa),
-        TensorOp::Copy => todo!("copy"),
+        TensorOp::Concat => tensor_concat(backend, args, ssa),
+        TensorOp::Arange => tensor_arange(backend, args, ssa),
+        TensorOp::Index => tensor_index(backend, args, ssa),
     }
 }
 
-fn err<K: Into<ApplyErrorKind>>(kind: K, ssa: &CoreSSA) -> Box<ApplyError> {
-    Box::new(ApplyError {
-        kind: kind.into(),
-        ssa: ssa.clone(),
-    })
+fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
+    backend: &B,
+    ssa: &CoreSSA,
+    shape: super::Shape,
+    data: &[T],
+) -> ResultValues<B> {
+    let value = TaggedNdArray::from_slice(backend, data, shape)
+        .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
+    Ok(vec![Value::Tensor(value)])
 }
 
-pub(crate) fn tensor_constant<B: Backend>(
+pub fn tensor_constant<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>, // must be empty
     ssa: &CoreSSA,
     c: &Constant,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if !args.is_empty() {
-        return Err(err(ApplyErrorKind::ArityError, ssa));
+) -> ResultValues<B> {
+    let [] = get_exact_arity(ssa, args)?; // get 0 args
+    match c {
+        Constant::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Constant::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
     }
-
-    let tagged = match c {
-        Constant::F32(x) => TaggedNdArray::from_slice(backend, &[*x], super::Shape(vec![])),
-        Constant::U32(x) => TaggedNdArray::from_slice(backend, &[*x], super::Shape(vec![])),
-    }
-    .map_err(|e| err(e, ssa))?;
-
-    Ok(vec![Value::NdArray(tagged)])
 }
 
-pub(crate) fn tensor_scalar<B: Backend>(
+fn tensor_scalar<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [value] = get_exact_arity(ssa, args)?;
+    let value: u32 = to_nat(ssa, value)?
+        .try_into()
+        .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
+    tensor(backend, ssa, super::Shape(vec![]), &[value])
+}
+
+fn tensor_cast<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [tensor, target_dtype] = get_exact_arity(ssa, args)?;
+    let (x, target_dtype) = (to_tensor(ssa, tensor)?, to_dtype(ssa, target_dtype)?);
+    Ok(vec![Value::Tensor(backend.cast(x, target_dtype))])
+}
+
+fn tensor_sum<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [x] = get_exact_arity(ssa, args)?;
+    let x = to_tensor(ssa, x)?;
+    Ok(vec![Value::Tensor(backend.sum(x))])
+}
+
+fn tensor_max<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [x] = get_exact_arity(ssa, args)?;
+    let x = to_tensor(ssa, x)?;
+    Ok(vec![Value::Tensor(backend.max(x))])
+}
+
+fn tensor_argmax<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [x] = get_exact_arity(ssa, args)?;
+    let x = to_tensor(ssa, x)?;
+    Ok(vec![Value::Tensor(backend.argmax(x))])
+}
+
+fn tensor_broadcast<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>,
     ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(err(ApplyErrorKind::ArityError, ssa));
-    }
-
-    let value: u32 = match args[0] {
-        Value::Nat(n) => n
-            .try_into()
-            .map_err(|_| err(ApplyErrorKind::NatOverflow, ssa))?,
-        _ => return Err(err(ApplyErrorKind::TypeError, ssa)),
-    };
-
-    let tensor = backend
-        .ndarray_from_slice(&[value], super::Shape(vec![]))
-        .map_err(|e| err(e, ssa))?;
-
-    let result = TaggedNdArrayTuple::U32([tensor]);
-    Ok(vec![Value::NdArray(result)])
+) -> ResultValues<B> {
+    let [x, s] = get_exact_arity(ssa, args)?;
+    let (x, shape_prefix) = (to_tensor(ssa, x)?, to_shape(ssa, s)?);
+    Ok(vec![Value::Tensor(backend.broadcast(x, shape_prefix))])
 }
 
-fn tensor_cast<B: Backend>(
-    backend: &B,
-    args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 2 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let tensor = &args[0];
-    let target_dtype = &args[1];
-
-    let Value::Dtype(target_dtype) = target_dtype else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let Value::NdArray(x) = tensor else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = backend.cast(x.clone(), target_dtype.clone());
-    Ok(vec![Value::NdArray(result)])
-}
-
-fn tensor_sum<B: Backend>(
-    backend: &B,
-    args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let tensor = &args[0];
-
-    let Value::NdArray(x) = tensor else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = backend.sum(x.clone());
-    Ok(vec![Value::NdArray(result)])
-}
-
-fn tensor_max<B: Backend>(
-    backend: &B,
-    args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let tensor = &args[0];
-
-    let Value::NdArray(x) = tensor else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = backend.max(x.clone());
-    Ok(vec![Value::NdArray(result)])
-}
-
-fn tensor_argmax<B: Backend>(
-    backend: &B,
-    args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let tensor = &args[0];
-
-    let Value::NdArray(x) = tensor else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = backend.argmax(x.clone());
-    Ok(vec![Value::NdArray(result)])
-}
-
-fn tensor_reshape<B: Backend>(
-    backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 2 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    // Args are: [new_shape, tensor] - reshape(builder, new_shape, tensor)
-    if let (Value::Shape(new_shape), Value::NdArray(x)) = (args.remove(0), args.remove(0)) {
-        let result = backend.reshape(x, new_shape);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
+fn tensor_reshape<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [s, x] = get_exact_arity(ssa, args)?;
+    let (shape, x) = (to_shape(ssa, s)?, to_tensor(ssa, x)?);
+    Ok(vec![Value::Tensor(backend.reshape(x, shape))])
 }
 
 fn tensor_transpose<B: Backend>(
     backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 3 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    // Args are: [new_shape, tensor] - reshape(builder, new_shape, tensor)
-    if let (Value::NdArray(x), Value::Nat(dim0), Value::Nat(dim1)) =
-        (args.remove(0), args.remove(0), args.remove(0))
-    {
-        let result = backend.transpose(x, dim0, dim1);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
-}
-fn tensor_broadcast<B: Backend>(
-    backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 2 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    if let (Value::Shape(shape_prefix), Value::NdArray(x)) = (args.remove(1), args.remove(0)) {
-        let result = backend.broadcast(x, shape_prefix);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
-}
-
-fn tensor_arange<B: Backend>(
-    backend: &B,
     args: Vec<Value<B>>,
     ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let Value::Nat(end) = args[0] else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = backend.arange(end);
-    Ok(vec![Value::NdArray(result)])
+) -> ResultValues<B> {
+    let [x, dim0, dim1] = get_exact_arity(ssa, args)?;
+    let (x, dim0, dim1) = (to_tensor(ssa, x)?, to_nat(ssa, dim0)?, to_nat(ssa, dim1)?);
+    Ok(vec![Value::Tensor(backend.transpose(x, dim0, dim1))])
 }
 
-fn tensor_index<B: Backend>(
-    backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 3 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    // Args are: [input, indices]
-    if let (Value::NdArray(input), Value::Nat(dim), Value::NdArray(indices)) =
-        (args.remove(0), args.remove(0), args.remove(0))
-    {
-        let result = backend.index(input, dim, indices);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
+fn tensor_slice<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [input, d, s, l] = get_exact_arity(ssa, args)?;
+    let input = to_tensor(ssa, input)?;
+    let (dim, start, len) = (to_nat(ssa, d)?, to_nat(ssa, s)?, to_nat(ssa, l)?);
+    Ok(vec![Value::Tensor(backend.slice(input, dim, start, len))])
 }
 
-fn tensor_concat<B: Backend>(
-    backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 3 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    // Args are: [tensor, tensor, dim]
-    if let (Value::NdArray(a), Value::NdArray(b), Value::Nat(dim)) =
-        (args.remove(0), args.remove(0), args.remove(0))
-    {
-        let result = backend.concat(a, b, dim);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
+fn tensor_concat<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [a, b, dim] = get_exact_arity(ssa, args)?;
+    let (a, b, dim) = (to_tensor(ssa, a)?, to_tensor(ssa, b)?, to_nat(ssa, dim)?);
+    Ok(vec![Value::Tensor(backend.concat(a, b, dim))])
 }
 
-fn tensor_slice<B: Backend>(
-    backend: &B,
-    mut args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 4 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
+fn tensor_arange<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [end] = get_exact_arity(ssa, args)?;
+    Ok(vec![Value::Tensor(backend.arange(to_nat(ssa, end)?))])
+}
 
-    // Args are: [input, dim, start, end]
-    if let (Value::NdArray(input), Value::Nat(dim), Value::Nat(start), Value::Nat(len)) = (
-        args.remove(0),
-        args.remove(0),
-        args.remove(0),
-        args.remove(0),
-    ) {
-        let result = backend.slice(input, dim, start, len);
-        Ok(vec![Value::NdArray(result)])
-    } else {
-        Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }))
-    }
+fn tensor_index<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+    let [x, d, ix] = get_exact_arity(ssa, args)?;
+    let (input, dim, indices) = (to_tensor(ssa, x)?, to_nat(ssa, d)?, to_tensor(ssa, ix)?);
+    println!("{input:?} {dim:?} {indices:?}");
+    Ok(vec![Value::Tensor(backend.index(input, dim, indices))])
 }
 
 #[allow(type_alias_bounds)]
@@ -386,10 +158,10 @@ fn binop<B: Backend>(
     args: Vec<Value<B>>,
     ssa: &CoreSSA,
     callback: Binop<B>,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
+) -> ResultValues<B> {
     let args = try_into_tagged_ndarrays::<B, 2>(args, ssa)?;
     let result = callback(backend, args);
-    Ok(vec![Value::NdArray(result)])
+    Ok(vec![Value::Tensor(result)])
 }
 
 fn unary_op<B: Backend>(
@@ -397,110 +169,47 @@ fn unary_op<B: Backend>(
     args: Vec<Value<B>>,
     ssa: &CoreSSA,
     callback: Unaryop<B>,
-) -> Result<Vec<Value<B>>, Box<ApplyError>> {
-    if args.len() != 1 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
-    }
-
-    let Value::NdArray(x) = &args[0] else {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        }));
-    };
-
-    let result = callback(backend, x.clone());
-    Ok(vec![Value::NdArray(result)])
-}
-
-// TODO: binop has some boilerplate- have to unpack/repack a lot. can we fix that using run_op &
-// into() on taggedndarraytuple?
-#[allow(dead_code)]
-/// Run an M → 1 op taking M NdArray values of the same dtype, producing an NdArray.
-fn run_op<B: Backend, F, const M: usize>(
-    args: Vec<Value<B>>,
-    ssa: &CoreSSA,
-    f: F,
-) -> Result<Vec<Value<B>>, Box<ApplyError>>
-where
-    F: Fn(TaggedNdArrayTuple<B, M>) -> TaggedNdArrayTuple<B, 1>,
-{
-    Ok(vec![Value::NdArray(f(try_into_tagged_ndarrays::<B, M>(
-        args, ssa,
-    )?))])
+) -> ResultValues<B> {
+    let [x] = get_exact_arity(ssa, args)?;
+    let result = callback(backend, to_tensor(ssa, x)?);
+    Ok(vec![Value::Tensor(result)])
 }
 
 /// Convert a Vec<Value<B>> into TaggedNdArrays<B, N> with compile-time length checking
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
-    values: Vec<Value<B>>,
+    values: Vec<Value<B>>, // TODO: rename args
     ssa: &CoreSSA,
-) -> Result<TaggedNdArrayTuple<B, N>, Box<ApplyError>> {
-    let n = values.len();
-
-    // clippy is WRONG! what if someone changes the type of n, then what, huh!?
-    // i will die on this hill
-    #[allow(clippy::absurd_extreme_comparisons)]
-    if n != N || n <= 0 {
-        return Err(Box::new(ApplyError {
-            kind: ApplyErrorKind::ArityError,
-            ssa: ssa.clone(),
-        }));
+) -> EvalResult<TaggedNdArrayTuple<B, N>> {
+    // If no args, type is ambiguous, but this is a programmer error.
+    if N == 0 {
+        panic!("try_into_tagged_ndarrays is undefined for N <= 0");
     }
 
+    // Get exactly N tensors
+    let tensors: Vec<TaggedNdArray<B>> = get_exact_arity::<N, _>(ssa, values)?
+        .into_iter()
+        .map(|x| to_tensor(ssa, x))
+        .collect::<Result<_, _>>()?;
+    let dtype = tensors[0].dtype();
+
+    // Collect each tag into its own typed array
     let mut f32_arrays = Vec::new();
     let mut u32_arrays = Vec::new();
-    let mut dtype_kind: Option<Dtype> = None;
+    for x in tensors {
+        match x {
+            TaggedNdArrayTuple::F32([x]) => f32_arrays.push(x),
+            TaggedNdArrayTuple::U32([x]) => u32_arrays.push(x),
+        }
 
-    for value in values {
-        match value {
-            Value::NdArray(TaggedNdArray::F32(arr)) => {
-                if let Some(ref existing) = dtype_kind {
-                    if *existing != Dtype::F32 {
-                        return Err(Box::new(ApplyError {
-                            kind: ApplyErrorKind::TypeError,
-                            ssa: ssa.clone(),
-                        }));
-                    }
-                } else {
-                    dtype_kind = Some(Dtype::F32);
-                }
-                f32_arrays.push(arr[0].clone());
-            }
-            Value::NdArray(TaggedNdArray::U32(arr)) => {
-                if let Some(ref existing) = dtype_kind {
-                    if *existing != Dtype::U32 {
-                        return Err(Box::new(ApplyError {
-                            kind: ApplyErrorKind::TypeError,
-                            ssa: ssa.clone(),
-                        }));
-                    }
-                } else {
-                    dtype_kind = Some(Dtype::U32);
-                }
-                u32_arrays.push(arr[0].clone());
-            }
-            _ => {
-                return Err(Box::new(ApplyError {
-                    kind: ApplyErrorKind::TypeError,
-                    ssa: ssa.clone(),
-                }));
-            }
+        // early exit: if one dtype didn't match, we bail. (only happens when product is nonzeroD)
+        if f32_arrays.len().min(u32_arrays.len()) > 0 {
+            return Err(InterpreterError::TypeError(ssa.edge_id));
         }
     }
 
-    let result = match dtype_kind {
-        Some(Dtype::F32) => f32_arrays.try_into().ok().map(TaggedNdArrayTuple::F32),
-        Some(Dtype::U32) => u32_arrays.try_into().ok().map(TaggedNdArrayTuple::U32),
-        _ => None,
-    };
-
-    result.ok_or_else(|| {
-        Box::new(ApplyError {
-            kind: ApplyErrorKind::TypeError,
-            ssa: ssa.clone(),
-        })
-    })
+    Ok(match dtype {
+        Dtype::F32 => f32_arrays.try_into().ok().map(TaggedNdArrayTuple::F32),
+        Dtype::U32 => u32_arrays.try_into().ok().map(TaggedNdArrayTuple::U32),
+    }
+    .unwrap()) // unwrap OK: we already checked arity!
 }

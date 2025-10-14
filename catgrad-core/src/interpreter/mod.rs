@@ -1,16 +1,17 @@
 pub mod types;
 pub use types::*;
 
-pub mod run;
-pub use run::*;
+#[allow(clippy::module_inception)]
+pub mod interpreter;
+pub use interpreter::*;
 
 pub mod backend;
-
-pub mod shape_op;
+pub mod parameters;
 pub mod tensor_op;
 
 pub use crate::category::core::Shape;
 pub use backend::{Backend, BackendError};
+pub use parameters::Parameters;
 
 #[cfg(all(test, feature = "ndarray-backend"))]
 mod tests;
@@ -25,5 +26,5 @@ pub fn tensor<B: Backend, T: IntoTagged<B, 1>>(
         return Err(BackendError::ShapeError);
     }
     let tagged = TaggedNdArray::from_slice(backend, data, shape)?;
-    Ok(Value::NdArray(tagged))
+    Ok(Value::Tensor(tagged))
 }

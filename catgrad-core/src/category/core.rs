@@ -199,9 +199,6 @@ pub enum TensorOp {
     // Indices: 1-D tensor of indices to pick, they can be unordered and repeated
     // Output will be a tensor with the shape same as the input's except for the dimension being sliced where it is the length of the indices tensor
     Index,
-
-    // Copy a tensor
-    Copy,
 }
 
 /// For now, we assume that every Dtype defines a ring & has comparisons

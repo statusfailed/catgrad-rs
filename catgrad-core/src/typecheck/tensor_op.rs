@@ -22,7 +22,6 @@ pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> Resul
         TensorOp::Concat => todo!("todo: typecheck TensorOp::Concat"),
         TensorOp::Arange => tensor_arange(ssa, args),
         TensorOp::Index => tensor_index(ssa, args),
-        TensorOp::Copy => todo!("TODO: remove TensorOp::Copy"),
     }
 }
 

@@ -64,7 +64,7 @@ fn run_interpreter(
     if let Some(output) = results.last() {
         use catgrad_core::interpreter::{TaggedNdArray, Value};
         match output {
-            Value::NdArray(TaggedNdArray::U32([arr])) => {
+            Value::Tensor(TaggedNdArray::U32([arr])) => {
                 println!("Output shape: {:?}", arr.shape());
                 println!(
                     "Output sample: {:?}",
