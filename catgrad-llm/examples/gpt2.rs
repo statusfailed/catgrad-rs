@@ -201,7 +201,8 @@ impl GPT2Model {
             p.concat(&path(vec!["c_fc"]).expect("invalid param path")),
             x,
         );
-        let x = nn::gelu(builder, x);
+        // let x = nn::gelu(builder, x);
+        let x = nn::Gelu.call(builder, [x]);
         self.gpt_linear(
             builder,
             dim * 4,

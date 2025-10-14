@@ -24,6 +24,7 @@ fn definitions() -> HashMap<lang::Path, lang::TypedTerm> {
         to_pair(Sigmoid),
         to_pair(Exp),
         to_pair(Sqrt),
+        to_pair(Gelu),
         //
     ])
 }
