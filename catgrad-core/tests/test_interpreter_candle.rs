@@ -3,7 +3,7 @@
 use catgrad_core::category::core::Shape;
 use catgrad_core::interpreter::backend::Backend;
 use catgrad_core::interpreter::backend::candle::CandleBackend;
-use catgrad_core::interpreter::{TaggedNdArray, TaggedNdArrayTuple, Value};
+use catgrad_core::interpreter::{TaggedTensor, TaggedTensorTuple, Value};
 
 // ============================================================================
 // CANDLE BACKEND UNIT TESTS
@@ -47,9 +47,9 @@ fn test_candle_backend_arithmetic() {
         .unwrap();
 
     // Test addition
-    let result = backend.add(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let result = backend.add(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -65,9 +65,9 @@ fn test_candle_backend_arithmetic() {
         .ndarray_from_slice(&data4, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.mul(TaggedNdArrayTuple::F32([tensor3, tensor4]));
+    let result = backend.mul(TaggedTensorTuple::F32([tensor3, tensor4]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -89,9 +89,9 @@ fn test_candle_backend_subtraction() {
         .ndarray_from_slice(&data2, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.sub(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let result = backend.sub(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -108,9 +108,9 @@ fn test_candle_backend_subtraction() {
         .ndarray_from_slice(&data4, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.sub(TaggedNdArrayTuple::U32([tensor3, tensor4]));
+    let result = backend.sub(TaggedTensorTuple::U32([tensor3, tensor4]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -127,9 +127,9 @@ fn test_candle_backend_max() {
         .ndarray_from_slice(&data, Shape(vec![2, 3]))
         .unwrap();
 
-    let result = backend.max(TaggedNdArray::F32([tensor]));
+    let result = backend.max(TaggedTensor::F32([tensor]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected F32 result"),
@@ -141,9 +141,9 @@ fn test_candle_backend_max() {
         .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.max(TaggedNdArray::U32([tensor_u32]));
+    let result = backend.max(TaggedTensor::U32([tensor_u32]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected U32 result"),
@@ -160,9 +160,9 @@ fn test_candle_backend_argmax() {
         .ndarray_from_slice(&data, Shape(vec![2, 3]))
         .unwrap();
 
-    let result = backend.argmax(TaggedNdArray::F32([tensor]));
+    let result = backend.argmax(TaggedTensor::F32([tensor]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             println!("argmax result: {:?}", arr);
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
@@ -175,9 +175,9 @@ fn test_candle_backend_argmax() {
         .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.argmax(TaggedNdArray::U32([tensor_u32]));
+    let result = backend.argmax(TaggedTensor::U32([tensor_u32]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             println!("argmax result: {:?}", arr);
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
@@ -195,9 +195,9 @@ fn test_candle_backend_sum() {
         .ndarray_from_slice(&data, Shape(vec![2, 3]))
         .unwrap();
 
-    let result = backend.sum(TaggedNdArray::F32([tensor]));
+    let result = backend.sum(TaggedTensor::F32([tensor]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected F32 result"),
@@ -209,9 +209,9 @@ fn test_candle_backend_sum() {
         .ndarray_from_slice(&data_u32, Shape(vec![2, 3]))
         .unwrap();
 
-    let result = backend.sum(TaggedNdArray::U32([tensor_u32]));
+    let result = backend.sum(TaggedTensor::U32([tensor_u32]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 1]);
         }
         _ => panic!("Expected U32 result"),
@@ -233,9 +233,9 @@ fn test_candle_backend_matmul() {
         .ndarray_from_slice(&data2, Shape(vec![3, 2]))
         .unwrap();
 
-    let result = backend.matmul(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let result = backend.matmul(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -251,9 +251,9 @@ fn test_candle_backend_reshape() {
         .ndarray_from_slice(&data, Shape(vec![2, 3]))
         .unwrap();
 
-    let reshaped = backend.reshape(TaggedNdArray::F32([tensor]), Shape(vec![3, 2]));
+    let reshaped = backend.reshape(TaggedTensor::F32([tensor]), Shape(vec![3, 2]));
     match reshaped {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[3, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -271,11 +271,11 @@ fn test_candle_backend_cast() {
 
     // Cast F32 to U32
     let casted = backend.cast(
-        TaggedNdArray::F32([tensor]),
+        TaggedTensor::F32([tensor]),
         catgrad_core::category::core::Dtype::U32,
     );
     match casted {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -297,9 +297,9 @@ fn test_candle_backend_division() {
         .ndarray_from_slice(&data2, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.div(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let result = backend.div(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -316,9 +316,9 @@ fn test_candle_backend_division() {
         .ndarray_from_slice(&data4, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.div(TaggedNdArrayTuple::U32([tensor3, tensor4]));
+    let result = backend.div(TaggedTensorTuple::U32([tensor3, tensor4]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -340,9 +340,9 @@ fn test_candle_backend_power() {
         .ndarray_from_slice(&data2, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.pow(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let result = backend.pow(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -359,9 +359,9 @@ fn test_candle_backend_power() {
         .ndarray_from_slice(&data4, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.pow(TaggedNdArrayTuple::U32([tensor3, tensor4]));
+    let result = backend.pow(TaggedTensorTuple::U32([tensor3, tensor4]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -378,9 +378,9 @@ fn test_candle_backend_negation() {
         .ndarray_from_slice(&data, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.neg(TaggedNdArray::F32([tensor]));
+    let result = backend.neg(TaggedTensor::F32([tensor]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -392,9 +392,9 @@ fn test_candle_backend_negation() {
         .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
         .unwrap();
 
-    let result = backend.neg(TaggedNdArray::U32([tensor_u32]));
+    let result = backend.neg(TaggedTensor::U32([tensor_u32]));
     match result {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -412,9 +412,9 @@ fn test_candle_backend_broadcast() {
         .unwrap();
 
     // Broadcast to add a dimension at the front: [2, 2] -> [1, 2, 2]
-    let broadcasted = backend.broadcast(TaggedNdArray::F32([tensor]), Shape(vec![1, 2, 2]));
+    let broadcasted = backend.broadcast(TaggedTensor::F32([tensor]), Shape(vec![1, 2, 2]));
     match broadcasted {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[1, 2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -424,9 +424,9 @@ fn test_candle_backend_broadcast() {
     let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
         .ndarray_from_slice(&data, Shape(vec![1, 2, 2]))
         .unwrap();
-    let broadcasted = backend.broadcast(TaggedNdArray::F32([tensor]), Shape(vec![5, 2, 2]));
+    let broadcasted = backend.broadcast(TaggedTensor::F32([tensor]), Shape(vec![5, 2, 2]));
     match broadcasted {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[5, 2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -440,9 +440,9 @@ fn test_candle_backend_broadcast() {
 
     // Broadcast to add multiple dimensions: [2, 2] -> [2, 1, 2, 2]
     let broadcasted_u32 =
-        backend.broadcast(TaggedNdArray::U32([tensor_u32]), Shape(vec![2, 1, 2, 2]));
+        backend.broadcast(TaggedTensor::U32([tensor_u32]), Shape(vec![2, 1, 2, 2]));
     match broadcasted_u32 {
-        TaggedNdArray::U32([arr]) => {
+        TaggedTensor::U32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[2, 1, 2, 2]);
         }
         _ => panic!("Expected U32 result"),
@@ -462,9 +462,9 @@ fn test_candle_backend_broadcast_bad_shape() {
 
     // Broadcast to add a dimension at the front: [2, 2] -> [2, 2, 2]
     // This should fail because the shape is not compatible
-    let broadcasted = backend.broadcast(TaggedNdArray::F32([tensor]), Shape(vec![2, 2, 2]));
+    let broadcasted = backend.broadcast(TaggedTensor::F32([tensor]), Shape(vec![2, 2, 2]));
     match broadcasted {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[1, 2, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -479,9 +479,9 @@ fn test_candle_backend_broadcast_scalar() {
     let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.scalar(5.0f32);
 
     // Broadcast scalar to [3, 2] (concatenating [] and [3, 2])
-    let broadcasted = backend.broadcast(TaggedNdArray::F32([scalar]), Shape(vec![3, 2]));
+    let broadcasted = backend.broadcast(TaggedTensor::F32([scalar]), Shape(vec![3, 2]));
     match broadcasted {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[3, 2]);
         }
         _ => panic!("Expected F32 result"),
@@ -509,7 +509,7 @@ fn test_candle_backend_shape_mismatch_error() {
         backend.ndarray_from_slice(&data2, Shape(vec![3])).unwrap();
 
     // This should panic due to shape mismatch
-    let _result = backend.add(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let _result = backend.add(TaggedTensorTuple::F32([tensor1, tensor2]));
 }
 
 #[test]
@@ -525,7 +525,7 @@ fn test_candle_backend_scalar_tensor_mismatch_error() {
         .unwrap();
 
     // This should panic due to shape mismatch - scalar [1] vs tensor [2, 2]
-    let _result = backend.add(TaggedNdArrayTuple::F32([scalar, tensor]));
+    let _result = backend.add(TaggedTensorTuple::F32([scalar, tensor]));
 }
 
 #[test]
@@ -545,7 +545,7 @@ fn test_candle_backend_multiplication_shape_mismatch_error() {
         .unwrap();
 
     // This should panic due to shape mismatch
-    let _result = backend.mul(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let _result = backend.mul(TaggedTensorTuple::F32([tensor1, tensor2]));
 }
 
 #[test]
@@ -564,7 +564,7 @@ fn test_candle_backend_division_shape_mismatch_error() {
         backend.ndarray_from_slice(&data2, Shape(vec![2])).unwrap();
 
     // This should panic due to shape mismatch
-    let _result = backend.div(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let _result = backend.div(TaggedTensorTuple::F32([tensor1, tensor2]));
 }
 
 #[test]
@@ -584,7 +584,7 @@ fn test_candle_backend_power_shape_mismatch_error() {
         .unwrap();
 
     // This should panic due to shape mismatch
-    let _result = backend.pow(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let _result = backend.pow(TaggedTensorTuple::F32([tensor1, tensor2]));
 }
 
 #[test]
@@ -603,7 +603,7 @@ fn test_candle_backend_subtraction_shape_mismatch_error() {
         backend.ndarray_from_slice(&data2, Shape(vec![2])).unwrap();
 
     // This should panic due to shape mismatch
-    let _result = backend.sub(TaggedNdArrayTuple::F32([tensor1, tensor2]));
+    let _result = backend.sub(TaggedTensorTuple::F32([tensor1, tensor2]));
 }
 
 // ============================================================================
@@ -638,11 +638,11 @@ fn test_candle_backend_single_element_operations() {
         backend.ndarray_from_slice(&data2, Shape(vec![1])).unwrap();
 
     // Test all operations on single elements
-    let add_result = backend.add(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
-    let sub_result = backend.sub(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
-    let mul_result = backend.mul(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
-    let div_result = backend.div(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2.clone()]));
-    let pow_result = backend.pow(TaggedNdArrayTuple::F32([tensor1.clone(), tensor2]));
+    let add_result = backend.add(TaggedTensorTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let sub_result = backend.sub(TaggedTensorTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let mul_result = backend.mul(TaggedTensorTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let div_result = backend.div(TaggedTensorTuple::F32([tensor1.clone(), tensor2.clone()]));
+    let pow_result = backend.pow(TaggedTensorTuple::F32([tensor1.clone(), tensor2]));
 
     // All results should have shape [1]
     for (name, result) in [
@@ -653,7 +653,7 @@ fn test_candle_backend_single_element_operations() {
         ("pow", pow_result),
     ] {
         match result {
-            TaggedNdArray::F32([arr]) => {
+            TaggedTensor::F32([arr]) => {
                 assert_eq!(
                     arr.0.shape().dims(),
                     &[1],
@@ -666,13 +666,13 @@ fn test_candle_backend_single_element_operations() {
     }
 
     // Test unary operations
-    let neg_result = backend.neg(TaggedNdArray::F32([tensor1.clone()]));
-    let max_result = backend.max(TaggedNdArray::F32([tensor1.clone()]));
-    let sum_result = backend.sum(TaggedNdArray::F32([tensor1]));
+    let neg_result = backend.neg(TaggedTensor::F32([tensor1.clone()]));
+    let max_result = backend.max(TaggedTensor::F32([tensor1.clone()]));
+    let sum_result = backend.sum(TaggedTensor::F32([tensor1]));
 
     // Test negation (preserves shape)
     match neg_result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(
                 arr.0.shape().dims(),
                 &[1],
@@ -684,7 +684,7 @@ fn test_candle_backend_single_element_operations() {
 
     // Test max and sum
     match max_result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(
                 arr.0.shape().dims(),
                 &[1],
@@ -695,7 +695,7 @@ fn test_candle_backend_single_element_operations() {
     }
 
     match sum_result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(
                 arr.0.shape().dims(),
                 &[1],
@@ -718,27 +718,27 @@ fn test_candle_backend_large_tensor() {
         .unwrap();
 
     // Test that operations work on larger tensors
-    let result = backend.add(TaggedNdArrayTuple::F32([tensor.clone(), tensor.clone()]));
+    let result = backend.add(TaggedTensorTuple::F32([tensor.clone(), tensor.clone()]));
     match result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[10, 10]);
         }
         _ => panic!("Expected F32 result"),
     }
 
     // Test reduction operations
-    let sum_result = backend.sum(TaggedNdArray::F32([tensor.clone()]));
-    let max_result = backend.max(TaggedNdArray::F32([tensor]));
+    let sum_result = backend.sum(TaggedTensor::F32([tensor.clone()]));
+    let max_result = backend.max(TaggedTensor::F32([tensor]));
 
     match sum_result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[10, 1]);
         }
         _ => panic!("Expected F32 result for sum"),
     }
 
     match max_result {
-        TaggedNdArray::F32([arr]) => {
+        TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[10, 1]);
         }
         _ => panic!("Expected F32 result for max"),
@@ -806,9 +806,9 @@ fn test_candle_interpreter_add() {
     let expected = tensor(&backend, Shape(vec![2, 1, 3]), &expected_data).unwrap();
     let backend = CandleBackend::new();
     match (&result[0], &expected) {
-        (Value::Tensor(TaggedNdArray::U32([actual])), Value::Tensor(TaggedNdArray::U32([exp]))) => {
+        (Value::Tensor(TaggedTensor::U32([actual])), Value::Tensor(TaggedTensor::U32([exp]))) => {
             assert!(
-                backend.compare(TaggedNdArrayTuple::U32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedTensorTuple::U32([actual.clone(), exp.clone()])),
                 "Result should be double the input data"
             );
         }
@@ -845,9 +845,9 @@ fn test_candle_interpreter_batch_matmul() {
     let expected = tensor(&backend, Shape(vec![2, 2, 1]), &expected_data).unwrap();
     let backend = CandleBackend::new();
     match (&result[0], &expected) {
-        (Value::Tensor(TaggedNdArray::F32([actual])), Value::Tensor(TaggedNdArray::F32([exp]))) => {
+        (Value::Tensor(TaggedTensor::F32([actual])), Value::Tensor(TaggedTensor::F32([exp]))) => {
             assert!(
-                backend.compare(TaggedNdArrayTuple::F32([actual.clone(), exp.clone()])),
+                backend.compare(TaggedTensorTuple::F32([actual.clone(), exp.clone()])),
                 "Batch matmul result should match expected output"
             );
         }
@@ -879,9 +879,9 @@ fn test_candle_interpreter_exp() {
     });
 
     // make sure actual result is a single F32 array
-    use catgrad_core::interpreter::{TaggedNdArray, Value};
+    use catgrad_core::interpreter::{TaggedTensor, Value};
     let actual = match &result[..] {
-        [Value::Tensor(TaggedNdArray::F32([actual]))] => actual,
+        [Value::Tensor(TaggedTensor::F32([actual]))] => actual,
         xs => panic!("wrong output type: {xs:?}"),
     };
 

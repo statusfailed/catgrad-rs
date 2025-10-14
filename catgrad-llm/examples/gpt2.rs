@@ -62,9 +62,9 @@ fn run_interpreter(
 
     // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
-        use catgrad_core::interpreter::{TaggedNdArray, Value};
+        use catgrad_core::interpreter::{TaggedTensor, Value};
         match output {
-            Value::Tensor(TaggedNdArray::U32([arr])) => {
+            Value::Tensor(TaggedTensor::U32([arr])) => {
                 println!("Output shape: {:?}", arr.shape());
                 println!(
                     "Output sample: {:?}",
@@ -412,7 +412,7 @@ fn load_model<B: interpreter::Backend>(
                     .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
                     .collect();
                 let tensor =
-                    interpreter::TaggedNdArray::from_slice(backend, &data, Shape(shape.clone()))
+                    interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
                         .expect("Failed to create tensor");
                 let key = path(name.split(".").collect()).expect("invalid param path");
                 data_map.insert(key.clone(), tensor);

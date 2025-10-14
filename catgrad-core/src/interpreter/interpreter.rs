@@ -43,7 +43,7 @@ impl<B: Backend> abstract_interpreter::Interpreter for Interpreter<B> {
     type Dtype = Dtype;
     type Shape = Shape;
     type NdArrayType = core::NdArrayType;
-    type Tensor = TaggedNdArray<B>;
+    type Tensor = TaggedTensor<B>;
 
     fn pack(dims: Vec<Self::Nat>) -> Self::Shape            { Shape(dims)          }
     fn unpack(shape: Self::Shape) -> Option<Vec<Self::Nat>> { Some(shape.0)        }

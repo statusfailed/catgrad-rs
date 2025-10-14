@@ -42,68 +42,68 @@ impl Backend for ShapeOnlyBackend {
         Ok(ShapeOnly(shape))
     }
 
-    fn cast(&self, x: TaggedNdArray<Self>, _target_dtype: Dtype) -> TaggedNdArray<Self> {
+    fn cast(&self, x: TaggedTensor<Self>, _target_dtype: Dtype) -> TaggedTensor<Self> {
         x
     }
 
-    fn matmul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match lhs {
             F32([x, y]) => F32([Self::matmul_shape(x, y)]),
             U32([x, y]) => U32([Self::matmul_shape(x, y)]),
         }
     }
 
-    fn add(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn add(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn sub(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn sub(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn mul(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn mul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn div(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn div(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn pow(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn pow(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn lt(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn lt(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn eq(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
+    fn eq(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         self.exact_match(lhs)
     }
 
-    fn sin(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+    fn sin(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         x
     }
 
-    fn cos(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+    fn cos(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         x
     }
 
-    fn neg(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
+    fn neg(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         x
     }
 
-    fn broadcast(&self, x: TaggedNdArray<Self>, shape: Shape) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn broadcast(&self, x: TaggedTensor<Self>, shape: Shape) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match x {
             F32([arr]) => F32([Self::broadcast(arr, shape)]),
             U32([arr]) => U32([Self::broadcast(arr, shape)]),
         }
     }
 
-    fn reshape(&self, _x: TaggedNdArray<Self>, new_shape: Shape) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn reshape(&self, _x: TaggedTensor<Self>, new_shape: Shape) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         let arr = ShapeOnly(new_shape);
         match _x {
             F32(_) => F32([arr]),
@@ -111,8 +111,8 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
-    fn transpose(&self, x: TaggedNdArray<Self>, dim0: usize, dim1: usize) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn transpose(&self, x: TaggedTensor<Self>, dim0: usize, dim1: usize) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         let mut shape = x.shape();
         shape.0.swap(dim0, dim1);
 
@@ -122,50 +122,50 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
-    fn max(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn max(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match x {
             F32([arr]) => F32([Self::reduce_last_dim(arr)]),
             U32([arr]) => U32([Self::reduce_last_dim(arr)]),
         }
     }
 
-    fn sum(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn sum(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match x {
             F32([arr]) => F32([Self::reduce_last_dim(arr)]),
             U32([arr]) => U32([Self::reduce_last_dim(arr)]),
         }
     }
 
-    fn argmax(&self, x: TaggedNdArray<Self>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn argmax(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match x {
             F32([arr]) => U32([Self::reduce_last_dim(arr)]),
             U32([arr]) => U32([Self::reduce_last_dim(arr)]),
         }
     }
 
-    fn compare(&self, x: TaggedNdArrayTuple<Self, 2>) -> bool {
-        use TaggedNdArrayTuple::*;
+    fn compare(&self, x: TaggedTensorTuple<Self, 2>) -> bool {
+        use TaggedTensorTuple::*;
         match x {
             F32([a, b]) => a.0 == b.0,
             U32([a, b]) => a.0 == b.0,
         }
     }
 
-    fn arange(&self, end: usize) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn arange(&self, end: usize) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         U32([ShapeOnly(Shape(vec![end]))])
     }
 
     fn concat(
         &self,
-        x: TaggedNdArray<Self>,
-        y: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
+        y: TaggedTensor<Self>,
         dim: usize,
-    ) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    ) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match (x, y) {
             (F32([ShapeOnly(a)]), F32([ShapeOnly(b)])) => {
                 let mut s = a.clone();
@@ -183,11 +183,11 @@ impl Backend for ShapeOnlyBackend {
 
     fn index(
         &self,
-        x: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
         dim: usize,
-        indices: TaggedNdArray<Self>,
-    ) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+        indices: TaggedTensor<Self>,
+    ) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         let shape = &match indices {
             F32([shape]) => shape,
             U32([shape]) => shape,
@@ -210,12 +210,12 @@ impl Backend for ShapeOnlyBackend {
 
     fn slice(
         &self,
-        x: TaggedNdArray<Self>,
+        x: TaggedTensor<Self>,
         dim: usize,
         _start: usize,
         len: usize,
-    ) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    ) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match x {
             F32([ShapeOnly(mut s)]) => {
                 s[dim] = len;
@@ -260,8 +260,8 @@ impl ShapeOnlyBackend {
         ShapeOnly(Shape(result_shape))
     }
 
-    fn exact_match(&self, lhs: TaggedNdArrayTuple<Self, 2>) -> TaggedNdArray<Self> {
-        use TaggedNdArrayTuple::*;
+    fn exact_match(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
+        use TaggedTensorTuple::*;
         match lhs {
             F32([x, y]) => F32([Self::exact_shape_match(x, y)]),
             U32([x, y]) => U32([Self::exact_shape_match(x, y)]),
@@ -350,7 +350,7 @@ mod tests {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
         let y = ShapeOnly(Shape(vec![2, 3]));
-        let lhs = TaggedNdArrayTuple::F32([x, y]);
+        let lhs = TaggedTensorTuple::F32([x, y]);
 
         let result = backend.add(lhs);
         assert_eq!(result.shape(), Shape(vec![2, 3]));
@@ -362,7 +362,7 @@ mod tests {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
         let y = ShapeOnly(Shape(vec![3, 2]));
-        let lhs = TaggedNdArrayTuple::F32([x, y]);
+        let lhs = TaggedTensorTuple::F32([x, y]);
 
         backend.add(lhs);
     }
@@ -424,7 +424,7 @@ mod tests {
     fn test_reshape() {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
-        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let tagged_x = TaggedTensorTuple::F32([x]);
         let new_shape = Shape(vec![6]);
 
         let result = backend.reshape(tagged_x, new_shape.clone());
@@ -435,7 +435,7 @@ mod tests {
     fn test_neg() {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
-        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let tagged_x = TaggedTensorTuple::F32([x]);
 
         let result = backend.neg(tagged_x);
         assert_eq!(result.shape(), Shape(vec![2, 3]));
@@ -445,7 +445,7 @@ mod tests {
     fn test_sum() {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3, 4]));
-        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let tagged_x = TaggedTensorTuple::F32([x]);
 
         let result = backend.sum(tagged_x);
         assert_eq!(result.shape(), Shape(vec![2, 3, 1]));
@@ -455,7 +455,7 @@ mod tests {
     fn test_max() {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3, 4]));
-        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let tagged_x = TaggedTensorTuple::F32([x]);
 
         let result = backend.max(tagged_x);
         assert_eq!(result.shape(), Shape(vec![2, 3, 1]));
@@ -466,7 +466,7 @@ mod tests {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
         let y = ShapeOnly(Shape(vec![2, 3]));
-        let lhs = TaggedNdArrayTuple::F32([x, y]);
+        let lhs = TaggedTensorTuple::F32([x, y]);
 
         assert!(backend.compare(lhs));
     }
@@ -476,7 +476,7 @@ mod tests {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
         let y = ShapeOnly(Shape(vec![3, 2]));
-        let lhs = TaggedNdArrayTuple::F32([x, y]);
+        let lhs = TaggedTensorTuple::F32([x, y]);
 
         assert!(!backend.compare(lhs));
     }
@@ -485,7 +485,7 @@ mod tests {
     fn test_cast() {
         let backend = ShapeOnlyBackend;
         let x = ShapeOnly(Shape(vec![2, 3]));
-        let tagged_x = TaggedNdArrayTuple::F32([x]);
+        let tagged_x = TaggedTensorTuple::F32([x]);
 
         let result = backend.cast(tagged_x, Dtype::U32);
         assert_eq!(result.shape(), Shape(vec![2, 3]));

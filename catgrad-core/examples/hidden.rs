@@ -215,7 +215,7 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
         .map(|i| (i as f32 * 0.01 % 2.0) - 1.0) // Simple pattern: values between -1 and 1
         .collect();
     let layer1_tensor =
-        interpreter::TaggedNdArray::from_slice(backend, &layer1_data, Shape(vec![784, 100]))
+        interpreter::TaggedTensor::from_slice(backend, &layer1_data, Shape(vec![784, 100]))
             .expect("Failed to create layer1 tensor");
     map.insert(
         path(vec!["0", "weights"]).expect("invalid param path"),
@@ -227,7 +227,7 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
         .map(|i| (i as f32 * 0.01 % 2.0) - 1.0)
         .collect();
     let layer2_tensor =
-        interpreter::TaggedNdArray::from_slice(backend, &layer2_data, Shape(vec![100, 10]))
+        interpreter::TaggedTensor::from_slice(backend, &layer2_data, Shape(vec![100, 10]))
             .expect("Failed to create layer2 tensor");
     map.insert(
         path(vec!["1", "weights"]).expect("invalid param path"),
