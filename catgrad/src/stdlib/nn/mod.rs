@@ -226,7 +226,7 @@ pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let [_, _, n] = unpack::<3>(builder, x_shape.clone());
     let s = sum(builder, x.clone());
 
-    let constn = scalar(builder, n);
+    let constn = nat_to_u32(builder, n);
     let constn = cast(builder, constn, dtype(builder, x.clone()));
     let sh = shape(builder, s.clone());
     let constn = broadcast_to(builder, constn, sh);
@@ -261,7 +261,7 @@ pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let [_, _, n] = unpack::<3>(builder, x_shape.clone());
     let s = sum(builder, x.clone() * x.clone());
 
-    let constn = scalar(builder, n);
+    let constn = nat_to_u32(builder, n);
     let constn = cast(builder, constn, dtype(builder, x.clone()));
     let sh = shape(builder, s.clone());
     let constn = broadcast_to(builder, constn, sh);

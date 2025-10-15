@@ -226,8 +226,8 @@ pub fn argmax(builder: &Builder, x: Var) -> Var {
     var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "argmax"])
 }
 
-pub fn scalar(builder: &Builder, nat: Var) -> Var {
-    var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "scalar"])
+pub fn nat_to_u32(builder: &Builder, nat: Var) -> Var {
+    var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "nat_to_u32"])
 }
 
 pub fn lt(builder: &Builder, x: Var, y: Var) -> Var {

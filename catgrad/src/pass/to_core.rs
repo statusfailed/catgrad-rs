@@ -109,7 +109,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "argmax"], Operation::Tensor(Argmax)),
         (path!["tensor", "arange"], Operation::Tensor(Arange)),
         (path!["tensor", "concat"], Operation::Tensor(Concat)),
-        (path!["tensor", "scalar"], Operation::Tensor(Scalar)),
+        (path!["tensor", "nat_to_u32"], Operation::Tensor(NatToU32)),
         // Mixed Tensor/Type ops
         (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
         (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),

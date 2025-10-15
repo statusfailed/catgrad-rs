@@ -10,7 +10,7 @@ use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
 pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> ResultValues {
     match op {
         TensorOp::Map(scalar_op) => tensor_map(ssa, args, scalar_op),
-        TensorOp::Scalar => tensor_scalar(ssa, args),
+        TensorOp::NatToU32 => tensor_nat_to_u32(ssa, args),
         TensorOp::Cast => tensor_cast(ssa, args),
         TensorOp::MatMul => tensor_matmul(ssa, args),
         TensorOp::Constant(c) => tensor_constant(ssa, args, c.clone()),
@@ -45,7 +45,7 @@ fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
     }
 }
 
-fn tensor_scalar(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+fn tensor_nat_to_u32(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [n] = get_exact_arity(ssa, args)?;
     let _ = to_nat(ssa, n)?; // ensure arg is a nat
     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {

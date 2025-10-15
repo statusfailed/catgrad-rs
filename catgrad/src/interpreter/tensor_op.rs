@@ -23,7 +23,7 @@ pub(crate) fn tensor_op<B: Backend>(
         TensorOp::Map(ScalarOp::Div) => binop(backend, args, ssa, B::div),
         TensorOp::Map(ScalarOp::LT) => binop(backend, args, ssa, B::lt),
         TensorOp::Map(ScalarOp::EQ) => binop(backend, args, ssa, B::eq),
-        TensorOp::Scalar => tensor_scalar(backend, args, ssa),
+        TensorOp::NatToU32 => tensor_nat_to_u32(backend, args, ssa),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
         TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
@@ -64,7 +64,11 @@ pub fn tensor_constant<B: Backend>(
     }
 }
 
-fn tensor_scalar<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+fn tensor_nat_to_u32<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &CoreSSA,
+) -> ResultValues<B> {
     let [value] = get_exact_arity(ssa, args)?;
     let value: u32 = to_nat(ssa, value)?
         .try_into()

@@ -144,8 +144,8 @@ pub enum TensorOp {
     /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
     Map(ScalarOp),
 
-    /// `Scalar : Nat → Tensor ()` turns a Nat into a (scalar) tensor.
-    Scalar,
+    /// `NatToU32 : Nat → Tensor ()` turns a Nat into a (scalar) tensor.
+    NatToU32,
 
     /// Cast a tensor to a dtype
     /// `Tensor × Dtype → Tensor`
