@@ -91,7 +91,7 @@ impl GPT2Model {
     }
 
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
-        let wte = param(builder, &p.extend(&["wte", "weight"]).unwrap());
+        let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
         let dim = constant_nat(builder, 0);
         let te = index(builder, wte, dim.clone(), x);
 
@@ -103,7 +103,7 @@ impl GPT2Model {
 
         let te = reshape(builder, sh.clone(), te);
 
-        let wpe = param(builder, &p.extend(&["wpe", "weight"]).unwrap());
+        let wpe = param(builder, &p.extend(["wpe", "weight"]).unwrap());
         let r = arange(builder, seq_len);
         let pe = index(builder, wpe, dim, r);
         let pe = reshape(builder, sh, pe);
@@ -118,8 +118,8 @@ impl GPT2Model {
         p: Path,
         x: Var,
     ) -> Var {
-        let w = param(builder, &p.extend(&["weight"]).unwrap());
-        let b = param(builder, &p.extend(&["bias"]).unwrap());
+        let w = param(builder, &p.extend(["weight"]).unwrap());
+        let b = param(builder, &p.extend(["bias"]).unwrap());
 
         // w is already transposed in GPT-2 checkpoints
         let w_t = w;
@@ -132,10 +132,10 @@ impl GPT2Model {
     }
 
     fn mlp(&self, builder: &Builder, dim: usize, p: Path, x: Var) -> Var {
-        let x = self.gpt_linear(builder, dim, dim * 4, p.extend(&["c_fc"]).unwrap(), x);
+        let x = self.gpt_linear(builder, dim, dim * 4, p.extend(["c_fc"]).unwrap(), x);
         // let x = nn::gelu(builder, x);
         let x = nn::Gelu.call(builder, [x]);
-        self.gpt_linear(builder, dim * 4, dim, p.extend(&["c_proj"]).unwrap(), x)
+        self.gpt_linear(builder, dim * 4, dim, p.extend(["c_proj"]).unwrap(), x)
     }
 
     fn attention(
@@ -152,7 +152,7 @@ impl GPT2Model {
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
 
-        let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.extend(&["c_attn"]).unwrap(), x);
+        let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.extend(["c_attn"]).unwrap(), x);
 
         let a = nn::chunk(builder, 2, 3, config.hidden_size, c_attn);
         let q = a[0].clone();
@@ -189,15 +189,15 @@ impl GPT2Model {
         let sh = pack::<3>(builder, [b, s, ddim]);
         let attn = reshape(builder, sh, attn);
 
-        self.gpt_linear(builder, dim, dim, p.extend(&["c_proj"]).unwrap(), attn)
+        self.gpt_linear(builder, dim, dim, p.extend(["c_proj"]).unwrap(), attn)
     }
 
     fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
         // Params
-        let ln_1 = p.extend(&["ln_1"]).unwrap();
-        let attn = p.extend(&["attn"]).unwrap();
-        let ln_2 = p.extend(&["ln_2"]).unwrap();
-        let mlp = p.extend(&["mlp"]).unwrap();
+        let ln_1 = p.extend(["ln_1"]).unwrap();
+        let attn = p.extend(["attn"]).unwrap();
+        let ln_2 = p.extend(["ln_2"]).unwrap();
+        let mlp = p.extend(["mlp"]).unwrap();
 
         // layers
         let res = x.clone();
