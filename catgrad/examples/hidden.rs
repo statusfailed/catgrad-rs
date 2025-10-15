@@ -1,4 +1,4 @@
-// TODO: use catgrad::prelude::ops::*;
+use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 
 use std::collections::HashMap;

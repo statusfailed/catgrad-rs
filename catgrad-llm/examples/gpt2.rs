@@ -1,11 +1,6 @@
-use catgrad::abstract_interpreter::Value;
-use catgrad::category::core::Dtype;
-use catgrad::category::core::Shape;
 use catgrad::interpreter::backend::ndarray::NdArrayBackend;
+use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
-use catgrad::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
-
-use catgrad::interpreter;
 
 use std::collections::HashMap;
 
@@ -163,11 +158,11 @@ impl GPT2Model {
         let k = reshape(builder, sh.clone(), k);
         let v = reshape(builder, sh, v);
 
-        let q = nn::transpose(builder, 1, 2, q);
-        let k = nn::transpose(builder, 1, 2, k);
-        let v = nn::transpose(builder, 1, 2, v);
+        let q = transpose(builder, 1, 2, q);
+        let k = transpose(builder, 1, 2, k);
+        let v = transpose(builder, 1, 2, v);
 
-        let tk = nn::transpose(builder, 2, 3, k);
+        let tk = transpose(builder, 2, 3, k);
         let attn = matmul(builder, q, tk);
         let sh = shape(builder, attn.clone());
         let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
@@ -183,7 +178,7 @@ impl GPT2Model {
         let attn = nn::softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
-        let attn = nn::transpose(builder, 1, 2, attn);
+        let attn = transpose(builder, 1, 2, attn);
         let sh = shape!(builder, b, s, dim);
         let attn = reshape(builder, sh, attn);
 
@@ -253,6 +248,7 @@ impl Module<1, 1> for GPT2Model {
 
     // This should return the *detailed* type of the model
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
+        use catgrad::typecheck::*;
         let batch_size = NatExpr::Var(0);
         let seq_len = NatExpr::Var(1);
 
@@ -293,6 +289,7 @@ fn load_model<B: interpreter::Backend>(
         // Convert dtype and load tensor data
         match view.dtype() {
             safetensors::Dtype::F32 => {
+                use catgrad::typecheck::*;
                 let data: Vec<f32> = tensor_data
                     .chunks_exact(4)
                     .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
