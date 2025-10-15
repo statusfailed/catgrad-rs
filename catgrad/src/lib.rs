@@ -20,7 +20,8 @@ pub mod definition;
 // Utilities
 #[cfg(feature = "svg")]
 pub mod svg;
-pub mod util;
+
+pub(crate) mod util;
 
 // entry point
 pub mod prelude;

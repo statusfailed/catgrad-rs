@@ -1,3 +1,4 @@
+//! Default imports
 // Constructing model graphs
 pub use crate::category::core::Shape;
 pub use crate::category::lang::{Builder, Dtype, Term, Type, TypedTerm, Var};

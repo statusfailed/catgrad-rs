@@ -1,4 +1,4 @@
-//! # Abstract Interpreter
+//! # Abstract Interpretation of core terms
 //!
 //! An interpreter for [`crate::category::core::Term`] which is parametric over the underlying type
 //! representation.

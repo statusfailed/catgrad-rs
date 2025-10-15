@@ -1,3 +1,4 @@
+//! Names of operations in surface syntax
 use std::fmt;
 use std::slice;
 

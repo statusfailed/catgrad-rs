@@ -10,7 +10,14 @@ use crate::definition::Def;
 use crate::path::Path;
 use crate::ssa::{SSA, SSAError};
 
+/// SSA of a core [Term](crate::category::core::Term)
 pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
+
+/// The result of running [eval](super::eval::eval)
+pub type EvalResult<T> = std::result::Result<T, InterpreterError>;
+
+/// An [`EvalResult`] of `Vec<Value<V>>`
+pub type EvalResultValues<I> = std::result::Result<Vec<Value<I>>, InterpreterError>;
 
 /// An [`Interpreter`] defines a set of types used to represent values at runtime. For example:
 ///
@@ -87,9 +94,7 @@ where
     }
 }
 
-pub type EvalResult<T> = std::result::Result<T, InterpreterError>;
-pub type EvalResultValues<V> = std::result::Result<Vec<Value<V>>, InterpreterError>;
-
+/// Evaluation errors
 #[derive(Clone, Debug)]
 pub enum InterpreterError {
     /// A node appeared as a *source* of multiple hyperedges, and so interpreting tried to read a
