@@ -38,3 +38,29 @@ macro_rules! shape {
     (@len $($x:tt),+) => { <[()]>::len(&[ $( shape!(@u $x) ),+ ]) };
     (@u $x:tt) => { () };
 }
+
+/// Extend a path with new components, statically checked for validity
+#[macro_export]
+macro_rules! extend {
+    ($prefix:expr $(, $lit:literal)+ $(,)?) => {{
+        $(
+            const _: () = {
+                if $crate::path::is_valid_component($lit) { () }
+                else { panic!(concat!("invalid PathComponent: `", $lit, "`")) }
+            };
+        )*
+        $prefix.concat(&vec![ $( ($lit).try_into().unwrap() ),+ ].try_into().unwrap())
+    }};
+    ($prefix:expr $(,)?) => { $prefix };
+}
+
+/// Create a path from statically checked components
+#[macro_export]
+macro_rules! path {
+    () => {
+        $crate::extend!($crate::path::Path::empty())
+    };
+    ($($rest:tt)+) => {
+        $crate::extend!($crate::path::Path::empty(), $($rest)+)
+    };
+}

@@ -21,6 +21,10 @@ impl Path {
         self.0.is_empty()
     }
 
+    pub fn empty() -> Self {
+        Path(Vec::new())
+    }
+
     pub fn len(&self) -> usize {
         self.0.len()
     }
@@ -36,6 +40,27 @@ impl Path {
         components.push(component.to_string().try_into().ok()?);
         Some(Path(components))
     }
+}
+
+// Static checking for &str values as `PathComponent`s
+pub const fn is_valid_component(s: &str) -> bool {
+    is_alphanumeric(s)
+}
+
+const fn is_alphanumeric(s: &str) -> bool {
+    let b = s.as_bytes();
+    if b.is_empty() {
+        return false;
+    }
+    let mut i = 0;
+    while i < b.len() {
+        let c = b[i];
+        if !matches!(c, b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_') {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
 ////////////////////////////////////////////////////////////////////////////////
