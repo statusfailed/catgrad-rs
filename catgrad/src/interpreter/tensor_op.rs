@@ -2,7 +2,7 @@
 use super::backend::*;
 use super::{ResultValues, TaggedTensor, TaggedTensorTuple, Value};
 use crate::abstract_interpreter::util::{get_exact_arity, to_dtype, to_nat, to_shape, to_tensor};
-use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
+use crate::abstract_interpreter::{CoreSSA, InterpreterError, Result};
 use crate::category::core::{Dtype, Scalar, ScalarOp, TensorOp};
 
 /// Apply a Tensor operation
@@ -182,7 +182,7 @@ fn unary_op<B: Backend>(
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     values: Vec<Value<B>>, // TODO: rename args
     ssa: &CoreSSA,
-) -> EvalResult<TaggedTensorTuple<B, N>> {
+) -> Result<TaggedTensorTuple<B, N>> {
     // If no args, type is ambiguous, but this is a programmer error.
     if N == 0 {
         panic!("try_into_tagged_ndarrays is undefined for N <= 0");
@@ -192,7 +192,7 @@ pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     let tensors: Vec<TaggedTensor<B>> = get_exact_arity::<N, _>(ssa, values)?
         .into_iter()
         .map(|x| to_tensor(ssa, x))
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
     let dtype = tensors[0].dtype();
 
     // Collect each tag into its own typed array

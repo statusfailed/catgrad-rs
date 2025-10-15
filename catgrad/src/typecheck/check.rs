@@ -7,11 +7,8 @@ use crate::abstract_interpreter::{InterpreterError, eval_with};
 use crate::category::lang;
 use crate::pass::to_core::Environment;
 
-// TODO: remove?
-pub type ShapeCheckResult = ResultValues;
-
 /// Typecheck a [`lang::TypedTerm`] and return a symbolic value for each of its nodes.
-pub fn check(env: &Environment, params: &Parameters, term: lang::TypedTerm) -> ShapeCheckResult {
+pub fn check(env: &Environment, params: &Parameters, term: lang::TypedTerm) -> ResultValues {
     let lang::TypedTerm {
         term, source_type, ..
     } = term;
@@ -25,7 +22,7 @@ pub fn check_with(
     params: &Parameters,
     term: lang::Term,
     source_values: Vec<Value>,
-) -> ShapeCheckResult {
+) -> ResultValues {
     // TODO: can we do without this cloning params?
     let interpreter = Interpreter::new(env.clone(), params.clone());
     let term = interpreter.environment.to_core(term);

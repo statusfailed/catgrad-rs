@@ -2,7 +2,7 @@ use super::interpreter::{ResultValues, Value};
 use super::value_types::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
 
 use crate::abstract_interpreter::{
-    CoreSSA, EvalResult, InterpreterError,
+    CoreSSA, InterpreterError, Result,
     util::{ensure_profile, get_exact_arity, to_dtype, to_nat, to_shape, to_tensor},
 };
 use crate::category::core::{Dtype, Scalar, ScalarOp, TensorOp};
@@ -32,7 +32,7 @@ fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
     let types = args
         .into_iter()
         .map(|t| to_tensor(ssa, t))
-        .collect::<EvalResult<Vec<_>>>()?;
+        .collect::<Result<Vec<_>>>()?;
     // FIXME: do Sin/Cos work on non-floating types? Are LT/EQ supposed to return U32 or F32?
 
     // ensure all types are the same

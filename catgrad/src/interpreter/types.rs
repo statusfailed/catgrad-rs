@@ -6,7 +6,7 @@ use crate::abstract_interpreter;
 use crate::category::core::{Dtype, Shape};
 
 pub type Value<B> = abstract_interpreter::Value<Interpreter<B>>;
-pub type ResultValues<B> = abstract_interpreter::EvalResultValues<Interpreter<B>>;
+pub type ResultValues<B> = abstract_interpreter::ResultValues<Interpreter<B>>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Multiple tagged ndarrays
@@ -16,7 +16,7 @@ pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
 impl HasDtype for f32 {}
 impl HasDtype for u32 {}
 
-/// A collection of N NdArrays of the same dtype
+/// A collection of n tensors of the same dtype
 #[derive(Copy, Clone, Debug)]
 pub enum TaggedTensorTuple<B: Backend, const N: usize> {
     F32([B::NdArray<f32>; N]),

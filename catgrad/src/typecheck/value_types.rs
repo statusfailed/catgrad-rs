@@ -1,4 +1,4 @@
-use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
+use crate::abstract_interpreter::{CoreSSA, InterpreterError, Result};
 use crate::category::core::Dtype;
 
 // For now, type expressions are either completely opaque, or *concrete* lists of nat exprs.
@@ -44,14 +44,14 @@ pub enum DtypeExpr {
 // Helper impls
 
 impl TypeExpr {
-    pub(crate) fn into_ndarraytype(self, ssa: &CoreSSA) -> EvalResult<NdArrayType> {
+    pub(crate) fn into_ndarraytype(self, ssa: &CoreSSA) -> Result<NdArrayType> {
         match self {
             Self::NdArrayType(t) => Ok(t),
             _ => Err(InterpreterError::TypeError(ssa.edge_id)),
         }
     }
 
-    pub(crate) fn into_shapeexpr_dtype(self, ssa: &CoreSSA) -> EvalResult<(ShapeExpr, DtypeExpr)> {
+    pub(crate) fn into_shapeexpr_dtype(self, ssa: &CoreSSA) -> Result<(ShapeExpr, DtypeExpr)> {
         match self {
             Self::NdArrayType(NdArrayType { shape, dtype }) => Ok((shape, dtype)),
             _ => Err(InterpreterError::TypeError(ssa.edge_id)),
