@@ -204,10 +204,7 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
 }
 
 pub fn linear_no_bias(builder: &Builder, _in_dim: usize, _out_dim: usize, p: Path, x: Var) -> Var {
-    let w = param(
-        builder,
-        &p.concat(&path(vec!["weight"]).expect("invalid param path")),
-    );
+    let w = param(builder, &p.extend(["weight"]).unwrap());
 
     let dim0 = constant_nat(builder, 0);
     let dim1 = constant_nat(builder, 1);
@@ -248,19 +245,13 @@ pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
 }
 
 pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
-    let gamma = param(
-        builder,
-        &p.concat(&path(vec!["weight"]).expect("invalid param path")),
-    );
+    let gamma = param(builder, &p.extend(["weight"]).unwrap());
     let lr = layernorm_raw(builder, eps, x);
     let lr_shape = shape(builder, lr.clone());
     let gamma = broadcast_to(builder, gamma, lr_shape.clone());
     let lr = lr * gamma;
 
-    let beta = param(
-        builder,
-        &p.concat(&path(vec!["bias"]).expect("invalid param path")),
-    );
+    let beta = param(builder, &p.extend(["bias"]).unwrap());
     let beta = broadcast_to(builder, beta, lr_shape);
     lr + beta
 }
