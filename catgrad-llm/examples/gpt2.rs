@@ -121,7 +121,7 @@ impl GPT2Model {
         let w_t = nn::unsqueeze::<2, 3>(builder, 0, w_t);
         let m = matmul(builder, x, w_t);
         let sh = shape(builder, m.clone());
-        let bb = broadcast_to(builder, b, sh);
+        let bb = broadcast(builder, b, sh);
         m + bb
     }
 
@@ -171,7 +171,7 @@ impl GPT2Model {
         // TODO: check for seqlen > 1
         // if s > 1 {
         let mask = nn::causal_mask(builder, s.clone());
-        let mask = broadcast_to(builder, mask, sh);
+        let mask = broadcast(builder, mask, sh);
         attn = attn + mask;
         // }
 

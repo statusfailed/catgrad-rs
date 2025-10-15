@@ -59,7 +59,7 @@ impl Module<1, 1> for Exp {
         let e = lit(graph, std::f32::consts::E);
         let e = cast(graph, e, dtype(graph, x.clone()));
         let s = shape(graph, x.clone());
-        let e = broadcast_to(graph, e, s);
+        let e = broadcast(graph, e, s);
         [pow(graph, e, x)]
     }
 }
@@ -159,11 +159,11 @@ pub fn gelu(builder: &Builder, x: Var) -> Var {
 pub fn softmax(builder: &Builder, x: Var) -> Var {
     let x_shape = shape(builder, x.clone());
     let m = max(builder, x.clone());
-    let bmax = broadcast_to(builder, m, x_shape.clone());
+    let bmax = broadcast(builder, m, x_shape.clone());
     let x = x - bmax;
     let ex = exp(builder, x);
     let s = sum(builder, ex.clone());
-    let bsum = broadcast_to(builder, s, x_shape);
+    let bsum = broadcast(builder, s, x_shape);
     ex / bsum
 }
 
@@ -183,13 +183,13 @@ pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x:
 pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     let i = arange(builder, size.clone());
     let sh = pack::<2>(builder, [size.clone(), size.clone()]);
-    let i = broadcast_to(builder, i, sh.clone());
+    let i = broadcast(builder, i, sh.clone());
 
     let one = lit(builder, nat(1));
     let shr = pack::<2>(builder, [size.clone(), one]);
     let j = arange(builder, size);
     let j = reshape(builder, shr, j);
-    let j = broadcast_to(builder, j, sh);
+    let j = broadcast(builder, j, sh);
 
     let mask = lt(builder, j, i);
 
@@ -226,16 +226,16 @@ pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let constn = nat_to_u32(builder, n);
     let constn = cast(builder, constn, dtype(builder, x.clone()));
     let sh = shape(builder, s.clone());
-    let constn = broadcast_to(builder, constn, sh);
+    let constn = broadcast(builder, constn, sh);
 
     let mean = s / constn.clone();
-    let nom = x - broadcast_to(builder, mean, x_shape.clone());
+    let nom = x - broadcast(builder, mean, x_shape.clone());
 
     let var = sum(builder, nom.clone() * nom.clone()) / constn;
     let sh = shape(builder, var.clone());
     let epsilon = constant(builder, eps, &sh);
     let stddev = sqrt(builder, var + epsilon);
-    let denom = broadcast_to(builder, stddev, x_shape);
+    let denom = broadcast(builder, stddev, x_shape);
 
     nom / denom
 }
@@ -244,11 +244,11 @@ pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     let gamma = param(builder, &p.extend(["weight"]).unwrap());
     let lr = layernorm_raw(builder, eps, x);
     let lr_shape = shape(builder, lr.clone());
-    let gamma = broadcast_to(builder, gamma, lr_shape.clone());
+    let gamma = broadcast(builder, gamma, lr_shape.clone());
     let lr = lr * gamma;
 
     let beta = param(builder, &p.extend(["bias"]).unwrap());
-    let beta = broadcast_to(builder, beta, lr_shape);
+    let beta = broadcast(builder, beta, lr_shape);
     lr + beta
 }
 
@@ -260,13 +260,13 @@ pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
     let constn = nat_to_u32(builder, n);
     let constn = cast(builder, constn, dtype(builder, x.clone()));
     let sh = shape(builder, s.clone());
-    let constn = broadcast_to(builder, constn, sh);
+    let constn = broadcast(builder, constn, sh);
 
     let mean = s / constn;
 
     let epsilon = constant(builder, eps, &shape(builder, mean.clone()));
     let rms = sqrt(builder, mean + epsilon);
-    let denom = broadcast_to(builder, rms, x_shape);
+    let denom = broadcast(builder, rms, x_shape);
     x / denom
 }
 
@@ -275,7 +275,7 @@ pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     let gamma = param(builder, &p.extend(["weight"]).unwrap());
     let lr = rmsnorm_raw(builder, eps, x);
     let lr_shape = shape(builder, lr.clone());
-    let gamma = broadcast_to(builder, gamma, lr_shape);
+    let gamma = broadcast(builder, gamma, lr_shape);
     lr * gamma
 }
 

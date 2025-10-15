@@ -4,8 +4,8 @@ use crate::prelude::{Builder, Var};
 
 // re-export lang ops
 pub use ops::{
-    arange, broadcast_to, dtype, dtype_constant, index, lt, matmul, max, nat_to_u32, pack, param,
-    pow, reshape, shape, slice, sum, unpack,
+    arange, broadcast, dtype, dtype_constant, index, lt, matmul, max, nat_to_u32, pack, param, pow,
+    reshape, shape, slice, sum, unpack,
 };
 
 pub fn cast(builder: &Builder, x: Var, d: impl IntoDtypeVar) -> Var {
@@ -24,7 +24,7 @@ pub fn nat(x: u32) -> Literal {
 
 pub fn constant<T: Into<Literal>>(builder: &Builder, x: T, s: &Var) -> Var {
     let x = lit(builder, x);
-    ops::broadcast_to(builder, x, s.clone())
+    ops::broadcast(builder, x, s.clone())
 }
 
 // TODO: helper to make a Nat into a tensor + cast

@@ -146,12 +146,12 @@ pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
 ////////////////////////////////////////////////////////////////////////////////
 // Tensor Helpers
 
-pub fn broadcast_to(builder: &Builder, x: Var, s: Var) -> Var {
+pub fn broadcast(builder: &Builder, x: Var, s: Var) -> Var {
     var::fn_operation(builder, &[x, s], Object::Tensor, op!["tensor", "broadcast"])
 }
 
 pub fn expand(builder: &Builder, x: Var, s: Var) -> Var {
-    broadcast_to(builder, x, s)
+    broadcast(builder, x, s)
 }
 
 pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
