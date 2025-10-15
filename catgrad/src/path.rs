@@ -9,7 +9,7 @@ pub struct Path(Vec<PathComponent>);
 pub struct PathComponent(String); // only [a-zA-Z_]
 
 pub fn path(components: Vec<&str>) -> Result<Path, InvalidPathComponent> {
-    components.try_into()
+    Path::empty().extend(components)
 }
 
 impl Path {
@@ -19,6 +19,10 @@ impl Path {
 
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    pub fn empty() -> Self {
+        Path(vec![])
     }
 
     pub fn len(&self) -> usize {
@@ -31,10 +35,18 @@ impl Path {
         Path(components)
     }
 
-    pub fn push(&self, component: &str) -> Option<Path> {
-        let mut components = self.0.clone();
-        components.push(component.to_string().try_into().ok()?);
-        Some(Path(components))
+    pub fn extend<T: AsRef<str>, I: IntoIterator<Item = T>>(
+        &self,
+        components: I,
+    ) -> Result<Path, InvalidPathComponent> {
+        let mut cs = self.0.clone();
+        cs.extend(
+            components
+                .into_iter()
+                .map(|x| PathComponent::try_from(x.as_ref()))
+                .collect::<Result<Vec<_>, _>>()?,
+        );
+        Ok(Path(cs))
     }
 }
 
@@ -56,15 +68,11 @@ impl TryFrom<String> for PathComponent {
     }
 }
 
-impl TryFrom<Vec<&str>> for Path {
+impl TryFrom<&str> for PathComponent {
     type Error = InvalidPathComponent;
 
-    fn try_from(value: Vec<&str>) -> Result<Self, Self::Error> {
-        let components: Result<Vec<PathComponent>, InvalidPathComponent> = value
-            .into_iter()
-            .map(|s| s.to_string().try_into())
-            .collect();
-        Ok(Path(components?))
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.to_string().try_into()
     }
 }
 
