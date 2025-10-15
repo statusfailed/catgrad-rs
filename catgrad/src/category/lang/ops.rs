@@ -4,7 +4,7 @@ use open_hypergraphs::lax::var;
 
 macro_rules! path{
     [$($x:expr),* $(,)?] => {
-        vec![$($x),*].try_into().expect("invalid operation name")
+        $crate::path::path(vec![$($x),*]).expect("invalid operation name")
     };
 }
 
