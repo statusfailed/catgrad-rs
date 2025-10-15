@@ -91,10 +91,7 @@ impl GPT2Model {
     }
 
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
-        let wte = param(
-            builder,
-            &p.concat(&path(vec!["wte", "weight"]).expect("invalid param path")),
-        );
+        let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
         let dim = constant_nat(builder, 0);
         let te = index(builder, wte, dim.clone(), x);
 
@@ -106,11 +103,7 @@ impl GPT2Model {
 
         let te = reshape(builder, sh.clone(), te);
 
-        let wpe = param(
-            builder,
-            &p.concat(&path(vec!["wpe", "weight"]).expect("invalid param path")),
-        );
-
+        let wpe = param(builder, &p.extend(["wpe", "weight"]).unwrap());
         let r = arange(builder, seq_len);
         let pe = index(builder, wpe, dim, r);
         let pe = reshape(builder, sh, pe);
@@ -125,14 +118,8 @@ impl GPT2Model {
         p: Path,
         x: Var,
     ) -> Var {
-        let w = param(
-            builder,
-            &p.concat(&path(vec!["weight"]).expect("invalid param path")),
-        );
-        let b = param(
-            builder,
-            &p.concat(&path(vec!["bias"]).expect("invalid param path")),
-        );
+        let w = param(builder, &p.extend(["weight"]).unwrap());
+        let b = param(builder, &p.extend(["bias"]).unwrap());
 
         // w is already transposed in GPT-2 checkpoints
         let w_t = w;
@@ -145,22 +132,10 @@ impl GPT2Model {
     }
 
     fn mlp(&self, builder: &Builder, dim: usize, p: Path, x: Var) -> Var {
-        let x = self.gpt_linear(
-            builder,
-            dim,
-            dim * 4,
-            p.concat(&path(vec!["c_fc"]).expect("invalid param path")),
-            x,
-        );
+        let x = self.gpt_linear(builder, dim, dim * 4, p.extend(["c_fc"]).unwrap(), x);
         // let x = nn::gelu(builder, x);
         let x = nn::Gelu.call(builder, [x]);
-        self.gpt_linear(
-            builder,
-            dim * 4,
-            dim,
-            p.concat(&path(vec!["c_proj"]).expect("invalid param path")),
-            x,
-        )
+        self.gpt_linear(builder, dim * 4, dim, p.extend(["c_proj"]).unwrap(), x)
     }
 
     fn attention(
@@ -177,34 +152,23 @@ impl GPT2Model {
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
 
-        let c_attn = self.gpt_linear(
-            builder,
-            dim,
-            3 * dim,
-            p.concat(&path(vec!["c_attn"]).expect("invalid param path")),
-            x,
-        );
+        let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.extend(["c_attn"]).unwrap(), x);
 
         let a = nn::chunk(builder, 2, 3, config.hidden_size, c_attn);
         let q = a[0].clone();
         let k = a[1].clone();
         let v = a[2].clone();
 
-        let hd = constant_nat(builder, head_dim as u32);
-        let nh = constant_nat(builder, num_heads as u32);
-        let sh = pack::<4>(builder, [b.clone(), s.clone(), nh, hd]);
+        let sh = shape!(builder, b, s, num_heads, head_dim);
         let q = reshape(builder, sh.clone(), q);
         let k = reshape(builder, sh.clone(), k);
         let v = reshape(builder, sh, v);
 
-        let dim1 = constant_nat(builder, 1);
-        let dim2 = constant_nat(builder, 2);
-        let dim3 = constant_nat(builder, 3);
-        let q = transpose(builder, dim1.clone(), dim2.clone(), q);
-        let k = transpose(builder, dim1.clone(), dim2.clone(), k);
-        let v = transpose(builder, dim1.clone(), dim2.clone(), v);
+        let q = nn::transpose(builder, 1, 2, q);
+        let k = nn::transpose(builder, 1, 2, k);
+        let v = nn::transpose(builder, 1, 2, v);
 
-        let tk = transpose(builder, dim2.clone(), dim3, k);
+        let tk = nn::transpose(builder, 2, 3, k);
         let attn = matmul(builder, q, tk);
         let sh = shape(builder, attn.clone());
         let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
@@ -220,49 +184,30 @@ impl GPT2Model {
         let attn = nn::softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
-        let attn = transpose(builder, dim1, dim2, attn);
+        let attn = nn::transpose(builder, 1, 2, attn);
         let ddim = constant_nat(builder, dim as u32);
         let sh = pack::<3>(builder, [b, s, ddim]);
         let attn = reshape(builder, sh, attn);
 
-        self.gpt_linear(
-            builder,
-            dim,
-            dim,
-            p.concat(&path(vec!["c_proj"]).expect("invalid param path")),
-            attn,
-        )
+        self.gpt_linear(builder, dim, dim, p.extend(["c_proj"]).unwrap(), attn)
     }
 
     fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
+        // Params
+        let ln_1 = p.extend(["ln_1"]).unwrap();
+        let attn = p.extend(["attn"]).unwrap();
+        let ln_2 = p.extend(["ln_2"]).unwrap();
+        let mlp = p.extend(["mlp"]).unwrap();
+
+        // layers
         let res = x.clone();
-        let x = nn::layernorm(
-            builder,
-            self.config.layer_norm_epsilon,
-            p.concat(&path(vec!["ln_1"]).expect("invalid param path")),
-            x,
-        );
-        let x = self.attention(
-            builder,
-            _layer_id,
-            &self.config,
-            p.concat(&path(vec!["attn"]).expect("invalid param path")),
-            x,
-        );
+        let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_1, x);
+        let x = self.attention(builder, _layer_id, &self.config, attn, x);
         let x = res + x;
+
         let res = x.clone();
-        let x = nn::layernorm(
-            builder,
-            self.config.layer_norm_epsilon,
-            p.concat(&path(vec!["ln_2"]).expect("invalid param path")),
-            x,
-        );
-        let x = self.mlp(
-            builder,
-            self.config.hidden_size,
-            p.concat(&path(vec!["mlp"]).expect("invalid param path")),
-            x,
-        );
+        let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_2, x);
+        let x = self.mlp(builder, self.config.hidden_size, mlp, x);
         x + res
     }
 }
