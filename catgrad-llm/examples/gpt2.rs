@@ -87,7 +87,7 @@ impl GPT2Model {
 
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
-        let dim = constant_nat(builder, 0);
+        let dim = lit(builder, nat(0));
         let te = index(builder, wte, dim.clone(), x);
 
         // add back batch size dim
