@@ -12,7 +12,7 @@ use crate::pass::to_core::Environment;
 use super::tensor_op::tensor_op;
 
 pub type Value = abstract_interpreter::Value<Interpreter>;
-pub type ResultValues = abstract_interpreter::EvalResultValues<Interpreter>;
+pub type ResultValues = abstract_interpreter::ResultValues<Interpreter>;
 
 #[derive(Clone, std::fmt::Debug)]
 pub struct Interpreter {
@@ -91,7 +91,7 @@ impl abstract_interpreter::Interpreter for Interpreter {
         _ssa: &CoreSSA,
         args: Vec<abstract_interpreter::Value<Self>>,
         path: &crate::prelude::Path,
-    ) -> abstract_interpreter::EvalResultValues<Self> {
+    ) -> abstract_interpreter::ResultValues<Self> {
         let source_values = args.to_vec();
         let lang::TypedTerm { term, .. } = self
             .environment
@@ -108,7 +108,7 @@ impl abstract_interpreter::Interpreter for Interpreter {
         ssa: &CoreSSA,
         args: Vec<Value>,
         op: &TensorOp,
-    ) -> abstract_interpreter::EvalResultValues<Self> {
+    ) -> abstract_interpreter::ResultValues<Self> {
         tensor_op(ssa, args, op)
     }
 }

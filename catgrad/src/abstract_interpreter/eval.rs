@@ -9,11 +9,7 @@ use open_hypergraphs::lax::NodeId;
 use std::collections::HashMap;
 
 /// Evaluate a [`Term`] using an abstract [`Interpreter`]
-pub fn eval<I: Interpreter>(
-    interpreter: &I,
-    term: Term,
-    values: Vec<Value<I>>,
-) -> EvalResultValues<I> {
+pub fn eval<I: Interpreter>(interpreter: &I, term: Term, values: Vec<Value<I>>) -> ResultValues<I> {
     eval_with(interpreter, term, values, |_, _| ())
 }
 
@@ -24,7 +20,7 @@ pub fn eval_with<I: Interpreter, F: FnMut(NodeId, &Value<I>)>(
     term: Term,
     values: Vec<Value<I>>,
     mut on_write: F,
-) -> EvalResultValues<I> {
+) -> ResultValues<I> {
     // TODO: replace with Err
     assert_eq!(values.len(), term.sources.len());
 
@@ -85,7 +81,7 @@ fn apply_op<I: Interpreter>(
     ssa: &CoreSSA,
     args: Vec<Value<I>>,
     op: &Operation,
-) -> EvalResultValues<I> {
+) -> ResultValues<I> {
     match op {
         Operation::Type(type_op) => apply_type_op(ssa, args, type_op),
         Operation::Nat(nat_op) => apply_nat_op(ssa, args, nat_op),
@@ -105,7 +101,7 @@ fn apply_op<I: Interpreter>(
 ////////////////////////////////////////
 // Copy
 
-fn apply_copy<V: Interpreter>(ssa: &CoreSSA, args: Vec<Value<V>>) -> EvalResult<Vec<Value<V>>> {
+fn apply_copy<V: Interpreter>(ssa: &CoreSSA, args: Vec<Value<V>>) -> Result<Vec<Value<V>>> {
     let [v] = get_exact_arity(ssa, args)?;
     let n = ssa.targets.len();
     let mut result = Vec::with_capacity(n);
@@ -124,12 +120,12 @@ fn apply_type_op<V: Interpreter>(
     ssa: &CoreSSA,
     args: Vec<Value<V>>,
     type_op: &TypeOp,
-) -> EvalResultValues<V> {
+) -> ResultValues<V> {
     match type_op {
         // Pack dimensions into a shape
         TypeOp::Pack => {
             // Get all args (dims) and pack into result shape.
-            let dims: EvalResult<Vec<V::Nat>> = args.into_iter().map(|v| to_nat(ssa, v)).collect();
+            let dims: Result<Vec<V::Nat>> = args.into_iter().map(|v| to_nat(ssa, v)).collect();
             Ok(vec![Value::Shape(V::pack(dims?))])
         }
         // Unpack a shape into dimensions
@@ -168,13 +164,9 @@ fn apply_type_op<V: Interpreter>(
 ////////////////////////////////////////
 // Nat ops
 
-fn apply_nat_op<I: Interpreter>(
-    ssa: &CoreSSA,
-    args: Vec<Value<I>>,
-    op: &NatOp,
-) -> EvalResultValues<I> {
+fn apply_nat_op<I: Interpreter>(ssa: &CoreSSA, args: Vec<Value<I>>, op: &NatOp) -> ResultValues<I> {
     // Ensure all args are nats.
-    let args: EvalResult<Vec<I::Nat>> = args.into_iter().map(|n| to_nat(ssa, n)).collect();
+    let args: Result<Vec<I::Nat>> = args.into_iter().map(|n| to_nat(ssa, n)).collect();
     match op {
         NatOp::Constant(n) => {
             let [] = get_exact_arity(ssa, args?)?;

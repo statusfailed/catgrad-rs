@@ -1,8 +1,15 @@
+//! Default imports
+// Constructing model graphs
+pub use crate::category::core::Shape;
+pub use crate::category::lang::{Builder, Dtype, Term, Type, TypedTerm, Var};
+pub use crate::stdlib::{FnModule, Module, nn, ops, ops::IntoNatVar, stdlib, to_load_ops};
+
+// Interpreting and compiling
 pub use crate::abstract_interpreter::Value;
-pub use crate::category::lang::*;
 pub use crate::interpreter;
-pub use crate::pass::to_core::to_core;
-pub use crate::stdlib::{Environment, FnModule, Module, nn, nn::IntoNatVar, stdlib, to_load_ops};
+pub use crate::pass::to_core::Environment;
 pub use crate::typecheck;
 
+// Utilities and Macros
+pub use crate::path::{Path, path};
 pub use crate::shape;

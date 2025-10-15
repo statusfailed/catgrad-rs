@@ -71,3 +71,21 @@ impl fmt::Display for Operation {
         }
     }
 }
+
+impl From<f32> for Literal {
+    fn from(value: f32) -> Self {
+        Literal::F32(value)
+    }
+}
+
+impl From<u32> for Literal {
+    fn from(value: u32) -> Self {
+        Literal::U32(value)
+    }
+}
+
+impl From<Dtype> for Literal {
+    fn from(value: Dtype) -> Self {
+        Literal::Dtype(value)
+    }
+}

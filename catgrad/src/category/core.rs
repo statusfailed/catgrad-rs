@@ -132,7 +132,7 @@ pub enum TypeOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Constant {
+pub enum Scalar {
     F32(f32),
     U32(u32),
 }
@@ -144,8 +144,8 @@ pub enum TensorOp {
     /// `Map_f : S₀ ● ..m.. ● S_m → S₀ ● ..n.. ● Sn`
     Map(ScalarOp),
 
-    /// `Scalar : Nat → Tensor ()` turns a Nat into a (scalar) tensor.
-    Scalar,
+    /// `NatToU32 : Nat → Tensor ()` turns a Nat into a (scalar) tensor.
+    NatToU32,
 
     /// Cast a tensor to a dtype
     /// `Tensor × Dtype → Tensor`
@@ -156,7 +156,7 @@ pub enum TensorOp {
     MatMul,
 
     /// A tensor with shape () having a single value.
-    Constant(Constant),
+    Scalar(Scalar),
 
     /// Sum last dimension of a tensor
     /// `Sum : Tensor → Tensor`

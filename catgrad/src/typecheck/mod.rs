@@ -1,4 +1,4 @@
-//! # Catgrad Typechecker
+//! # Typechecker
 //!
 //! Evaluates the compute graph using the symbolic types in [`value_types`] to ensure the graph is
 //! well-typed.

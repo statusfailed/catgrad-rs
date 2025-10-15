@@ -55,10 +55,10 @@ fn op_to_core(
         },
         lang::Operation::Literal(lit) => Def::Arr(match lit {
             lang::Literal::F32(x) => {
-                core::Operation::Tensor(core::TensorOp::Constant(core::Constant::F32(x)))
+                core::Operation::Tensor(core::TensorOp::Scalar(core::Scalar::F32(x)))
             }
             lang::Literal::U32(x) => {
-                core::Operation::Tensor(core::TensorOp::Constant(core::Constant::U32(x)))
+                core::Operation::Tensor(core::TensorOp::Scalar(core::Scalar::U32(x)))
             }
             lang::Literal::Nat(n) => core::Operation::Nat(core::NatOp::Constant(n as usize)),
             lang::Literal::Dtype(d) => core::Operation::DtypeConstant(d),
@@ -109,7 +109,7 @@ pub(crate) fn core_declarations() -> HashMap<lang::Path, core::Operation> {
         (path!["tensor", "argmax"], Operation::Tensor(Argmax)),
         (path!["tensor", "arange"], Operation::Tensor(Arange)),
         (path!["tensor", "concat"], Operation::Tensor(Concat)),
-        (path!["tensor", "scalar"], Operation::Tensor(Scalar)),
+        (path!["tensor", "nat_to_u32"], Operation::Tensor(NatToU32)),
         // Mixed Tensor/Type ops
         (path!["tensor", "shape"], Operation::Type(TypeOp::Shape)),
         (path!["tensor", "dtype"], Operation::Type(TypeOp::Dtype)),

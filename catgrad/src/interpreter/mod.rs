@@ -1,3 +1,4 @@
+//! Interpretation of core terms
 pub mod types;
 pub use types::*;
 

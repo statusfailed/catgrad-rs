@@ -102,25 +102,12 @@ pub fn param(builder: &Builder, path: &Path) -> Var {
 }
 
 pub fn lit(builder: &Builder, lit: Literal) -> Var {
-    var::fn_operation(builder, &[], Object::Tensor, Operation::Literal(lit))
-}
-
-pub fn constant_f32(builder: &Builder, v: f32) -> Var {
-    lit(builder, Literal::F32(v))
-}
-
-pub fn constant(builder: &Builder, v: f32, sh: &Var) -> Var {
-    let c = constant_f32(builder, v);
-    broadcast_to(builder, c, sh.clone())
-}
-
-pub fn constant_nat(builder: &Builder, v: u32) -> Var {
-    var::fn_operation(
-        builder,
-        &[],
-        Object::Nat,
-        Operation::Literal(Literal::Nat(v)),
-    )
+    let obj = match lit {
+        Literal::Nat(_) => Object::Nat,
+        Literal::Dtype(_) => Object::Nat,
+        Literal::U32(_) | Literal::F32(_) => Object::Tensor,
+    };
+    var::fn_operation(builder, &[], obj, Operation::Literal(lit))
 }
 
 /// Pack a fixed number of Nat values into a specific shape
@@ -159,15 +146,12 @@ pub fn dtype_constant(builder: &Builder, dtype: Dtype) -> Var {
 ////////////////////////////////////////////////////////////////////////////////
 // Tensor Helpers
 
-// x : t    s : Shape
-// ------------------ broadcast
-//     x : (s × t)
-pub fn broadcast_to(builder: &Builder, x: Var, s: Var) -> Var {
+pub fn broadcast(builder: &Builder, x: Var, s: Var) -> Var {
     var::fn_operation(builder, &[x, s], Object::Tensor, op!["tensor", "broadcast"])
 }
 
 pub fn expand(builder: &Builder, x: Var, s: Var) -> Var {
-    broadcast_to(builder, x, s)
+    broadcast(builder, x, s)
 }
 
 pub fn reshape(builder: &Builder, t: Var, x: Var) -> Var {
@@ -226,8 +210,8 @@ pub fn argmax(builder: &Builder, x: Var) -> Var {
     var::fn_operation(builder, &[x], Object::Tensor, op!["tensor", "argmax"])
 }
 
-pub fn scalar(builder: &Builder, nat: Var) -> Var {
-    var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "scalar"])
+pub fn nat_to_u32(builder: &Builder, nat: Var) -> Var {
+    var::fn_operation(builder, &[nat], Object::Tensor, op!["tensor", "nat_to_u32"])
 }
 
 pub fn lt(builder: &Builder, x: Var, y: Var) -> Var {

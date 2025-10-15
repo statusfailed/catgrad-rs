@@ -2,8 +2,8 @@
 use super::backend::*;
 use super::{ResultValues, TaggedTensor, TaggedTensorTuple, Value};
 use crate::abstract_interpreter::util::{get_exact_arity, to_dtype, to_nat, to_shape, to_tensor};
-use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
-use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
+use crate::abstract_interpreter::{CoreSSA, InterpreterError, Result};
+use crate::category::core::{Dtype, Scalar, ScalarOp, TensorOp};
 
 /// Apply a Tensor operation
 pub(crate) fn tensor_op<B: Backend>(
@@ -23,10 +23,10 @@ pub(crate) fn tensor_op<B: Backend>(
         TensorOp::Map(ScalarOp::Div) => binop(backend, args, ssa, B::div),
         TensorOp::Map(ScalarOp::LT) => binop(backend, args, ssa, B::lt),
         TensorOp::Map(ScalarOp::EQ) => binop(backend, args, ssa, B::eq),
-        TensorOp::Scalar => tensor_scalar(backend, args, ssa),
+        TensorOp::NatToU32 => tensor_nat_to_u32(backend, args, ssa),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
-        TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
+        TensorOp::Scalar(c) => tensor_constant(backend, args, ssa, c),
         TensorOp::Sum => tensor_sum(backend, args, ssa),
         TensorOp::Max => tensor_max(backend, args, ssa),
         TensorOp::Argmax => tensor_argmax(backend, args, ssa),
@@ -55,16 +55,20 @@ pub fn tensor_constant<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>, // must be empty
     ssa: &CoreSSA,
-    c: &Constant,
+    c: &Scalar,
 ) -> ResultValues<B> {
     let [] = get_exact_arity(ssa, args)?; // get 0 args
     match c {
-        Constant::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
-        Constant::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Scalar::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Scalar::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
     }
 }
 
-fn tensor_scalar<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {
+fn tensor_nat_to_u32<B: Backend>(
+    backend: &B,
+    args: Vec<Value<B>>,
+    ssa: &CoreSSA,
+) -> ResultValues<B> {
     let [value] = get_exact_arity(ssa, args)?;
     let value: u32 = to_nat(ssa, value)?
         .try_into()
@@ -178,7 +182,7 @@ fn unary_op<B: Backend>(
 pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     values: Vec<Value<B>>, // TODO: rename args
     ssa: &CoreSSA,
-) -> EvalResult<TaggedTensorTuple<B, N>> {
+) -> Result<TaggedTensorTuple<B, N>> {
     // If no args, type is ambiguous, but this is a programmer error.
     if N == 0 {
         panic!("try_into_tagged_ndarrays is undefined for N <= 0");
@@ -188,7 +192,7 @@ pub(crate) fn try_into_tagged_ndarrays<B: Backend, const N: usize>(
     let tensors: Vec<TaggedTensor<B>> = get_exact_arity::<N, _>(ssa, values)?
         .into_iter()
         .map(|x| to_tensor(ssa, x))
-        .collect::<Result<_, _>>()?;
+        .collect::<Result<_>>()?;
     let dtype = tensors[0].dtype();
 
     // Collect each tag into its own typed array

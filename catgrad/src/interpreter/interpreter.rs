@@ -64,7 +64,7 @@ impl<B: Backend> abstract_interpreter::Interpreter for Interpreter<B> {
         _ssa: &CoreSSA,
         args: Vec<abstract_interpreter::Value<Self>>,
         path: &crate::prelude::Path,
-    ) -> abstract_interpreter::EvalResultValues<Self> {
+    ) -> abstract_interpreter::ResultValues<Self> {
         let source_values = args.to_vec();
         let lang::TypedTerm { term, .. } = self.environment.definitions.get(path).unwrap();
         // TODO: can we remove this clone?
@@ -77,7 +77,7 @@ impl<B: Backend> abstract_interpreter::Interpreter for Interpreter<B> {
         ssa: &CoreSSA,
         args: Vec<Value<B>>,
         op: &TensorOp,
-    ) -> abstract_interpreter::EvalResultValues<Self> {
+    ) -> abstract_interpreter::ResultValues<Self> {
         tensor_op(&self.backend, ssa, args, op)
     }
 }

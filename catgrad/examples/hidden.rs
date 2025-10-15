@@ -1,4 +1,4 @@
-use catgrad::interpreter;
+use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 
 use std::collections::HashMap;
@@ -104,7 +104,7 @@ impl Module<1, 1> for SimpleMNISTModel {
     // Model name
     // TODO: NOTE: it's not clear how user is supposed to know how to choose this name!
     fn path(&self) -> Path {
-        path(vec!["model", "hidden"]).expect("invalid model path")
+        Path::new(["model", "hidden"]).unwrap()
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {

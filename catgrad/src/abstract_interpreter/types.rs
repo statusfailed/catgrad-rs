@@ -10,7 +10,14 @@ use crate::definition::Def;
 use crate::path::Path;
 use crate::ssa::{SSA, SSAError};
 
+/// SSA of a core [Term](crate::category::core::Term)
 pub type CoreSSA = SSA<Object, Def<Path, Operation>>;
+
+/// The result of running [eval](super::eval::eval)
+pub type Result<T> = std::result::Result<T, InterpreterError>;
+
+/// A [`Result`] of `Vec<Value<I>>` for some interpreter type `I`
+pub type ResultValues<I> = std::result::Result<Vec<Value<I>>, InterpreterError>;
 
 /// An [`Interpreter`] defines a set of types used to represent values at runtime. For example:
 ///
@@ -49,16 +56,12 @@ pub trait Interpreter: Clone {
         ssa: &CoreSSA,
         args: Vec<Value<Self>>,
         path: &Path,
-    ) -> EvalResultValues<Self>;
+    ) -> ResultValues<Self>;
 
     // tensor ops are very backend-specific, so we let the interpreter handle them directly
     // TODO: rename handle_tensor_op
-    fn tensor_op(
-        &self,
-        ssa: &CoreSSA,
-        args: Vec<Value<Self>>,
-        op: &TensorOp,
-    ) -> EvalResultValues<Self>;
+    fn tensor_op(&self, ssa: &CoreSSA, args: Vec<Value<Self>>, op: &TensorOp)
+    -> ResultValues<Self>;
 }
 
 /// Tagged value types for a given [`Interpreter`] type
@@ -87,9 +90,7 @@ where
     }
 }
 
-pub type EvalResult<T> = std::result::Result<T, InterpreterError>;
-pub type EvalResultValues<V> = std::result::Result<Vec<Value<V>>, InterpreterError>;
-
+/// Evaluation errors
 #[derive(Clone, Debug)]
 pub enum InterpreterError {
     /// A node appeared as a *source* of multiple hyperedges, and so interpreting tried to read a
@@ -115,3 +116,11 @@ impl From<SSAError> for InterpreterError {
         InterpreterError::SSAError(value)
     }
 }
+
+impl std::fmt::Display for InterpreterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
+impl std::error::Error for InterpreterError {}

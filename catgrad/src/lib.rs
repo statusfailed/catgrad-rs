@@ -20,7 +20,8 @@ pub mod definition;
 // Utilities
 #[cfg(feature = "svg")]
 pub mod svg;
-pub mod util;
+
+pub(crate) mod util;
 
 // entry point
 pub mod prelude;
@@ -32,7 +33,7 @@ pub mod prelude;
 #[macro_export]
 macro_rules! shape {
     ($b:expr, $($x:expr),+ $(,)?) => {{
-        let dims = [ $( (&$x).to_var($b) ),+ ];
+        let dims = [ $( $crate::prelude::IntoNatVar::to_var((&$x), $b) ),+ ];
         pack($b, dims)
     }};
 }
