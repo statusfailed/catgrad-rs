@@ -98,8 +98,7 @@ impl GPT2Model {
         // add back batch size dim
         let sh = shape(builder, te.clone());
         let [seq_len, hidden_dim] = unpack::<2>(builder, sh);
-        let batch_size = constant_nat(builder, 1);
-        let sh = pack::<3>(builder, [batch_size, seq_len.clone(), hidden_dim]);
+        let sh = shape!(builder, 1, seq_len, hidden_dim);
 
         let te = reshape(builder, sh.clone(), te);
 
@@ -185,8 +184,7 @@ impl GPT2Model {
         let attn = matmul(builder, attn, v);
 
         let attn = nn::transpose(builder, 1, 2, attn);
-        let ddim = constant_nat(builder, dim as u32);
-        let sh = pack::<3>(builder, [b, s, ddim]);
+        let sh = shape!(builder, b, s, dim);
         let attn = reshape(builder, sh, attn);
 
         self.gpt_linear(builder, dim, dim, p.extend(["c_proj"]).unwrap(), attn)

@@ -93,7 +93,11 @@ impl abstract_interpreter::Interpreter for Interpreter {
         path: &crate::prelude::Path,
     ) -> abstract_interpreter::EvalResultValues<Self> {
         let source_values = args.to_vec();
-        let lang::TypedTerm { term, .. } = self.environment.definitions.get(path).unwrap();
+        let lang::TypedTerm { term, .. } = self
+            .environment
+            .definitions
+            .get(path)
+            .unwrap_or_else(|| panic!("definition {path} not found"));
         // TODO: can we remove this clone?
         let term = self.environment.to_core(term.clone());
         self.check_with(term, source_values)

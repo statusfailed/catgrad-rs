@@ -256,6 +256,33 @@ pub fn layernorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     lr + beta
 }
 
+pub fn rmsnorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
+    let x_shape = shape(builder, x.clone());
+    let [_, _, n] = unpack::<3>(builder, x_shape.clone());
+    let s = sum(builder, x.clone() * x.clone());
+
+    let constn = scalar(builder, n);
+    let constn = cast(builder, constn, dtype(builder, x.clone()));
+    let sh = shape(builder, s.clone());
+    let constn = broadcast_to(builder, constn, sh);
+
+    let mean = s / constn;
+
+    let epsilon = constant(builder, eps, &shape(builder, mean.clone()));
+    let rms = sqrt(builder, mean + epsilon);
+    let denom = broadcast_to(builder, rms, x_shape);
+    x / denom
+}
+
+// rmsnorm(x) = x / √(E[x²] + ε) × γ
+pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
+    let gamma = param(builder, &p.extend(["weight"]).unwrap());
+    let lr = rmsnorm_raw(builder, eps, x);
+    let lr_shape = shape(builder, lr.clone());
+    let gamma = broadcast_to(builder, gamma, lr_shape);
+    lr * gamma
+}
+
 /// Add an additional dimension of extent 1 to a tensor
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
     let x_shape = shape(builder, x.clone());
