@@ -1,6 +1,6 @@
 //! Abstract representation of catgrad's surface syntax
-mod ops;
-mod types;
+pub(crate) mod ops;
+pub mod types;
 
 pub use crate::path::*;
 pub use ops::*;

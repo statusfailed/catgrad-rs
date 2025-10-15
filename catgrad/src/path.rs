@@ -21,6 +21,16 @@ impl Path {
         self.0.is_empty()
     }
 
+    pub fn new<T: AsRef<str>, I: IntoIterator<Item = T>>(
+        x: I,
+    ) -> Result<Path, InvalidPathComponent> {
+        Ok(Path(
+            x.into_iter()
+                .map(|x| PathComponent::try_from(x.as_ref()))
+                .collect::<Result<Vec<_>, _>>()?,
+        ))
+    }
+
     pub fn empty() -> Self {
         Path(vec![])
     }
@@ -39,14 +49,8 @@ impl Path {
         &self,
         components: I,
     ) -> Result<Path, InvalidPathComponent> {
-        let mut cs = self.0.clone();
-        cs.extend(
-            components
-                .into_iter()
-                .map(|x| PathComponent::try_from(x.as_ref()))
-                .collect::<Result<Vec<_>, _>>()?,
-        );
-        Ok(Path(cs))
+        let p = Path::new(components)?;
+        Ok(self.concat(&p))
     }
 }
 
