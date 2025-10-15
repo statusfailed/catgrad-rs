@@ -1,4 +1,4 @@
-use catgrad::stdlib::{Environment, stdlib};
+use catgrad::prelude::{Environment, stdlib};
 
 pub fn save_diagram_if_enabled<
     O: PartialEq + Clone + std::fmt::Display + std::fmt::Debug,
