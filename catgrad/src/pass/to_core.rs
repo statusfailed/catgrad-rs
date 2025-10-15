@@ -55,10 +55,10 @@ fn op_to_core(
         },
         lang::Operation::Literal(lit) => Def::Arr(match lit {
             lang::Literal::F32(x) => {
-                core::Operation::Tensor(core::TensorOp::Constant(core::Constant::F32(x)))
+                core::Operation::Tensor(core::TensorOp::Scalar(core::Scalar::F32(x)))
             }
             lang::Literal::U32(x) => {
-                core::Operation::Tensor(core::TensorOp::Constant(core::Constant::U32(x)))
+                core::Operation::Tensor(core::TensorOp::Scalar(core::Scalar::U32(x)))
             }
             lang::Literal::Nat(n) => core::Operation::Nat(core::NatOp::Constant(n as usize)),
             lang::Literal::Dtype(d) => core::Operation::DtypeConstant(d),

@@ -132,7 +132,7 @@ pub enum TypeOp {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Constant {
+pub enum Scalar {
     F32(f32),
     U32(u32),
 }
@@ -156,7 +156,7 @@ pub enum TensorOp {
     MatMul,
 
     /// A tensor with shape () having a single value.
-    Constant(Constant),
+    Scalar(Scalar),
 
     /// Sum last dimension of a tensor
     /// `Sum : Tensor → Tensor`

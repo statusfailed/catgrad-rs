@@ -5,7 +5,7 @@ use crate::abstract_interpreter::{
     CoreSSA, EvalResult, InterpreterError,
     util::{ensure_profile, get_exact_arity, to_dtype, to_nat, to_shape, to_tensor},
 };
-use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
+use crate::category::core::{Dtype, Scalar, ScalarOp, TensorOp};
 
 pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> ResultValues {
     match op {
@@ -13,7 +13,7 @@ pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> Resul
         TensorOp::NatToU32 => tensor_nat_to_u32(ssa, args),
         TensorOp::Cast => tensor_cast(ssa, args),
         TensorOp::MatMul => tensor_matmul(ssa, args),
-        TensorOp::Constant(c) => tensor_constant(ssa, args, c.clone()),
+        TensorOp::Scalar(c) => tensor_constant(ssa, args, c.clone()),
         TensorOp::Sum | TensorOp::Max | TensorOp::Argmax => tensor_reduce(ssa, args),
         TensorOp::Broadcast => tensor_broadcast(ssa, args),
         TensorOp::Reshape => tensor_reshape(ssa, args),
@@ -106,11 +106,11 @@ fn tensor_matmul(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     }
 }
 
-fn tensor_constant(ssa: &CoreSSA, args: Vec<Value>, c: Constant) -> ResultValues {
+fn tensor_constant(ssa: &CoreSSA, args: Vec<Value>, c: Scalar) -> ResultValues {
     let [] = get_exact_arity(ssa, args)?; // ensure 0 args
     let d = match c {
-        Constant::F32(_) => Dtype::F32,
-        Constant::U32(_) => Dtype::U32,
+        Scalar::F32(_) => Dtype::F32,
+        Scalar::U32(_) => Dtype::U32,
     };
     Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(d),

@@ -3,7 +3,7 @@ use super::backend::*;
 use super::{ResultValues, TaggedTensor, TaggedTensorTuple, Value};
 use crate::abstract_interpreter::util::{get_exact_arity, to_dtype, to_nat, to_shape, to_tensor};
 use crate::abstract_interpreter::{CoreSSA, EvalResult, InterpreterError};
-use crate::category::core::{Constant, Dtype, ScalarOp, TensorOp};
+use crate::category::core::{Dtype, Scalar, ScalarOp, TensorOp};
 
 /// Apply a Tensor operation
 pub(crate) fn tensor_op<B: Backend>(
@@ -26,7 +26,7 @@ pub(crate) fn tensor_op<B: Backend>(
         TensorOp::NatToU32 => tensor_nat_to_u32(backend, args, ssa),
         TensorOp::Cast => tensor_cast(backend, args, ssa),
         TensorOp::MatMul => binop(backend, args, ssa, B::matmul),
-        TensorOp::Constant(c) => tensor_constant(backend, args, ssa, c),
+        TensorOp::Scalar(c) => tensor_constant(backend, args, ssa, c),
         TensorOp::Sum => tensor_sum(backend, args, ssa),
         TensorOp::Max => tensor_max(backend, args, ssa),
         TensorOp::Argmax => tensor_argmax(backend, args, ssa),
@@ -55,12 +55,12 @@ pub fn tensor_constant<B: Backend>(
     backend: &B,
     args: Vec<Value<B>>, // must be empty
     ssa: &CoreSSA,
-    c: &Constant,
+    c: &Scalar,
 ) -> ResultValues<B> {
     let [] = get_exact_arity(ssa, args)?; // get 0 args
     match c {
-        Constant::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
-        Constant::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Scalar::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Scalar::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
     }
 }
 
