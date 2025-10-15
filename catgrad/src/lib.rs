@@ -33,8 +33,6 @@ pub mod prelude;
 macro_rules! shape {
     ($b:expr, $($x:expr),+ $(,)?) => {{
         let dims = [ $( (&$x).to_var($b) ),+ ];
-        pack::<{ shape!(@len $($x),+) }>($b, dims)
+        pack($b, dims)
     }};
-    (@len $($x:tt),+) => { <[()]>::len(&[ $( shape!(@u $x) ),+ ]) };
-    (@u $x:tt) => { () };
 }
