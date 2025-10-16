@@ -26,17 +26,25 @@ pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> Resul
 }
 
 fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
+    // FIXME: do Sin/Cos work on non-floating types? Are LT/EQ supposed to return U32 or F32?
     let (arity, coarity) = op.profile();
     let args = ensure_profile(ssa, args, arity, coarity)?;
+
+    // clippy is wrong, it's always better to check <= 0 instead of = 0.
+    #[allow(clippy::absurd_extreme_comparisons)]
+    if arity <= 0 {
+        panic!("Map cannot support ScalarOps of arity 0");
+    }
+
     // check all args are tensors
     let types = args
         .into_iter()
         .map(|t| to_tensor(ssa, t))
         .collect::<Result<Vec<_>>>()?;
-    // FIXME: do Sin/Cos work on non-floating types? Are LT/EQ supposed to return U32 or F32?
 
-    // ensure all types are the same
-    if types.is_empty() || types.iter().all(|x| *x == types[0]) {
+    // normal form for all types
+    let types: Vec<_> = types.into_iter().map(|t| t.nf()).collect();
+    if types.iter().all(|t| *t == types[0]) {
         Ok((0..coarity)
             .map(|_| Value::Tensor(types[0].clone()))
             .collect())
@@ -75,7 +83,7 @@ fn tensor_cast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 
 fn tensor_matmul(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [t, u] = get_exact_arity(ssa, args)?;
-    let (t, u) = match (to_tensor(ssa, t)?, to_tensor(ssa, u)?) {
+    let (t, u) = match (to_tensor(ssa, t)?.nf(), to_tensor(ssa, u)?.nf()) {
         (TypeExpr::NdArrayType(t), TypeExpr::NdArrayType(u)) if t.dtype == u.dtype => Ok((t, u)),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
@@ -138,6 +146,8 @@ fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     Ok(vec![Value::Tensor(type_expr)])
 }
 
+// TODO: return normalized, broadcasted result (y) instead,
+// and use it in tensor_broadcast?
 fn is_broadcastable(x: &[NatExpr], y: &[NatExpr]) -> bool {
     // x must be a suffix of y
     let d = y.len() as isize - x.len() as isize;
@@ -146,15 +156,15 @@ fn is_broadcastable(x: &[NatExpr], y: &[NatExpr]) -> bool {
     }
     let d = d as usize;
 
-    // normalize each NatExpr in x and y first.
-    use super::isomorphism::normalize;
-    let x = x.iter().map(normalize);
-    let y = y[d..].iter().map(normalize);
-
-    // Check that x is isomorphic to y on only the suffix part. e.g.:
+    // Compute normal forms on aligned dimensions, e.g.
     //      x =        (d₀  32+32)
     //      y = (1  9   d₀  64)
-    // we compare d₀ = d₀ and 32+32 = 64.
+    //                  ^
+    //                  |-- compares only last two dims
+    let x = x.iter().map(|x| x.nf());
+    let y = y[d..].iter().map(|x| x.nf());
+
+    // check all normal forms pointwise equal, or x is 1
     for (x, y) in x.zip(y) {
         if x != y && x != NatExpr::Constant(1) {
             return false;

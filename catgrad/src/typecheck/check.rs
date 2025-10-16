@@ -33,7 +33,7 @@ pub fn check_with(
     let mut results = vec![None; term.hypergraph.nodes.len()];
     let _ = eval_with(&interpreter, term, source_values, |node_id, value| {
         results[node_id.0] = Some(value.clone())
-    });
+    })?;
 
     // if we didn't get an output value, give a MultipleRead error (meaning 0 reads where 1 was
     // expected)

@@ -43,6 +43,31 @@ pub enum DtypeExpr {
 ////////////////////////////////////////////////////////////////////////////////
 // Helper impls
 
+impl NatExpr {
+    pub(crate) fn nf(&self) -> Self {
+        use super::isomorphism::normalize;
+        normalize(self)
+    }
+}
+
+impl ShapeExpr {
+    pub(crate) fn nf(&self) -> Self {
+        match self {
+            ShapeExpr::Var(_) => self.clone(),
+            ShapeExpr::OfType(_) => self.clone(),
+            ShapeExpr::Shape(nat_exprs) => {
+                ShapeExpr::Shape(nat_exprs.iter().map(|m| m.nf()).collect())
+            }
+        }
+    }
+}
+
+impl DtypeExpr {
+    pub(crate) fn nf(&self) -> Self {
+        self.clone()
+    }
+}
+
 impl TypeExpr {
     pub(crate) fn into_ndarraytype(self, ssa: &CoreSSA) -> Result<NdArrayType> {
         match self {
@@ -57,10 +82,17 @@ impl TypeExpr {
             _ => Err(InterpreterError::TypeError(ssa.edge_id)),
         }
     }
-}
 
-// TODO: utils:
-// - normalize and extract usize from list of nats (see FIXME: normalize)
-// - get concrete shape expr from an NdArrayType
-//      - unpack to dtype and ShapeExpr::Shape values?
-// - add IncompatibleShapes error?
+    // Compute a normal form
+    pub(crate) fn nf(&self) -> Self {
+        match self {
+            TypeExpr::Var(_) => todo!(),
+            TypeExpr::NdArrayType(NdArrayType { dtype, shape }) => {
+                TypeExpr::NdArrayType(NdArrayType {
+                    dtype: dtype.nf(),
+                    shape: shape.nf(),
+                })
+            }
+        }
+    }
+}
