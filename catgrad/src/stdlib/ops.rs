@@ -4,12 +4,36 @@ use crate::prelude::{Builder, Var};
 
 // re-export lang ops
 pub use ops::{
-    arange, broadcast, dtype, dtype_constant, index, lt, matmul, max, nat_to_u32, pack, param, pow,
-    reshape, shape, slice, sum, unpack,
+    broadcast, cos, dtype, dtype_constant, index, lt, matmul, max, nat_to_u32, pack, param, pow,
+    reshape, shape, sin, sum, unpack,
 };
 
 pub fn cast(builder: &Builder, x: Var, d: impl IntoDtypeVar) -> Var {
     ops::cast(builder, x, d.to_var(builder))
+}
+
+pub fn arange(builder: &Builder, end: impl IntoNatVar) -> Var {
+    ops::arange(builder, end.to_var(builder))
+}
+
+pub fn concat(builder: &Builder, dim: impl IntoNatVar, x: Var, y: Var) -> Var {
+    ops::concat(builder, dim.to_var(builder), x, y)
+}
+
+pub fn slice(
+    builder: &Builder,
+    dim: impl IntoNatVar,
+    start: impl IntoNatVar,
+    len: impl IntoNatVar,
+    x: Var,
+) -> Var {
+    ops::slice(
+        builder,
+        dim.to_var(builder),
+        start.to_var(builder),
+        len.to_var(builder),
+        x,
+    )
 }
 
 /// Language literals
@@ -25,6 +49,12 @@ pub fn nat(x: u32) -> Literal {
 pub fn constant<T: Into<Literal>>(builder: &Builder, x: T, s: &Var) -> Var {
     let x = lit(builder, x);
     ops::broadcast(builder, x, s.clone())
+}
+
+pub fn inverse(builder: &Builder, x: Var) -> Var {
+    let shape = shape(builder, x.clone());
+    let one = constant(builder, 1.0, &shape);
+    one / x
 }
 
 // TODO: helper to make a Nat into a tensor + cast

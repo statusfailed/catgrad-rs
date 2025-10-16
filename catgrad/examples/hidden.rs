@@ -116,20 +116,14 @@ impl Module<1, 1> for SimpleMNISTModel {
 
         let root = self.path();
 
-        let p = param(
-            builder,
-            &root.concat(&path(vec!["0", "weights"]).expect("invalid param path")),
-        );
+        let p = param(builder, &root.extend(["0", "weights"]).unwrap());
 
         // layer 1: B×784 @ 784×100 = B×100
         let x = matmul(builder, x, p);
         let x = nn::Sigmoid.call(builder, [x]);
 
         // layer 2: B×100 @ 100×10 = B×10
-        let p = param(
-            builder,
-            &root.concat(&path(vec!["1", "weights"]).expect("invalid param path")),
-        );
+        let p = param(builder, &root.extend(["1", "weights"]).unwrap());
         let x = matmul(builder, x, p);
         let x = nn::Sigmoid.call(builder, [x]);
 
