@@ -219,18 +219,13 @@ impl Module<1, 1> for GPT2Model {
         let mut x = self.embeddings(builder, root.clone(), x);
 
         for i in 0..self.config.num_hidden_layers {
-            x = self.layer(
-                builder,
-                i,
-                root.concat(&path(vec!["h", &i.to_string()]).unwrap()),
-                x,
-            );
+            x = self.layer(builder, i, root.extend(["h", &i.to_string()]).unwrap(), x);
         }
 
         x = nn::layernorm(
             builder,
             self.config.layer_norm_epsilon,
-            root.concat(&path(vec!["ln_f"]).expect("invalid param path")),
+            root.extend(["ln_f"]).unwrap(),
             x,
         );
 
@@ -239,7 +234,7 @@ impl Module<1, 1> for GPT2Model {
             builder,
             self.config.hidden_size,
             self.config.vocab_size,
-            root.concat(&path(vec!["wte"]).expect("invalid param path")),
+            root.extend(["wte"]).unwrap(),
             x,
         );
 
