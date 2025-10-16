@@ -254,6 +254,15 @@ struct Args {
     /// Use F16 weights
     #[arg(short = 'f', long)]
     use_fp16: bool,
+
+    /// Benchmark
+    #[arg(
+       short = 'b',
+           long,
+           num_args = 2,
+           value_names = ["PP", "TG"]
+       )]
+    bench: Option<Vec<usize>>,
 }
 
 fn strftime_now(format_str: String) -> String {
@@ -304,7 +313,23 @@ pub fn main() -> Result<()> {
         .replace("{% generation %}", "")
         .replace("{% endgeneration %}", "");
 
-    let prompt = if chat_template.is_empty() || args.raw_prompt {
+    let mut seq_len = args.seq_len;
+
+    let benchmarking = args.bench.is_some();
+
+    let mut pp = 0;
+    let mut tg = 0;
+    let prompt = if let Some(bench) = args.bench {
+        pp = bench[0];
+        tg = bench[1];
+        println!(
+            "Benchmarking {} with prefill size {} and sequence length {}",
+            model_name, pp, tg
+        );
+        let prompt = "The".repeat(pp);
+        seq_len = tg;
+        prompt
+    } else if chat_template.is_empty() || args.raw_prompt {
         args.prompt.clone()
     } else {
         let mut env = Environment::new();
@@ -342,24 +367,33 @@ pub fn main() -> Result<()> {
     log::info!("Input tokens {:?}", &input);
     let mut input_tokens = input.data.borrow().clone();
 
-    let start_gen = std::time::Instant::now();
+    let mut start_gen = std::time::Instant::now();
+    let mut elapsed_pp = std::time::Duration::ZERO;
 
     let mut generated_tokens = 0;
 
-    print!("{prompt}");
-    for _ in 0..args.seq_len {
+    if !benchmarking {
+        print!("{prompt}");
+    }
+    for i in 0..seq_len {
         let next_token_id = model_runner.generate(batches, input_tokens.clone(), &config);
+        if i == 0 {
+            elapsed_pp = start_gen.elapsed();
+            start_gen = std::time::Instant::now();
+        }
         generated_tokens += 1;
-        if config.get_eos_token_ids().contains(&next_token_id) {
+        if config.get_eos_token_ids().contains(&next_token_id) && !benchmarking {
             break;
         }
-        print!(
-            "{}",
-            model_runner
-                .tokenizer
-                .decode(&[next_token_id as u32], false)?
-        );
-        std::io::stdout().flush()?;
+        if !benchmarking {
+            print!(
+                "{}",
+                model_runner
+                    .tokenizer
+                    .decode(&[next_token_id as u32], false)?
+            );
+            std::io::stdout().flush()?;
+        }
         if model_runner.use_kv_cache {
             input_tokens = vec![next_token_id];
         } else {
@@ -367,13 +401,26 @@ pub fn main() -> Result<()> {
         }
     }
 
-    let elapsed = start_gen.elapsed();
+    let elapsed_gen = start_gen.elapsed();
     println!(
         "\n{} tokens generated in {} seconds. ({:.2} tokens/sec)",
         generated_tokens,
-        elapsed.as_secs(),
-        generated_tokens as f64 / elapsed.as_secs_f64(),
+        (elapsed_pp + elapsed_gen).as_secs(),
+        generated_tokens as f64 / (elapsed_pp + elapsed_gen).as_secs_f64(),
     );
+
+    if benchmarking {
+        println!(
+            "PP {pp} in {} ms {:.2} tps",
+            elapsed_pp.as_millis(),
+            pp as f64 / elapsed_pp.as_secs_f64()
+        );
+        println!(
+            "TG {tg} in {} ms {:.2} tps",
+            elapsed_gen.as_millis(),
+            tg as f64 / elapsed_gen.as_secs_f64()
+        );
+    }
 
     Ok(())
 }
