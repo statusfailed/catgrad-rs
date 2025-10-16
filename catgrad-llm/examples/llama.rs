@@ -9,13 +9,28 @@ use catgrad_llm::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
 use anyhow::Result;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Args {
+    /// Model name on Huggingface Hub
+    #[arg(
+        short = 'm',
+        long,
+        default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
+    )]
+    model_name: String,
+    /// Enable typecheck
+    #[arg(short = 't', long)]
+    typecheck: bool,
+}
 
 /// Construct, shapecheck, and interpret the `GPT2Model` using the ndarray backend.
 fn main() -> Result<()> {
+    let args = Args::parse();
     // Create parameters for the model
     let backend = NdArrayBackend;
-    let (interpreter_params, parameters, config) =
-        load_model("HuggingFaceTB/SmolLM2-135M-Instruct", &backend)?;
+    let (interpreter_params, parameters, config) = load_model(&args.model_name, &backend)?;
 
     let model = LlamaModel { config };
 
@@ -28,8 +43,10 @@ fn main() -> Result<()> {
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Shapecheck the model
-    typecheck::check(&env, &parameters, typed_term.clone())
-        .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
+    if args.typecheck {
+        typecheck::check(&env, &parameters, typed_term.clone())
+            .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
+    }
 
     // Run interpreter
     run_interpreter(&typed_term, env, interpreter_params)?;
