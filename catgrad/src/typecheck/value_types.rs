@@ -56,7 +56,7 @@ impl ShapeExpr {
             ShapeExpr::Var(_) => self.clone(),
             ShapeExpr::OfType(_) => self.clone(),
             ShapeExpr::Shape(nat_exprs) => {
-                ShapeExpr::Shape(nat_exprs.into_iter().map(|m| m.nf()).collect())
+                ShapeExpr::Shape(nat_exprs.iter().map(|m| m.nf()).collect())
             }
         }
     }

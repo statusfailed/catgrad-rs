@@ -30,6 +30,8 @@ fn tensor_map(ssa: &CoreSSA, args: Vec<Value>, op: &ScalarOp) -> ResultValues {
     let (arity, coarity) = op.profile();
     let args = ensure_profile(ssa, args, arity, coarity)?;
 
+    // clippy is wrong, it's always better to check <= 0 instead of = 0.
+    #[allow(clippy::absurd_extreme_comparisons)]
     if arity <= 0 {
         panic!("Map cannot support ScalarOps of arity 0");
     }
