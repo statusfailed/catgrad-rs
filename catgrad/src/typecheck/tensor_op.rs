@@ -81,7 +81,7 @@ fn tensor_cast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 
 fn tensor_matmul(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [t, u] = get_exact_arity(ssa, args)?;
-    let (t, u) = match (to_tensor(ssa, t)?, to_tensor(ssa, u)?) {
+    let (t, u) = match (to_tensor(ssa, t)?.nf(), to_tensor(ssa, u)?.nf()) {
         (TypeExpr::NdArrayType(t), TypeExpr::NdArrayType(u)) if t.dtype == u.dtype => Ok((t, u)),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
