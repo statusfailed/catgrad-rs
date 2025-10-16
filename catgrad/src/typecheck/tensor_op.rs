@@ -237,14 +237,14 @@ fn tensor_slice(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     );
 
     // FIXME: normalize dim
-    let (dim, len) = match (dim, len) {
-        (NatExpr::Constant(dim), NatExpr::Constant(len)) => Ok((dim, len)),
+    let dim = match dim {
+        NatExpr::Constant(dim) => Ok(dim),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
 
     match input.shape {
         ShapeExpr::Shape(mut shape) => {
-            shape[dim] = NatExpr::Constant(len);
+            shape[dim] = len;
             Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                 dtype: input.dtype,
                 shape: ShapeExpr::Shape(shape),
