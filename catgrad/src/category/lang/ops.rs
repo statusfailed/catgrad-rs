@@ -185,7 +185,7 @@ pub fn slice(builder: &Builder, dim: Var, start: Var, len: Var, x: Var) -> Var {
     )
 }
 
-pub fn concat(builder: &Builder, x: Var, y: Var, dim: Var) -> Var {
+pub fn concat(builder: &Builder, dim: Var, x: Var, y: Var) -> Var {
     var::fn_operation(
         builder,
         &[x, y, dim],
