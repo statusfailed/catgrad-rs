@@ -199,8 +199,7 @@ fn tensor_transpose(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [t, dim0, dim1] = get_exact_arity(ssa, args)?;
     let (t, dim0, dim1) = (to_tensor(ssa, t)?, to_nat(ssa, dim0)?, to_nat(ssa, dim1)?);
 
-    // FIXME: normalize dim0, dim1 to constants; if this is not possible, then error.
-    let (dim0, dim1) = match (dim0, dim1) {
+    let (dim0, dim1) = match (dim0.nf(), dim1.nf()) {
         (NatExpr::Constant(dim0), NatExpr::Constant(dim1)) => Ok((dim0, dim1)),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
@@ -230,8 +229,7 @@ fn tensor_concat(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         to_nat(ssa, dim)?,
     );
 
-    // FIXME: normalize dim
-    let dim = match dim {
+    let dim = match dim.nf() {
         NatExpr::Constant(dim) => Ok(dim),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
@@ -257,8 +255,7 @@ fn tensor_slice(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         to_nat(ssa, len)?,
     );
 
-    // FIXME: normalize dim
-    let dim = match dim {
+    let dim = match dim.nf() {
         NatExpr::Constant(dim) => Ok(dim),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
@@ -291,8 +288,7 @@ fn tensor_index(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         to_tensor(ssa, idx)?.into_ndarraytype(ssa)?,
     );
 
-    // FIXME: normalize nat
-    let n = match n {
+    let n = match n.nf() {
         NatExpr::Constant(n) => Ok(n),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
