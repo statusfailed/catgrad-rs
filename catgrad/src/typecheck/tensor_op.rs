@@ -19,7 +19,7 @@ pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> Resul
         TensorOp::Reshape => tensor_reshape(ssa, args),
         TensorOp::Transpose => tensor_transpose(ssa, args),
         TensorOp::Slice => tensor_slice(ssa, args),
-        TensorOp::Concat => todo!("todo: typecheck TensorOp::Concat"),
+        TensorOp::Concat => tensor_concat(ssa, args),
         TensorOp::Arange => tensor_arange(ssa, args),
         TensorOp::Index => tensor_index(ssa, args),
     }
@@ -194,6 +194,33 @@ fn tensor_transpose(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
             shape.swap(dim0, dim1);
             Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                 dtype: input.dtype,
+                shape: ShapeExpr::Shape(shape),
+            }))])
+        }
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }
+}
+
+fn tensor_concat(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [a, b, dim] = get_exact_arity(ssa, args)?;
+    let (a, b, dim) = (
+        to_tensor(ssa, a)?.into_ndarraytype(ssa)?,
+        to_tensor(ssa, b)?.into_ndarraytype(ssa)?,
+        to_nat(ssa, dim)?,
+    );
+
+    // FIXME: normalize dim
+    let dim = match dim {
+        NatExpr::Constant(dim) => Ok(dim),
+        _ => Err(InterpreterError::TypeError(ssa.edge_id)),
+    }?;
+
+    match (a.shape, b.shape) {
+        (ShapeExpr::Shape(shape_a), ShapeExpr::Shape(shape_b)) => {
+            let mut shape = shape_a.clone();
+            shape[dim] = NatExpr::Add(vec![shape_a[dim].clone(), shape_b[dim].clone()]);
+            Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: a.dtype,
                 shape: ShapeExpr::Shape(shape),
             }))])
         }
