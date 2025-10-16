@@ -139,14 +139,24 @@ fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 }
 
 fn compat_shapes(x: &[NatExpr], y: &[NatExpr]) -> bool {
+    // x must be a suffix of y
     let d = y.len() as isize - x.len() as isize;
     if d < 0 {
         return false;
     }
     let d = d as usize;
-    for i in 0..x.len() {
-        // FIXME: this is wrong in general; see issue #238
-        if x[i] != y[i + d] && x[i] != NatExpr::Constant(1) && y[i + d] != NatExpr::Constant(1) {
+
+    // normalize each NatExpr in x and y first.
+    use super::isomorphism::normalize;
+    let x = x.iter().map(normalize);
+    let y = y[d..].iter().map(normalize);
+
+    // Check that x is isomorphic to y on only the suffix part. e.g.:
+    //      x =        (d₀  32+32)
+    //      y = (1  9   d₀  64)
+    // we compare d₀ = d₀ and 32+32 = 64.
+    for (x, y) in x.zip(y) {
+        if x != y && x != NatExpr::Constant(1) {
             return false;
         }
     }
@@ -156,6 +166,7 @@ fn compat_shapes(x: &[NatExpr], y: &[NatExpr]) -> bool {
 fn tensor_broadcast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     let [t, s] = get_exact_arity(ssa, args)?;
     let (t, s) = (to_tensor(ssa, t)?, to_shape(ssa, s)?);
+
     // Ensure t has a known shape
     let (t_shape, dtype) = match t {
         TypeExpr::NdArrayType(NdArrayType { shape, dtype }) => Ok((shape, dtype)),
