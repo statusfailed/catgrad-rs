@@ -138,7 +138,7 @@ fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
     Ok(vec![Value::Tensor(type_expr)])
 }
 
-fn compat_shapes(x: &[NatExpr], y: &[NatExpr]) -> bool {
+fn is_broadcastable(x: &[NatExpr], y: &[NatExpr]) -> bool {
     // x must be a suffix of y
     let d = y.len() as isize - x.len() as isize;
     if d < 0 {
@@ -177,7 +177,7 @@ fn tensor_broadcast(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
         // unit () is always broadcastable
         (ShapeExpr::Shape(ts), ShapeExpr::Var(_)) if ts.is_empty() => Ok(s),
         // otherwise check compatibility
-        (ShapeExpr::Shape(ts), ShapeExpr::Shape(ss)) if compat_shapes(&ts, ss) => Ok(s),
+        (ShapeExpr::Shape(ts), ShapeExpr::Shape(ss)) if is_broadcastable(&ts, ss) => Ok(s),
         _ => Err(InterpreterError::TypeError(ssa.edge_id)),
     }?;
 
