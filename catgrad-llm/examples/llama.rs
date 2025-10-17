@@ -441,33 +441,35 @@ fn load_model<B: interpreter::Backend>(
         let shape = view.shape().to_vec();
         let tensor_data = view.data();
 
+        use catgrad::typecheck::*;
         // Convert dtype and load tensor data
-        match view.dtype() {
-            safetensors::Dtype::BF16 => {
-                use catgrad::typecheck::*;
-                let data: Vec<f32> = tensor_data
-                    .chunks_exact(2)
-                    .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
-                    .collect();
-                let tensor =
-                    interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
-                        .expect("Failed to create tensor");
-                let key = path(name.split(".").collect()).expect("invalid param path");
-                data_map.insert(key.clone(), tensor);
-
-                let vne = shape.into_iter().map(NatExpr::Constant).collect();
-                let tensor_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                    dtype: DtypeExpr::Constant(Dtype::F32),
-                    shape: ShapeExpr::Shape(vne),
-                }));
-                type_map.insert(key, tensor_type);
-            }
-            // Add other dtype conversions as needed
+        let data: Vec<f32> = match view.dtype() {
+            safetensors::Dtype::F32 => tensor_data
+                .chunks_exact(4)
+                .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+                .collect(),
+            safetensors::Dtype::BF16 => tensor_data
+                .chunks_exact(2)
+                .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
+                .collect(),
             _ => {
                 panic!("Unsupported dtype: {:?}", view.dtype());
             }
-        }
+        };
+
+        let tensor = interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
+            .expect("Failed to create tensor");
+        let key = path(name.split(".").collect()).expect("invalid param path");
+        data_map.insert(key.clone(), tensor);
+
+        let vne = shape.into_iter().map(NatExpr::Constant).collect();
+        let tensor_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vne),
+        }));
+        type_map.insert(key, tensor_type);
     }
+
     Ok((
         interpreter::Parameters::from(data_map),
         typecheck::Parameters::from(type_map),
