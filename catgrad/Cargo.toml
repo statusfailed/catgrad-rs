@@ -2,6 +2,8 @@
 name = "catgrad"
 version = "0.2.0"
 edition = "2024"
+description = "a categorical deep learning compiler"
+license = "MIT"
 
 [dependencies]
 open-hypergraphs = "0.2.7"
