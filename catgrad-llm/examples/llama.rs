@@ -10,6 +10,7 @@ use catgrad_llm::utils::get_model_files;
 
 use anyhow::Result;
 use clap::Parser;
+use tokenizers::tokenizer::Tokenizer;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -20,6 +21,9 @@ struct Args {
         default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
     )]
     model_name: String,
+    /// Initial prompt
+    #[arg(short = 'p', long, default_value = "Category theory is")]
+    prompt: String,
     /// Enable typecheck
     #[arg(short = 't', long)]
     typecheck: bool,
@@ -30,7 +34,8 @@ fn main() -> Result<()> {
     let args = Args::parse();
     // Create parameters for the model
     let backend = NdArrayBackend;
-    let (interpreter_params, parameters, config) = load_model(&args.model_name, &backend)?;
+    let (interpreter_params, parameters, config, tokenizer) =
+        load_model(&args.model_name, &backend)?;
 
     let model = LlamaModel { config };
 
@@ -48,8 +53,17 @@ fn main() -> Result<()> {
             .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
     }
 
+    let encoding = tokenizer
+        .encode(args.prompt.clone(), true)
+        .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
+
+    let token_ids = encoding.get_ids();
+
     // Run interpreter
-    run_interpreter(&typed_term, env, interpreter_params)?;
+    let next_token_id = run_interpreter(&typed_term, env, interpreter_params, token_ids)?;
+    let decoded_text = tokenizer.decode(&[next_token_id], false).unwrap();
+
+    println!("{}{}", args.prompt, decoded_text);
 
     Ok(())
 }
@@ -58,16 +72,19 @@ fn run_interpreter(
     typed_term: &TypedTerm,
     env: Environment,
     interpreter_params: interpreter::Parameters<NdArrayBackend>,
-) -> Result<()> {
+    input_data: &[u32],
+) -> Result<u32> {
     let backend = NdArrayBackend;
 
     // Create interpreter
     let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
 
-    // Llama encoding for 'Category theory is'
-    let input_data = [27348, 3108, 314];
-    let input_tensor = interpreter::tensor(&interpreter.backend, Shape(vec![1, 3]), &input_data)
-        .expect("Failed to create input tensor");
+    let input_tensor = interpreter::tensor(
+        &interpreter.backend,
+        Shape(vec![1, input_data.len()]),
+        input_data,
+    )
+    .expect("Failed to create input tensor");
 
     // Run the model
     let results = interpreter
@@ -76,20 +93,19 @@ fn run_interpreter(
 
     // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
-        use catgrad::interpreter::{TaggedTensor, Value};
         match output {
-            Value::Tensor(TaggedTensor::U32([arr])) => {
-                println!("Output shape: {:?}", arr.shape());
+            Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
                 println!(
                     "Output sample: {:?}",
                     &arr.as_slice().unwrap()[..10.min(arr.len())]
                 );
+                Ok(arr.as_slice().unwrap()[arr.len() - 1])
             }
-            _ => println!("Unexpected output type: {:?}", output),
+            t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
         }
+    } else {
+        Err(anyhow::anyhow!("No result"))
     }
-
-    Ok(())
 }
 
 pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
@@ -374,6 +390,7 @@ impl Module<1, 1> for LlamaModel {
             x,
         );
 
+        x = argmax(builder, x);
         [x]
     }
 
@@ -402,9 +419,15 @@ impl Module<1, 1> for LlamaModel {
 fn load_model<B: interpreter::Backend>(
     model_name: &str,
     backend: &B,
-) -> Result<(interpreter::Parameters<B>, typecheck::Parameters, Config)> {
-    let (model_paths, config_path, _tokenizer_path, _) = get_model_files(model_name, "main")?;
-    // let tokenizer = Tokenizer::from_file(tokenizer_path)?;
+) -> Result<(
+    interpreter::Parameters<B>,
+    typecheck::Parameters,
+    Config,
+    Tokenizer,
+)> {
+    let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main")?;
+    let tokenizer = Tokenizer::from_file(tokenizer_path)
+        .map_err(|err| anyhow::anyhow!("tokenizer load error {:?}", err))?;
 
     let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
     let file = std::fs::File::open(&model_paths[0])?;
@@ -418,36 +441,39 @@ fn load_model<B: interpreter::Backend>(
         let shape = view.shape().to_vec();
         let tensor_data = view.data();
 
+        use catgrad::typecheck::*;
         // Convert dtype and load tensor data
-        match view.dtype() {
-            safetensors::Dtype::BF16 => {
-                use catgrad::typecheck::*;
-                let data: Vec<f32> = tensor_data
-                    .chunks_exact(2)
-                    .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
-                    .collect();
-                let tensor =
-                    interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
-                        .expect("Failed to create tensor");
-                let key = path(name.split(".").collect()).expect("invalid param path");
-                data_map.insert(key.clone(), tensor);
-
-                let vne = shape.into_iter().map(NatExpr::Constant).collect();
-                let tensor_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-                    dtype: DtypeExpr::Constant(Dtype::F32),
-                    shape: ShapeExpr::Shape(vne),
-                }));
-                type_map.insert(key, tensor_type);
-            }
-            // Add other dtype conversions as needed
+        let data: Vec<f32> = match view.dtype() {
+            safetensors::Dtype::F32 => tensor_data
+                .chunks_exact(4)
+                .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+                .collect(),
+            safetensors::Dtype::BF16 => tensor_data
+                .chunks_exact(2)
+                .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
+                .collect(),
             _ => {
                 panic!("Unsupported dtype: {:?}", view.dtype());
             }
-        }
+        };
+
+        let tensor = interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
+            .expect("Failed to create tensor");
+        let key = path(name.split(".").collect()).expect("invalid param path");
+        data_map.insert(key.clone(), tensor);
+
+        let vne = shape.into_iter().map(NatExpr::Constant).collect();
+        let tensor_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vne),
+        }));
+        type_map.insert(key, tensor_type);
     }
+
     Ok((
         interpreter::Parameters::from(data_map),
         typecheck::Parameters::from(type_map),
         config,
+        tokenizer,
     ))
 }
