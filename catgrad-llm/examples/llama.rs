@@ -10,6 +10,7 @@ use catgrad_llm::utils::get_model_files;
 
 use anyhow::Result;
 use clap::Parser;
+use tokenizers::tokenizer::Tokenizer;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -20,6 +21,9 @@ struct Args {
         default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
     )]
     model_name: String,
+    /// Initial prompt
+    #[arg(short = 'p', long, default_value = "Category theory is")]
+    prompt: String,
     /// Enable typecheck
     #[arg(short = 't', long)]
     typecheck: bool,
@@ -30,7 +34,8 @@ fn main() -> Result<()> {
     let args = Args::parse();
     // Create parameters for the model
     let backend = NdArrayBackend;
-    let (interpreter_params, parameters, config) = load_model(&args.model_name, &backend)?;
+    let (interpreter_params, parameters, config, tokenizer) =
+        load_model(&args.model_name, &backend)?;
 
     let model = LlamaModel { config };
 
@@ -48,8 +53,14 @@ fn main() -> Result<()> {
             .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
     }
 
+    let encoding = tokenizer
+        .encode(args.prompt, true)
+        .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
+
+    let token_ids = encoding.get_ids();
+
     // Run interpreter
-    run_interpreter(&typed_term, env, interpreter_params)?;
+    run_interpreter(&typed_term, env, interpreter_params, token_ids)?;
 
     Ok(())
 }
@@ -58,16 +69,19 @@ fn run_interpreter(
     typed_term: &TypedTerm,
     env: Environment,
     interpreter_params: interpreter::Parameters<NdArrayBackend>,
+    input_data: &[u32],
 ) -> Result<()> {
     let backend = NdArrayBackend;
 
     // Create interpreter
     let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
 
-    // Llama encoding for 'Category theory is'
-    let input_data = [27348, 3108, 314];
-    let input_tensor = interpreter::tensor(&interpreter.backend, Shape(vec![1, 3]), &input_data)
-        .expect("Failed to create input tensor");
+    let input_tensor = interpreter::tensor(
+        &interpreter.backend,
+        Shape(vec![1, input_data.len()]),
+        input_data,
+    )
+    .expect("Failed to create input tensor");
 
     // Run the model
     let results = interpreter
@@ -402,9 +416,15 @@ impl Module<1, 1> for LlamaModel {
 fn load_model<B: interpreter::Backend>(
     model_name: &str,
     backend: &B,
-) -> Result<(interpreter::Parameters<B>, typecheck::Parameters, Config)> {
-    let (model_paths, config_path, _tokenizer_path, _) = get_model_files(model_name, "main")?;
-    // let tokenizer = Tokenizer::from_file(tokenizer_path)?;
+) -> Result<(
+    interpreter::Parameters<B>,
+    typecheck::Parameters,
+    Config,
+    Tokenizer,
+)> {
+    let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main")?;
+    let tokenizer = Tokenizer::from_file(tokenizer_path)
+        .map_err(|err| anyhow::anyhow!("tokenizer load error {:?}", err))?;
 
     let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
     let file = std::fs::File::open(&model_paths[0])?;
@@ -449,5 +469,6 @@ fn load_model<B: interpreter::Backend>(
         interpreter::Parameters::from(data_map),
         typecheck::Parameters::from(type_map),
         config,
+        tokenizer,
     ))
 }
