@@ -54,13 +54,16 @@ fn main() -> Result<()> {
     }
 
     let encoding = tokenizer
-        .encode(args.prompt, true)
+        .encode(args.prompt.clone(), true)
         .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
 
     let token_ids = encoding.get_ids();
 
     // Run interpreter
-    run_interpreter(&typed_term, env, interpreter_params, token_ids)?;
+    let next_token_id = run_interpreter(&typed_term, env, interpreter_params, token_ids)?;
+    let decoded_text = tokenizer.decode(&[next_token_id], false).unwrap();
+
+    println!("{}{}", args.prompt, decoded_text);
 
     Ok(())
 }
@@ -70,7 +73,7 @@ fn run_interpreter(
     env: Environment,
     interpreter_params: interpreter::Parameters<NdArrayBackend>,
     input_data: &[u32],
-) -> Result<()> {
+) -> Result<u32> {
     let backend = NdArrayBackend;
 
     // Create interpreter
@@ -90,20 +93,19 @@ fn run_interpreter(
 
     // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
-        use catgrad::interpreter::{TaggedTensor, Value};
         match output {
-            Value::Tensor(TaggedTensor::U32([arr])) => {
-                println!("Output shape: {:?}", arr.shape());
+            Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
                 println!(
                     "Output sample: {:?}",
                     &arr.as_slice().unwrap()[..10.min(arr.len())]
                 );
+                Ok(arr.as_slice().unwrap()[arr.len() - 1])
             }
-            _ => println!("Unexpected output type: {:?}", output),
+            t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
         }
+    } else {
+        Err(anyhow::anyhow!("No result"))
     }
-
-    Ok(())
 }
 
 pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
@@ -388,6 +390,7 @@ impl Module<1, 1> for LlamaModel {
             x,
         );
 
+        x = argmax(builder, x);
         [x]
     }
 
