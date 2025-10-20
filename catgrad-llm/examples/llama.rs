@@ -203,6 +203,27 @@ pub fn rope(
     apply_rope_embedding(builder, pos, head_dim, cos, sin, x)
 }
 
+/// Type signature for LLM Modules
+fn llm_type() -> ([Type; 1], [Type; 1]) {
+    use catgrad::typecheck::*;
+    let batch_size = NatExpr::Var(0);
+    let seq_len = NatExpr::Var(1);
+
+    // Input shape B×S
+    let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
+    }));
+
+    // Output shape B×1
+    let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
+    }));
+
+    ([t_x], [t_y])
+}
+
 pub struct LlamaModel {
     config: Config,
 }
@@ -400,23 +421,7 @@ impl Module<1, 1> for LlamaModel {
 
     // This should return the *detailed* type of the model
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        use catgrad::typecheck::*;
-        let batch_size = NatExpr::Var(0);
-        let seq_len = NatExpr::Var(1);
-
-        // Input shape B×S
-        let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::U32),
-            shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
-        }));
-
-        // Output shape B×1
-        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::U32),
-            shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
-        }));
-
-        ([t_x], [t_y])
+        llm_type()
     }
 }
 
@@ -591,23 +596,7 @@ impl Module<1, 1> for GPT2Model {
 
     // This should return the *detailed* type of the model
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        use catgrad::typecheck::*;
-        let batch_size = NatExpr::Var(0);
-        let seq_len = NatExpr::Var(1);
-
-        // Input shape B×S
-        let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::U32),
-            shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
-        }));
-
-        // Output shape B×1
-        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::U32),
-            shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
-        }));
-
-        ([t_x], [t_y])
+        llm_type()
     }
 }
 

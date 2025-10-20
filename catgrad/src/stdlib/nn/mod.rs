@@ -3,33 +3,40 @@ use std::f32::consts::{E, PI};
 
 use crate::typecheck::*;
 
+// A module with 1 input and 1 output used in nn
+trait NNModule {
+    fn name(&self) -> &str;
+    fn definition(&self, builder: &Builder, x: [Var; 1]) -> [Var; 1];
+}
+
+impl<T: NNModule> Module<1, 1> for T {
+    fn ty(&self) -> ([Type; 1], [Type; 1]) {
+        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Var(0),
+            shape: ShapeExpr::Var(1),
+        }));
+        ([ty.clone()], [ty])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["nn", self.name()]).unwrap()
+    }
+    fn def(&self, builder: &Builder, x: [Var; 1]) -> [Var; 1] {
+        self.definition(builder, x)
+    }
+}
+
 ////////////////////////////////////////
 // Sigmoid
 
 pub struct Sigmoid;
 
-impl Module<1, 1> for Sigmoid {
-    // Type maps
-    fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        // TODO: allow any dtype; cast constants in exp.
-        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::F32),
-            shape: ShapeExpr::Var(0),
-        }));
-        ([ty.clone()], [ty])
+impl NNModule for Sigmoid {
+    fn name(&self) -> &str {
+        "sigmoid"
     }
-
-    // Name of the op
-    fn path(&self) -> Path {
-        path(vec!["nn", "sigmoid"]).unwrap()
-    }
-
-    // Shape-polymorphic sigmoid
-    fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
-        let s = shape(builder, x.clone());
-        let c1 = constant(builder, 1.0, &s);
-        let r = c1.clone() / (c1 + Exp.call(builder, [-x]));
-        [r]
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [sigmoid(builder, x)]
     }
 }
 
@@ -38,79 +45,67 @@ impl Module<1, 1> for Sigmoid {
 
 pub struct Exp;
 
-impl Module<1, 1> for Exp {
-    // Type maps
-    fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Var(0),
-            shape: ShapeExpr::Var(1),
-        }));
-        ([ty.clone()], [ty])
+impl NNModule for Exp {
+    fn name(&self) -> &str {
+        "exp"
     }
-
-    // Name of the op
-    fn path(&self) -> Path {
-        path(vec!["nn", "exp"]).unwrap()
-    }
-
-    // def
-    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
-        // we'll cast e to whatever dtype x has.
-        let e = lit(graph, std::f32::consts::E);
-        let e = cast(graph, e, dtype(graph, x.clone()));
-        let s = shape(graph, x.clone());
-        let e = broadcast(graph, e, s);
-        [pow(graph, e, x)]
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [exp(builder, x)]
     }
 }
 
 pub struct Sqrt;
 
-impl Module<1, 1> for Sqrt {
-    // Type maps
-    fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Var(0),
-            shape: ShapeExpr::Var(1),
-        }));
-        ([ty.clone()], [ty])
+impl NNModule for Sqrt {
+    fn name(&self) -> &str {
+        "sqrt"
     }
-
-    // Name of the op
-    fn path(&self) -> Path {
-        path(vec!["nn", "sqrt"]).unwrap()
-    }
-
-    // def
-    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
-        let sh = shape(graph, x.clone());
-        let e = constant(graph, 0.5, &sh);
-        [pow(graph, x, e)]
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [sqrt(builder, x)]
     }
 }
 
 pub struct Gelu;
 
-impl Module<1, 1> for Gelu {
-    // Type maps
-    fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Var(0),
-            shape: ShapeExpr::Var(1),
-        }));
-        ([ty.clone()], [ty])
+impl NNModule for Gelu {
+    fn name(&self) -> &str {
+        "gelu"
     }
-
-    // Name of the op
-    fn path(&self) -> Path {
-        path(vec!["nn", "gelu"]).unwrap()
-    }
-
-    // def
-    fn def(&self, graph: &Builder, [x]: [Var; 1]) -> [Var; 1] {
-        [gelu(graph, x)]
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [gelu(builder, x)]
     }
 }
+
+pub struct Tanh;
+impl NNModule for Tanh {
+    fn name(&self) -> &str {
+        "tanh"
+    }
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [tanh(builder, x)]
+    }
+}
+
+pub struct Silu;
+impl NNModule for Silu {
+    fn name(&self) -> &str {
+        "silu"
+    }
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [silu(builder, x)]
+    }
+}
+
+pub struct Softmax;
+impl NNModule for Softmax {
+    fn name(&self) -> &str {
+        "softmax"
+    }
+    fn definition(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        [softmax(builder, x)]
+    }
+}
+
 // Maybe turn these into Modules eventually
 
 pub fn sqrt(builder: &Builder, x: Var) -> Var {
@@ -122,12 +117,14 @@ pub fn sqrt(builder: &Builder, x: Var) -> Var {
 pub fn exp(builder: &Builder, x: Var) -> Var {
     let sh = shape(builder, x.clone());
     let e = constant(builder, E, &sh);
+    let e = cast(builder, e, dtype(builder, x.clone()));
     pow(builder, e, x)
 }
 
 pub fn sigmoid(builder: &Builder, x: Var) -> Var {
     let sh = shape(builder, x.clone());
     let one = constant(builder, 1.0, &sh);
+    let one = cast(builder, one, dtype(builder, x.clone()));
 
     one.clone() / (one + exp(builder, -x))
 }
