@@ -2,6 +2,7 @@ use catgrad::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use nn::{chunk, linear_no_bias, rmsnorm, unsqueeze};
+use std::io::Write;
 
 use std::collections::HashMap;
 
@@ -24,6 +25,9 @@ struct Args {
     /// Initial prompt
     #[arg(short = 'p', long, default_value = "Category theory is")]
     prompt: String,
+    /// Tokens to generate
+    #[arg(short = 's', long, default_value_t = 1)]
+    seq_len: usize,
     /// Enable typecheck
     #[arg(short = 't', long)]
     typecheck: bool,
@@ -61,13 +65,22 @@ fn main() -> Result<()> {
         .encode(args.prompt.clone(), true)
         .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
 
-    let token_ids = encoding.get_ids();
+    let mut token_ids = encoding.get_ids().to_vec();
 
+    println!("{}", args.prompt);
     // Run interpreter
-    let next_token_id = run_interpreter(&typed_term, env, interpreter_params, token_ids)?;
-    let decoded_text = tokenizer.decode(&[next_token_id], false).unwrap();
-
-    println!("{}{}", args.prompt, decoded_text);
+    for _ in 0..args.seq_len {
+        let next_token_id = run_interpreter(
+            &typed_term,
+            env.clone(),
+            interpreter_params.clone(),
+            &token_ids,
+        )?;
+        let decoded_token = tokenizer.decode(&[next_token_id], false).unwrap();
+        token_ids.push(next_token_id);
+        print!("{}", decoded_token);
+        std::io::stdout().flush()?;
+    }
 
     Ok(())
 }
@@ -99,10 +112,6 @@ fn run_interpreter(
     if let Some(output) = results.last() {
         match output {
             Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
-                println!(
-                    "Output sample: {:?}",
-                    &arr.as_slice().unwrap()[..10.min(arr.len())]
-                );
                 Ok(arr.as_slice().unwrap()[arr.len() - 1])
             }
             t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
