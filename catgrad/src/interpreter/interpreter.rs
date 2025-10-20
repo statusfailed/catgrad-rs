@@ -66,7 +66,9 @@ impl<B: Backend> abstract_interpreter::Interpreter for Interpreter<B> {
         path: &crate::prelude::Path,
     ) -> abstract_interpreter::ResultValues<Self> {
         let source_values = args.to_vec();
-        let lang::TypedTerm { term, .. } = self.environment.definitions.get(path).unwrap();
+        let lang::TypedTerm { term, .. } = self.environment.definitions.get(path).unwrap_or_else(|| {
+            panic!("Definition not found for path: {:?}", path);
+        });
         // TODO: can we remove this clone?
         let term = self.environment.to_core(term.clone());
         self.eval(term, source_values)
