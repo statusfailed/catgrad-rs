@@ -111,7 +111,7 @@ fn run_interpreter(
     // Print info about the main output (should be the last one)
     if let Some(output) = results.last() {
         match output {
-            Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
+            interpreter::Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
                 Ok(arr.as_slice().unwrap()[arr.len() - 1])
             }
             t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
@@ -219,13 +219,13 @@ fn llm_type() -> ([Type; 1], [Type; 1]) {
     let seq_len = NatExpr::Var(1);
 
     // Input shape B×S
-    let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+    let t_x = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::U32),
         shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
     }));
 
     // Output shape B×1
-    let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+    let t_y = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::U32),
         shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
     }));
@@ -656,7 +656,7 @@ fn load_model<B: interpreter::Backend>(
         data_map.insert(key.clone(), tensor);
 
         let vne = shape.into_iter().map(NatExpr::Constant).collect();
-        let tensor_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        let tensor_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
             shape: ShapeExpr::Shape(vne),
         }));
