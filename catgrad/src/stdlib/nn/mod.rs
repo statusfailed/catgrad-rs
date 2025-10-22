@@ -11,7 +11,7 @@ trait NNModule {
 
 impl<T: NNModule> Module<1, 1> for T {
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        let ty = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        let ty = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Var(0),
             shape: ShapeExpr::Var(1),
         }));

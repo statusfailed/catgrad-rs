@@ -4,6 +4,7 @@ use open_hypergraphs::lax::*;
 use std::fmt;
 
 pub use crate::category::core::{Dtype, Object};
+pub use crate::typecheck::Type;
 
 use crate::path::*;
 
@@ -31,10 +32,6 @@ pub enum Operation {
 
 pub type Term = OpenHypergraph<Object, Operation>;
 pub type Var = open_hypergraphs::lax::var::Var<Object, Operation>;
-
-// TODO! This is essentially just a placeholder that will work; we need to change this to proper
-// terms later.
-pub type Type = crate::typecheck::interpreter::Value;
 
 /// A TypedTerm is one with source and target type specified as 'type maps' (TODO!)
 #[derive(Debug, Clone)]
