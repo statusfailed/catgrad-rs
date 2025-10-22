@@ -25,6 +25,6 @@ pub fn lang_to_mlir(env: Environment, params: typecheck::Parameters, term: Typed
     entry_fragment
 }
 
-fn checked_term_to_mlir(term: OpenHypergraph<typecheck::Value, lang::Operation>) -> MLIR {
+fn checked_term_to_mlir(_term: OpenHypergraph<typecheck::Type, lang::Operation>) -> MLIR {
     todo!()
 }
