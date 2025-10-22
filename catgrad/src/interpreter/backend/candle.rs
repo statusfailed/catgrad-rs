@@ -86,29 +86,26 @@ impl Backend for CandleBackend {
         }
     }
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
+    ) -> Result<TaggedTensor<Self>, BackendError> {
         let dims: &[usize] = &shape.0;
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            let data_f32: &[f32] = unsafe { std::mem::transmute(data) };
-            let tensor = Tensor::new(data_f32, &self.device)
-                .map_err(|_| BackendError::ShapeError)?
-                .reshape(dims)
-                .map_err(|_| BackendError::ShapeError)?;
-            Ok(CandleTensor(tensor))
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            let data_u32: &[u32] = unsafe { std::mem::transmute(data) };
-            let tensor = Tensor::new(data_u32, &self.device)
-                .map_err(|_| BackendError::ShapeError)?
-                .reshape(dims)
-                .map_err(|_| BackendError::ShapeError)?;
-            Ok(CandleTensor(tensor))
-        } else {
-            panic!("Unsupported dtype for slice creation");
-        }
+        let tensor =
+            Tensor::from_slice(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::F32([CandleTensor(tensor)]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: &[usize] = &shape.0;
+        let tensor =
+            Tensor::from_slice(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::U32([CandleTensor(tensor)]))
     }
 
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self> {

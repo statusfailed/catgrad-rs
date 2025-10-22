@@ -12,7 +12,7 @@ pub type ResultValues<B> = abstract_interpreter::ResultValues<Interpreter<B>>;
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
-pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
+pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug + 'static {}
 impl HasDtype for f32 {}
 impl HasDtype for u32 {}
 
@@ -71,7 +71,20 @@ impl<B: Backend> TaggedTensor<B> {
         data: &[T],
         shape: Shape,
     ) -> Result<Self, BackendError> {
-        let arr = backend.ndarray_from_slice(data, shape)?;
-        Ok(T::into_tagged([arr]))
+        // Dispatch to the appropriate method based on actual type
+        use std::any::TypeId;
+        if TypeId::of::<T>() == TypeId::of::<f32>() {
+            // SAFETY: We've verified T is f32
+            let data_f32 =
+                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
+            backend.ndarray_from_slice_f32(data_f32, shape)
+        } else if TypeId::of::<T>() == TypeId::of::<u32>() {
+            // SAFETY: We've verified T is u32
+            let data_u32 =
+                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u32, data.len()) };
+            backend.ndarray_from_slice_u32(data_u32, shape)
+        } else {
+            panic!("Unsupported type for from_slice");
+        }
     }
 }

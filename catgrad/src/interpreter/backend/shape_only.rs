@@ -40,12 +40,20 @@ impl Backend for ShapeOnlyBackend {
         }
     }
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        _data: &[D],
+        _data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
-        Ok(ShapeOnly(shape))
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::F32([ShapeOnly(shape)]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        _data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::U32([ShapeOnly(shape)]))
     }
 
     fn cast(&self, x: TaggedTensor<Self>, _target_dtype: Dtype) -> TaggedTensor<Self> {
@@ -333,10 +341,20 @@ mod tests {
     fn test_ndarray_from_slice() {
         let backend = ShapeOnlyBackend;
         let shape = Shape(vec![2, 3]);
-        let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_f32 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_u32 = vec![1u32, 2, 3, 4, 5, 6];
 
-        let result = backend.ndarray_from_slice(&data, shape.clone()).unwrap();
-        assert_eq!(result.0, shape);
+        let result_f32 = backend
+            .ndarray_from_slice_f32(&data_f32, shape.clone())
+            .unwrap();
+        assert_eq!(result_f32.shape(), shape);
+        assert_eq!(result_f32.dtype(), Dtype::F32);
+
+        let result_u32 = backend
+            .ndarray_from_slice_u32(&data_u32, shape.clone())
+            .unwrap();
+        assert_eq!(result_u32.shape(), shape);
+        assert_eq!(result_u32.dtype(), Dtype::U32);
     }
 
     #[test]

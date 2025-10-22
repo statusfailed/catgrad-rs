@@ -33,9 +33,13 @@ fn test_candle_backend_basic_operations() {
 
     // Test tensor creation from slice
     let data = vec![1.0f32, 2.0, 3.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     assert_eq!(tensor.0.shape().dims(), &[2, 2]);
 }
 
@@ -47,12 +51,20 @@ fn test_candle_backend_arithmetic() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0];
     let data2 = vec![2.0f32, 3.0, 4.0, 5.0];
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Test addition
     let result = backend.add(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -66,12 +78,20 @@ fn test_candle_backend_arithmetic() {
     // Test multiplication
     let data3 = vec![1.0f32, 2.0, 3.0, 4.0];
     let data4 = vec![2.0f32, 3.0, 4.0, 5.0];
-    let tensor3: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data3, Shape(vec![2, 2]))
+    let tensor3_tagged = backend
+        .ndarray_from_slice_f32(&data3, Shape(vec![2, 2]))
         .unwrap();
-    let tensor4: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data4, Shape(vec![2, 2]))
+    let tensor3 = match tensor3_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor4_tagged = backend
+        .ndarray_from_slice_f32(&data4, Shape(vec![2, 2]))
         .unwrap();
+    let tensor4 = match tensor4_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.mul(TaggedTensorTuple::F32([tensor3, tensor4]));
     match result {
@@ -90,12 +110,20 @@ fn test_candle_backend_subtraction() {
     let data1 = vec![10.0f32, 8.0, 6.0, 4.0];
     let data2 = vec![1.0f32, 2.0, 3.0, 4.0];
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.sub(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
@@ -109,12 +137,20 @@ fn test_candle_backend_subtraction() {
     let data3 = vec![10u32, 8, 6, 4];
     let data4 = vec![1u32, 2, 3, 4];
 
-    let tensor3: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data3, Shape(vec![2, 2]))
+    let tensor3_tagged = backend
+        .ndarray_from_slice_u32(&data3, Shape(vec![2, 2]))
         .unwrap();
-    let tensor4: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data4, Shape(vec![2, 2]))
+    let tensor3 = match tensor3_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
+    let tensor4_tagged = backend
+        .ndarray_from_slice_u32(&data4, Shape(vec![2, 2]))
         .unwrap();
+    let tensor4 = match tensor4_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     let result = backend.sub(TaggedTensorTuple::U32([tensor3, tensor4]));
     match result {
@@ -131,9 +167,13 @@ fn test_candle_backend_max() {
 
     // Test F32 max
     let data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 3]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.max(TaggedTensor::F32([tensor]));
     match result {
@@ -145,9 +185,13 @@ fn test_candle_backend_max() {
 
     // Test U32 max
     let data_u32 = vec![1u32, 5, 3, 2];
-    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
+    let tensor_u32_tagged = backend
+        .ndarray_from_slice_u32(&data_u32, Shape(vec![2, 2]))
         .unwrap();
+    let tensor_u32 = match tensor_u32_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     let result = backend.max(TaggedTensor::U32([tensor_u32]));
     match result {
@@ -164,9 +208,13 @@ fn test_candle_backend_argmax() {
 
     // Test F32 argmax
     let data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 3]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.argmax(TaggedTensor::F32([tensor]));
     match result {
@@ -179,9 +227,13 @@ fn test_candle_backend_argmax() {
 
     // Test U32 max
     let data_u32 = vec![1u32, 5, 3, 2];
-    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
+    let tensor_u32_tagged = backend
+        .ndarray_from_slice_u32(&data_u32, Shape(vec![2, 2]))
         .unwrap();
+    let tensor_u32 = match tensor_u32_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     let result = backend.argmax(TaggedTensor::U32([tensor_u32]));
     match result {
@@ -199,9 +251,13 @@ fn test_candle_backend_sum() {
 
     // Test F32 sum
     let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 3]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.sum(TaggedTensor::F32([tensor]));
     match result {
@@ -213,9 +269,13 @@ fn test_candle_backend_sum() {
 
     // Test U32 sum
     let data_u32 = vec![1u32, 2, 3, 4, 5, 6];
-    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data_u32, Shape(vec![2, 3]))
+    let tensor_u32_tagged = backend
+        .ndarray_from_slice_u32(&data_u32, Shape(vec![2, 3]))
         .unwrap();
+    let tensor_u32 = match tensor_u32_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     let result = backend.sum(TaggedTensor::U32([tensor_u32]));
     match result {
@@ -234,12 +294,20 @@ fn test_candle_backend_matmul() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // [2, 3]
     let data2 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // [3, 2]
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 3]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 3]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![3, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![3, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.matmul(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
@@ -255,9 +323,13 @@ fn test_candle_backend_reshape() {
     let backend = CandleBackend::new();
 
     let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 3]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 3]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let reshaped = backend.reshape(TaggedTensor::F32([tensor]), Shape(vec![3, 2]));
     match reshaped {
@@ -273,9 +345,13 @@ fn test_candle_backend_cast() {
     let backend = CandleBackend::new();
 
     let data = vec![1.0f32, 2.0, 3.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Cast F32 to U32
     let casted = backend.cast(
@@ -298,12 +374,20 @@ fn test_candle_backend_division() {
     let data1 = vec![6.0f32, 8.0, 10.0, 12.0];
     let data2 = vec![2.0f32, 4.0, 5.0, 3.0];
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.div(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
@@ -317,12 +401,20 @@ fn test_candle_backend_division() {
     let data3 = vec![6u32, 8, 10, 12];
     let data4 = vec![2u32, 4, 5, 3];
 
-    let tensor3: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data3, Shape(vec![2, 2]))
+    let tensor3_tagged = backend
+        .ndarray_from_slice_u32(&data3, Shape(vec![2, 2]))
         .unwrap();
-    let tensor4: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data4, Shape(vec![2, 2]))
+    let tensor3 = match tensor3_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
+    let tensor4_tagged = backend
+        .ndarray_from_slice_u32(&data4, Shape(vec![2, 2]))
         .unwrap();
+    let tensor4 = match tensor4_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     let result = backend.div(TaggedTensorTuple::U32([tensor3, tensor4]));
     match result {
@@ -341,12 +433,20 @@ fn test_candle_backend_power() {
     let data1 = vec![2.0f32, 3.0, 4.0, 5.0];
     let data2 = vec![2.0f32, 2.0, 2.0, 2.0];
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.pow(TaggedTensorTuple::F32([tensor1, tensor2]));
     match result {
@@ -354,25 +454,6 @@ fn test_candle_backend_power() {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
-    }
-
-    // Test U32 power
-    let data3 = vec![2u32, 3, 4, 5];
-    let data4 = vec![2u32, 2, 2, 2];
-
-    let tensor3: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data3, Shape(vec![2, 2]))
-        .unwrap();
-    let tensor4: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data4, Shape(vec![2, 2]))
-        .unwrap();
-
-    let result = backend.pow(TaggedTensorTuple::U32([tensor3, tensor4]));
-    match result {
-        TaggedTensor::U32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2, 2]);
-        }
-        _ => panic!("Expected U32 result"),
     }
 }
 
@@ -382,9 +463,13 @@ fn test_candle_backend_negation() {
 
     // Test F32 negation
     let data = vec![1.0f32, -2.0, 3.0, -4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     let result = backend.neg(TaggedTensor::F32([tensor]));
     match result {
@@ -392,20 +477,6 @@ fn test_candle_backend_negation() {
             assert_eq!(arr.0.shape().dims(), &[2, 2]);
         }
         _ => panic!("Expected F32 result"),
-    }
-
-    // Test U32 negation
-    let data_u32 = vec![1u32, 2, 3, 4];
-    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
-        .unwrap();
-
-    let result = backend.neg(TaggedTensor::U32([tensor_u32]));
-    match result {
-        TaggedTensor::U32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[2, 2]);
-        }
-        _ => panic!("Expected U32 result"),
     }
 }
 
@@ -415,9 +486,13 @@ fn test_candle_backend_broadcast() {
 
     // Test F32 broadcasting
     let data = vec![1.0f32, 2.0, 3.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Broadcast to add a dimension at the front: [2, 2] -> [1, 2, 2]
     let broadcasted = backend.broadcast(TaggedTensor::F32([tensor]), Shape(vec![1, 2, 2]));
@@ -429,9 +504,13 @@ fn test_candle_backend_broadcast() {
     }
 
     // Broadcast to expand the first dimension: [1, 2, 2] -> [5, 2, 2]
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![1, 2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![1, 2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     let broadcasted = backend.broadcast(TaggedTensor::F32([tensor]), Shape(vec![5, 2, 2]));
     match broadcasted {
         TaggedTensor::F32([arr]) => {
@@ -442,9 +521,13 @@ fn test_candle_backend_broadcast() {
 
     // Test U32 broadcasting
     let data_u32 = vec![1u32, 2, 3, 4];
-    let tensor_u32: <CandleBackend as Backend>::NdArray<u32> = backend
-        .ndarray_from_slice(&data_u32, Shape(vec![2, 2]))
+    let tensor_u32_tagged = backend
+        .ndarray_from_slice_u32(&data_u32, Shape(vec![2, 2]))
         .unwrap();
+    let tensor_u32 = match tensor_u32_tagged {
+        TaggedTensor::U32([arr]) => arr,
+        _ => panic!("Expected U32"),
+    };
 
     // Broadcast to add multiple dimensions: [2, 2] -> [2, 1, 2, 2]
     let broadcasted_u32 =
@@ -464,9 +547,13 @@ fn test_candle_backend_broadcast_bad_shape() {
 
     // Test F32 broadcasting
     let data = vec![1.0f32, 2.0, 3.0, 4.0];
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Broadcast to add a dimension at the front: [2, 2] -> [2, 2, 2]
     // This should fail because the shape is not compatible
@@ -510,11 +597,20 @@ fn test_candle_backend_shape_mismatch_error() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
     let data2 = vec![1.0f32, 2.0, 3.0]; // [3] - different shape
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
-        backend.ndarray_from_slice(&data2, Shape(vec![3])).unwrap();
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![3]))
+        .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch
     let _result = backend.add(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -532,9 +628,13 @@ fn test_candle_backend_scalar_tensor_mismatch_error() {
         _ => panic!("Expected F32"),
     };
     let data = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![2, 2]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch - scalar [] vs tensor [2, 2]
     let _result = backend.add(TaggedTensorTuple::F32([scalar, tensor]));
@@ -549,12 +649,20 @@ fn test_candle_backend_multiplication_shape_mismatch_error() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // [2, 3]
     let data2 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2] - different shape
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 3]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 3]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 2]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 2]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch
     let _result = backend.mul(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -569,11 +677,20 @@ fn test_candle_backend_division_shape_mismatch_error() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
     let data2 = vec![1.0f32, 2.0]; // [2] - different shape
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
-        backend.ndarray_from_slice(&data2, Shape(vec![2])).unwrap();
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2]))
+        .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch
     let _result = backend.div(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -588,12 +705,20 @@ fn test_candle_backend_power_shape_mismatch_error() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
     let data2 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // [2, 3] - different shape
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data2, Shape(vec![2, 3]))
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2, 3]))
         .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch
     let _result = backend.pow(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -608,11 +733,20 @@ fn test_candle_backend_subtraction_shape_mismatch_error() {
     let data1 = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
     let data2 = vec![1.0f32, 2.0]; // [2] - different shape
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data1, Shape(vec![2, 2]))
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![2, 2]))
         .unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
-        backend.ndarray_from_slice(&data2, Shape(vec![2])).unwrap();
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![2]))
+        .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // This should panic due to shape mismatch
     let _result = backend.sub(TaggedTensorTuple::F32([tensor1, tensor2]));
@@ -652,10 +786,20 @@ fn test_candle_backend_single_element_operations() {
     let data1 = vec![5.0f32];
     let data2 = vec![3.0f32];
 
-    let tensor1: <CandleBackend as Backend>::NdArray<f32> =
-        backend.ndarray_from_slice(&data1, Shape(vec![1])).unwrap();
-    let tensor2: <CandleBackend as Backend>::NdArray<f32> =
-        backend.ndarray_from_slice(&data2, Shape(vec![1])).unwrap();
+    let tensor1_tagged = backend
+        .ndarray_from_slice_f32(&data1, Shape(vec![1]))
+        .unwrap();
+    let tensor1 = match tensor1_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
+    let tensor2_tagged = backend
+        .ndarray_from_slice_f32(&data2, Shape(vec![1]))
+        .unwrap();
+    let tensor2 = match tensor2_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Test all operations on single elements
     let add_result = backend.add(TaggedTensorTuple::F32([tensor1.clone(), tensor2.clone()]));
@@ -733,9 +877,13 @@ fn test_candle_backend_large_tensor() {
     // Test with a larger tensor to ensure operations scale
     let size = 100;
     let data: Vec<f32> = (0..size).map(|i| i as f32).collect();
-    let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
-        .ndarray_from_slice(&data, Shape(vec![10, 10]))
+    let tensor_tagged = backend
+        .ndarray_from_slice_f32(&data, Shape(vec![10, 10]))
         .unwrap();
+    let tensor = match tensor_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
 
     // Test that operations work on larger tensors
     let result = backend.add(TaggedTensorTuple::F32([tensor.clone(), tensor.clone()]));

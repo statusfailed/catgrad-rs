@@ -27,11 +27,17 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self>;
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError>;
+    ) -> Result<TaggedTensor<Self>, BackendError>;
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError>;
 
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self>;
     fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;

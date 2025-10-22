@@ -36,13 +36,26 @@ impl Backend for NdArrayBackend {
         }
     }
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
+    ) -> Result<TaggedTensor<Self>, BackendError> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).map_err(|_| BackendError::ShapeError)
+        let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
+            .map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::F32([arr]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: Vec<usize> = shape.0;
+        let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
+            .map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::U32([arr]))
     }
 
     fn arange(&self, end: usize) -> TaggedTensor<Self> {
