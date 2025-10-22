@@ -15,12 +15,20 @@ fn test_candle_backend_basic_operations() {
     let backend = CandleBackend::new();
 
     // Test scalar creation
-    let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.scalar(42.0f32);
+    let scalar_tagged = backend.scalar(42.0, Dtype::F32);
+    let scalar = match scalar_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     // Note: Candle now creates a tensor with shape [] for scalars
     assert_eq!(scalar.0.shape().dims(), &[] as &[usize]);
 
     // Test zeros creation
-    let zeros: <CandleBackend as Backend>::NdArray<f32> = backend.zeros::<f32>(Shape(vec![2, 3]));
+    let zeros_tagged = backend.zeros(Shape(vec![2, 3]), Dtype::F32);
+    let zeros = match zeros_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     assert_eq!(zeros.0.shape().dims(), &[2, 3]);
 
     // Test tensor creation from slice
@@ -476,10 +484,10 @@ fn test_candle_backend_broadcast_scalar() {
     let backend = CandleBackend::new();
 
     // Test broadcasting a scalar
-    let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.scalar(5.0f32);
+    let scalar_tagged = backend.scalar(5.0, Dtype::F32);
 
     // Broadcast scalar to [3, 2] (concatenating [] and [3, 2])
-    let broadcasted = backend.broadcast(TaggedTensor::F32([scalar]), Shape(vec![3, 2]));
+    let broadcasted = backend.broadcast(scalar_tagged, Shape(vec![3, 2]));
     match broadcasted {
         TaggedTensor::F32([arr]) => {
             assert_eq!(arr.0.shape().dims(), &[3, 2]);
@@ -518,13 +526,17 @@ fn test_candle_backend_scalar_tensor_mismatch_error() {
     let backend = CandleBackend::new();
 
     // Create a scalar and a tensor with different shapes
-    let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.scalar(5.0f32); // shape [1]
+    let scalar_tagged = backend.scalar(5.0, Dtype::F32); // shape []
+    let scalar = match scalar_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     let data = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
     let tensor: <CandleBackend as Backend>::NdArray<f32> = backend
         .ndarray_from_slice(&data, Shape(vec![2, 2]))
         .unwrap();
 
-    // This should panic due to shape mismatch - scalar [1] vs tensor [2, 2]
+    // This should panic due to shape mismatch - scalar [] vs tensor [2, 2]
     let _result = backend.add(TaggedTensorTuple::F32([scalar, tensor]));
 }
 
@@ -616,11 +628,19 @@ fn test_candle_backend_empty_tensor() {
     let backend = CandleBackend::new();
 
     // Test zeros with empty shape (scalar)
-    let scalar: <CandleBackend as Backend>::NdArray<f32> = backend.zeros::<f32>(Shape(vec![]));
+    let scalar_tagged = backend.zeros(Shape(vec![]), Dtype::F32);
+    let scalar = match scalar_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     assert_eq!(scalar.0.shape().dims(), &[] as &[usize]);
 
     // Test zeros with single element
-    let single: <CandleBackend as Backend>::NdArray<f32> = backend.zeros::<f32>(Shape(vec![1]));
+    let single_tagged = backend.zeros(Shape(vec![1]), Dtype::F32);
+    let single = match single_tagged {
+        TaggedTensor::F32([arr]) => arr,
+        _ => panic!("Expected F32"),
+    };
     assert_eq!(single.0.shape().dims(), &[1]);
 }
 

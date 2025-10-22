@@ -26,12 +26,18 @@ impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
 impl Backend for ShapeOnlyBackend {
     type NdArray<D: HasDtype> = ShapeOnly;
 
-    fn scalar<D: HasDtype>(&self, _d: D) -> Self::NdArray<D> {
-        ShapeOnly(Shape(vec![]))
+    fn scalar(&self, _value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
+        match target_dtype {
+            Dtype::F32 => TaggedTensor::F32([ShapeOnly(Shape(vec![]))]),
+            Dtype::U32 => TaggedTensor::U32([ShapeOnly(Shape(vec![]))]),
+        }
     }
 
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
-        ShapeOnly(shape)
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
+        match target_dtype {
+            Dtype::F32 => TaggedTensor::F32([ShapeOnly(shape)]),
+            Dtype::U32 => TaggedTensor::U32([ShapeOnly(shape)]),
+        }
     }
 
     fn ndarray_from_slice<D: HasDtype>(
@@ -301,22 +307,26 @@ mod tests {
     #[test]
     fn test_scalar() {
         let backend = ShapeOnlyBackend;
-        let scalar_f32 = backend.scalar(1.0f32);
-        let scalar_u32 = backend.scalar(42u32);
+        let scalar_f32 = backend.scalar(1.0, Dtype::F32);
+        let scalar_u32 = backend.scalar(42.0, Dtype::U32);
 
-        assert_eq!(scalar_f32.0, Shape(vec![]));
-        assert_eq!(scalar_u32.0, Shape(vec![]));
+        assert_eq!(scalar_f32.shape(), Shape(vec![]));
+        assert_eq!(scalar_u32.shape(), Shape(vec![]));
+        assert_eq!(scalar_f32.dtype(), Dtype::F32);
+        assert_eq!(scalar_u32.dtype(), Dtype::U32);
     }
 
     #[test]
     fn test_zeros() {
         let backend = ShapeOnlyBackend;
         let shape = Shape(vec![2, 3, 4]);
-        let zeros_f32: ShapeOnly = backend.zeros::<f32>(shape.clone());
-        let zeros_u32: ShapeOnly = backend.zeros::<u32>(shape.clone());
+        let zeros_f32 = backend.zeros(shape.clone(), Dtype::F32);
+        let zeros_u32 = backend.zeros(shape.clone(), Dtype::U32);
 
-        assert_eq!(zeros_f32.0, shape);
-        assert_eq!(zeros_u32.0, shape);
+        assert_eq!(zeros_f32.shape(), shape);
+        assert_eq!(zeros_u32.shape(), shape);
+        assert_eq!(zeros_f32.dtype(), Dtype::F32);
+        assert_eq!(zeros_u32.dtype(), Dtype::U32);
     }
 
     #[test]

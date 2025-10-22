@@ -9,13 +9,31 @@ pub struct NdArrayBackend;
 impl Backend for NdArrayBackend {
     type NdArray<D: HasDtype> = ArrayD<D>;
 
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
-        ArrayD::from_elem(IxDyn(&[]), d)
+    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
+        match target_dtype {
+            Dtype::F32 => {
+                let arr = ArrayD::from_elem(IxDyn(&[]), value as f32);
+                TaggedTensor::F32([arr])
+            }
+            Dtype::U32 => {
+                let arr = ArrayD::from_elem(IxDyn(&[]), value as u32);
+                TaggedTensor::U32([arr])
+            }
+        }
     }
 
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_elem(IxDyn(&dims), D::default())
+        match target_dtype {
+            Dtype::F32 => {
+                let arr = ArrayD::from_elem(IxDyn(&dims), 0.0f32);
+                TaggedTensor::F32([arr])
+            }
+            Dtype::U32 => {
+                let arr = ArrayD::from_elem(IxDyn(&dims), 0u32);
+                TaggedTensor::U32([arr])
+            }
+        }
     }
 
     fn ndarray_from_slice<D: HasDtype>(

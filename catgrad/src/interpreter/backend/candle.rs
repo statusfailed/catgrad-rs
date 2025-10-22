@@ -57,33 +57,32 @@ impl Default for CandleBackend {
 impl Backend for CandleBackend {
     type NdArray<D: HasDtype> = CandleTensor;
 
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
-        // Use unsafe transmute as a workaround for type erasure
-        // This is not ideal but necessary due to trait constraints
-        // (Candle's Tensor::new() requires knowing the specific
-        // data type at compile time)
-        // TODO: Issue #188 refactors the backend to fix this.
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            let val = unsafe { std::mem::transmute_copy::<D, f32>(&d) };
-            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
-            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            let val = unsafe { std::mem::transmute_copy::<D, u32>(&d) };
-            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
-            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
-        } else {
-            panic!("Unsupported dtype for scalar creation");
+    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
+        match target_dtype {
+            Dtype::F32 => {
+                let val = value as f32;
+                let tensor = Tensor::from_slice(&[val], (), &self.device).unwrap();
+                TaggedTensor::F32([CandleTensor(tensor)])
+            }
+            Dtype::U32 => {
+                let val = value as u32;
+                let tensor = Tensor::from_slice(&[val], (), &self.device).unwrap();
+                TaggedTensor::U32([CandleTensor(tensor)])
+            }
         }
     }
 
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: &[usize] = &shape.0;
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            CandleTensor(Tensor::zeros(dims, DType::F32, &self.device).unwrap())
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            CandleTensor(Tensor::zeros(dims, DType::U32, &self.device).unwrap())
-        } else {
-            panic!("Unsupported dtype for zeros creation");
+        match target_dtype {
+            Dtype::F32 => {
+                let tensor = Tensor::zeros(dims, DType::F32, &self.device).unwrap();
+                TaggedTensor::F32([CandleTensor(tensor)])
+            }
+            Dtype::U32 => {
+                let tensor = Tensor::zeros(dims, DType::U32, &self.device).unwrap();
+                TaggedTensor::U32([CandleTensor(tensor)])
+            }
         }
     }
 

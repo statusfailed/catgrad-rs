@@ -24,8 +24,8 @@ pub trait Backend: Send + Sync + Clone + Debug {
     type NdArray<D: HasDtype>: NdArray<D, Backend = Self>;
 
     // Generic helper functions to create ndarrays.
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D>;
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D>;
+    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self>;
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
     fn ndarray_from_slice<D: HasDtype>(
         &self,
