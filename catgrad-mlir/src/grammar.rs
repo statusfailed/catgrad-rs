@@ -25,7 +25,7 @@ use std::fmt;
 pub struct Func {
     pub name: String,
     pub parameters: Vec<Parameter>,
-    pub return_type: TensorType,
+    pub return_type: Type,
     pub body: Vec<Assignment>,
     pub return_stmt: Return,
 }
@@ -38,10 +38,11 @@ pub struct Func {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Parameter {
     pub name: String,
-    pub param_type: TensorType,
+    pub param_type: Type,
 }
 
 /// MLIR type annotation. Either `index` or a `TensorType`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Index,
     TensorType(TensorType),
@@ -55,14 +56,12 @@ pub struct TensorType {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Value {
-    pub name: String,
-}
+pub struct Identifier(pub usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ValueWithType {
-    pub value: Value,
-    pub value_type: Option<TensorType>,
+pub struct IdentifierWithType {
+    pub value: Identifier,
+    pub value_type: Option<Type>,
 }
 
 /// An assignment of expression to variable name, e.g.
@@ -72,15 +71,15 @@ pub struct ValueWithType {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Assignment {
-    pub result: Value,
+    pub result: Identifier,
     pub operation: Operation,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Operation {
     pub name: String,
-    pub ins: Vec<ValueWithType>,
-    pub outs: Vec<ValueWithType>,
+    pub ins: Vec<IdentifierWithType>,
+    pub outs: Vec<IdentifierWithType>,
     pub return_types: Vec<TensorType>,
     pub attrs: Option<String>,
     pub inner_block: Option<String>,
@@ -93,12 +92,21 @@ pub struct Operation {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Return {
-    pub value: Value,
-    pub value_type: TensorType,
+    pub value: Identifier,
+    pub value_type: Type,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Display instances to render fragments as text
+
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Type::Index => write!(f, "index"),
+            Type::TensorType(tensor_type) => tensor_type.fmt(f),
+        }
+    }
+}
 
 impl fmt::Display for TensorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -115,13 +123,13 @@ impl fmt::Display for TensorType {
     }
 }
 
-impl fmt::Display for Value {
+impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "%{}", self.name)
+        write!(f, "%v{}", self.0)
     }
 }
 
-impl fmt::Display for ValueWithType {
+impl fmt::Display for IdentifierWithType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.value_type {
             Some(t) => write!(f, "{} : {}", self.value, t),
@@ -266,35 +274,33 @@ mod tests {
             parameters: vec![
                 Parameter {
                     name: "arg0".to_string(),
-                    param_type: TensorType {
+                    param_type: Type::TensorType(TensorType {
                         shape: vec![4, 8],
                         dtype: "f32".to_string(),
-                    },
+                    }),
                 },
                 Parameter {
                     name: "arg1".to_string(),
-                    param_type: TensorType {
+                    param_type: Type::TensorType(TensorType {
                         shape: vec![8, 16],
                         dtype: "f32".to_string(),
-                    },
+                    }),
                 },
                 Parameter {
                     name: "arg2".to_string(),
-                    param_type: TensorType {
+                    param_type: Type::TensorType(TensorType {
                         shape: vec![16, 16],
                         dtype: "f32".to_string(),
-                    },
+                    }),
                 },
             ],
-            return_type: TensorType {
+            return_type: Type::TensorType(TensorType {
                 shape: vec![4, 16],
                 dtype: "f32".to_string(),
-            },
+            }),
             body: vec![
                 Assignment {
-                    result: Value {
-                        name: "0".to_string(),
-                    },
+                    result: Identifier(0),
                     operation: Operation {
                         name: "tensor.empty()".to_string(),
                         ins: vec![],
@@ -308,39 +314,31 @@ mod tests {
                     },
                 },
                 Assignment {
-                    result: Value {
-                        name: "1".to_string(),
-                    },
+                    result: Identifier(1),
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            ValueWithType {
-                                value: Value {
-                                    name: "arg0".to_string(),
-                                },
-                                value_type: Some(TensorType {
+                            IdentifierWithType {
+                                value: Identifier(0),
+                                value_type: Some(Type::TensorType(TensorType {
                                     shape: vec![4, 8],
                                     dtype: "f32".to_string(),
-                                }),
+                                })),
                             },
-                            ValueWithType {
-                                value: Value {
-                                    name: "arg1".to_string(),
-                                },
-                                value_type: Some(TensorType {
+                            IdentifierWithType {
+                                value: Identifier(1),
+                                value_type: Some(Type::TensorType(TensorType {
                                     shape: vec![8, 16],
                                     dtype: "f32".to_string(),
-                                }),
+                                })),
                             },
                         ],
-                        outs: vec![ValueWithType {
-                            value: Value {
-                                name: "0".to_string(),
-                            },
-                            value_type: Some(TensorType {
+                        outs: vec![IdentifierWithType {
+                            value: Identifier(0),
+                            value_type: Some(Type::TensorType(TensorType {
                                 shape: vec![4, 16],
                                 dtype: "f32".to_string(),
-                            }),
+                            })),
                         }],
                         return_types: vec![TensorType {
                             shape: vec![4, 16],
@@ -351,9 +349,7 @@ mod tests {
                     },
                 },
                 Assignment {
-                    result: Value {
-                        name: "2".to_string(),
-                    },
+                    result: Identifier(2),
                     operation: Operation {
                         name: "tensor.empty()".to_string(),
                         ins: vec![],
@@ -367,39 +363,31 @@ mod tests {
                     },
                 },
                 Assignment {
-                    result: Value {
-                        name: "3".to_string(),
-                    },
+                    result: Identifier(3),
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            ValueWithType {
-                                value: Value {
-                                    name: "1".to_string(),
-                                },
-                                value_type: Some(TensorType {
+                            IdentifierWithType {
+                                value: Identifier(1),
+                                value_type: Some(Type::TensorType(TensorType {
                                     shape: vec![4, 16],
                                     dtype: "f32".to_string(),
-                                }),
+                                })),
                             },
-                            ValueWithType {
-                                value: Value {
-                                    name: "arg2".to_string(),
-                                },
-                                value_type: Some(TensorType {
+                            IdentifierWithType {
+                                value: Identifier(2),
+                                value_type: Some(Type::TensorType(TensorType {
                                     shape: vec![16, 16],
                                     dtype: "f32".to_string(),
-                                }),
+                                })),
                             },
                         ],
-                        outs: vec![ValueWithType {
-                            value: Value {
-                                name: "2".to_string(),
-                            },
-                            value_type: Some(TensorType {
+                        outs: vec![IdentifierWithType {
+                            value: Identifier(2),
+                            value_type: Some(Type::TensorType(TensorType {
                                 shape: vec![4, 16],
                                 dtype: "f32".to_string(),
-                            }),
+                            })),
                         }],
                         return_types: vec![TensorType {
                             shape: vec![4, 16],
@@ -411,13 +399,11 @@ mod tests {
                 },
             ],
             return_stmt: Return {
-                value: Value {
-                    name: "3".to_string(),
-                },
-                value_type: TensorType {
+                value: Identifier(3),
+                value_type: Type::TensorType(TensorType {
                     shape: vec![4, 16],
                     dtype: "f32".to_string(),
-                },
+                }),
             },
         };
 
@@ -427,6 +413,6 @@ mod tests {
         assert!(output.contains("func.func @matmul_chain"));
         assert!(output.contains("tensor.empty() : tensor<4x16xf32>"));
         assert!(output.contains("linalg.matmul"));
-        assert!(output.contains("return %3 : tensor<4x16xf32>"));
+        assert!(output.contains("return %v3 : tensor<4x16xf32>"));
     }
 }
