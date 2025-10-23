@@ -27,17 +27,38 @@ pub enum TaggedTensorTuple<B: Backend, const N: usize> {
 
 pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
     fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N>;
+    fn from_slice_tagged(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError>;
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
     fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::F32(arrs)
     }
+
+    fn from_slice_tagged(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError> {
+        backend.ndarray_from_slice_f32(data, shape)
+    }
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
     fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::U32(arrs)
+    }
+
+    fn from_slice_tagged(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError> {
+        backend.ndarray_from_slice_u32(data, shape)
     }
 }
 
@@ -71,20 +92,6 @@ impl<B: Backend> TaggedTensor<B> {
         data: &[T],
         shape: Shape,
     ) -> Result<Self, BackendError> {
-        // Dispatch to the appropriate method based on actual type
-        use std::any::TypeId;
-        if TypeId::of::<T>() == TypeId::of::<f32>() {
-            // SAFETY: We've verified T is f32
-            let data_f32 =
-                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const f32, data.len()) };
-            backend.ndarray_from_slice_f32(data_f32, shape)
-        } else if TypeId::of::<T>() == TypeId::of::<u32>() {
-            // SAFETY: We've verified T is u32
-            let data_u32 =
-                unsafe { std::slice::from_raw_parts(data.as_ptr() as *const u32, data.len()) };
-            backend.ndarray_from_slice_u32(data_u32, shape)
-        } else {
-            panic!("Unsupported type for from_slice");
-        }
+        T::from_slice_tagged(backend, data, shape)
     }
 }
