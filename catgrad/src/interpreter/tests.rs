@@ -8,13 +8,6 @@ use crate::category::core::Shape;
 fn test_tagged_ndarray_constructors() {
     let backend = NdArrayBackend;
 
-    // Test scalar constructor
-    let scalar_f32: TaggedTensor<NdArrayBackend> = TaggedTensor::scalar(&NdArrayBackend, 2.5f32);
-    assert_eq!(scalar_f32.shape().0, vec![] as Vec<usize>);
-
-    let scalar_u32: TaggedTensor<NdArrayBackend> = TaggedTensor::scalar(&NdArrayBackend, 100u32);
-    assert_eq!(scalar_u32.shape().0, vec![] as Vec<usize>);
-
     // Test from_slice constructor
     let matrix =
         TaggedTensor::from_slice(&backend, &[1.0f32, 2.0, 3.0, 4.0], Shape(vec![2, 2])).unwrap();

@@ -23,15 +23,19 @@ pub trait Backend: Send + Sync + Clone + Debug {
     /// Representation of tensor values. (e.g., device ptrs, Vec, etc.)
     type NdArray<D: HasDtype>: NdArray<D, Backend = Self>;
 
-    // Generic helper functions to create ndarrays.
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D>;
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D>;
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError>;
+    ) -> Result<TaggedTensor<Self>, BackendError>;
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError>;
 
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self>;
     fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;

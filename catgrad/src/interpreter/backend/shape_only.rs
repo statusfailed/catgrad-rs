@@ -26,20 +26,27 @@ impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
 impl Backend for ShapeOnlyBackend {
     type NdArray<D: HasDtype> = ShapeOnly;
 
-    fn scalar<D: HasDtype>(&self, _d: D) -> Self::NdArray<D> {
-        ShapeOnly(Shape(vec![]))
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
+        match target_dtype {
+            Dtype::F32 => TaggedTensor::F32([ShapeOnly(shape)]),
+            Dtype::U32 => TaggedTensor::U32([ShapeOnly(shape)]),
+        }
     }
 
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
-        ShapeOnly(shape)
-    }
-
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        _data: &[D],
+        _data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
-        Ok(ShapeOnly(shape))
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::F32([ShapeOnly(shape)]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        _data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::U32([ShapeOnly(shape)]))
     }
 
     fn cast(&self, x: TaggedTensor<Self>, _target_dtype: Dtype) -> TaggedTensor<Self> {
@@ -299,34 +306,36 @@ mod tests {
     use crate::category::core::Shape;
 
     #[test]
-    fn test_scalar() {
-        let backend = ShapeOnlyBackend;
-        let scalar_f32 = backend.scalar(1.0f32);
-        let scalar_u32 = backend.scalar(42u32);
-
-        assert_eq!(scalar_f32.0, Shape(vec![]));
-        assert_eq!(scalar_u32.0, Shape(vec![]));
-    }
-
-    #[test]
     fn test_zeros() {
         let backend = ShapeOnlyBackend;
         let shape = Shape(vec![2, 3, 4]);
-        let zeros_f32: ShapeOnly = backend.zeros::<f32>(shape.clone());
-        let zeros_u32: ShapeOnly = backend.zeros::<u32>(shape.clone());
+        let zeros_f32 = backend.zeros(shape.clone(), Dtype::F32);
+        let zeros_u32 = backend.zeros(shape.clone(), Dtype::U32);
 
-        assert_eq!(zeros_f32.0, shape);
-        assert_eq!(zeros_u32.0, shape);
+        assert_eq!(zeros_f32.shape(), shape);
+        assert_eq!(zeros_u32.shape(), shape);
+        assert_eq!(zeros_f32.dtype(), Dtype::F32);
+        assert_eq!(zeros_u32.dtype(), Dtype::U32);
     }
 
     #[test]
     fn test_ndarray_from_slice() {
         let backend = ShapeOnlyBackend;
         let shape = Shape(vec![2, 3]);
-        let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_f32 = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let data_u32 = vec![1u32, 2, 3, 4, 5, 6];
 
-        let result = backend.ndarray_from_slice(&data, shape.clone()).unwrap();
-        assert_eq!(result.0, shape);
+        let result_f32 = backend
+            .ndarray_from_slice_f32(&data_f32, shape.clone())
+            .unwrap();
+        assert_eq!(result_f32.shape(), shape);
+        assert_eq!(result_f32.dtype(), Dtype::F32);
+
+        let result_u32 = backend
+            .ndarray_from_slice_u32(&data_u32, shape.clone())
+            .unwrap();
+        assert_eq!(result_u32.shape(), shape);
+        assert_eq!(result_u32.dtype(), Dtype::U32);
     }
 
     #[test]

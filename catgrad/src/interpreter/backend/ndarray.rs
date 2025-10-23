@@ -9,22 +9,40 @@ pub struct NdArrayBackend;
 impl Backend for NdArrayBackend {
     type NdArray<D: HasDtype> = ArrayD<D>;
 
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
-        ArrayD::from_elem(IxDyn(&[]), d)
-    }
-
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_elem(IxDyn(&dims), D::default())
+        match target_dtype {
+            Dtype::F32 => {
+                let arr = ArrayD::from_elem(IxDyn(&dims), 0.0f32);
+                TaggedTensor::F32([arr])
+            }
+            Dtype::U32 => {
+                let arr = ArrayD::from_elem(IxDyn(&dims), 0u32);
+                TaggedTensor::U32([arr])
+            }
+        }
     }
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
+    ) -> Result<TaggedTensor<Self>, BackendError> {
         let dims: Vec<usize> = shape.0;
-        ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec()).map_err(|_| BackendError::ShapeError)
+        let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
+            .map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::F32([arr]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: Vec<usize> = shape.0;
+        let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
+            .map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::U32([arr]))
     }
 
     fn arange(&self, end: usize) -> TaggedTensor<Self> {

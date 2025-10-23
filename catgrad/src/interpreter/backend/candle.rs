@@ -57,59 +57,40 @@ impl Default for CandleBackend {
 impl Backend for CandleBackend {
     type NdArray<D: HasDtype> = CandleTensor;
 
-    fn scalar<D: HasDtype>(&self, d: D) -> Self::NdArray<D> {
-        // Use unsafe transmute as a workaround for type erasure
-        // This is not ideal but necessary due to trait constraints
-        // (Candle's Tensor::new() requires knowing the specific
-        // data type at compile time)
-        // TODO: Issue #188 refactors the backend to fix this.
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            let val = unsafe { std::mem::transmute_copy::<D, f32>(&d) };
-            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
-            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            let val = unsafe { std::mem::transmute_copy::<D, u32>(&d) };
-            // Create a true scalar with shape [] by using Tensor::from_slice with empty shape
-            CandleTensor(Tensor::from_slice(&[val], (), &self.device).unwrap())
-        } else {
-            panic!("Unsupported dtype for scalar creation");
-        }
-    }
-
-    fn zeros<D: HasDtype + Default>(&self, shape: Shape) -> Self::NdArray<D> {
+    fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: &[usize] = &shape.0;
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            CandleTensor(Tensor::zeros(dims, DType::F32, &self.device).unwrap())
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            CandleTensor(Tensor::zeros(dims, DType::U32, &self.device).unwrap())
-        } else {
-            panic!("Unsupported dtype for zeros creation");
+        match target_dtype {
+            Dtype::F32 => {
+                let tensor = Tensor::zeros(dims, DType::F32, &self.device).unwrap();
+                TaggedTensor::F32([CandleTensor(tensor)])
+            }
+            Dtype::U32 => {
+                let tensor = Tensor::zeros(dims, DType::U32, &self.device).unwrap();
+                TaggedTensor::U32([CandleTensor(tensor)])
+            }
         }
     }
 
-    fn ndarray_from_slice<D: HasDtype>(
+    fn ndarray_from_slice_f32(
         &self,
-        data: &[D],
+        data: &[f32],
         shape: Shape,
-    ) -> Result<Self::NdArray<D>, BackendError> {
+    ) -> Result<TaggedTensor<Self>, BackendError> {
         let dims: &[usize] = &shape.0;
-        if std::mem::size_of::<D>() == std::mem::size_of::<f32>() {
-            let data_f32: &[f32] = unsafe { std::mem::transmute(data) };
-            let tensor = Tensor::new(data_f32, &self.device)
-                .map_err(|_| BackendError::ShapeError)?
-                .reshape(dims)
-                .map_err(|_| BackendError::ShapeError)?;
-            Ok(CandleTensor(tensor))
-        } else if std::mem::size_of::<D>() == std::mem::size_of::<u32>() {
-            let data_u32: &[u32] = unsafe { std::mem::transmute(data) };
-            let tensor = Tensor::new(data_u32, &self.device)
-                .map_err(|_| BackendError::ShapeError)?
-                .reshape(dims)
-                .map_err(|_| BackendError::ShapeError)?;
-            Ok(CandleTensor(tensor))
-        } else {
-            panic!("Unsupported dtype for slice creation");
-        }
+        let tensor =
+            Tensor::from_slice(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::F32([CandleTensor(tensor)]))
+    }
+
+    fn ndarray_from_slice_u32(
+        &self,
+        data: &[u32],
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: &[usize] = &shape.0;
+        let tensor =
+            Tensor::from_slice(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::U32([CandleTensor(tensor)]))
     }
 
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self> {

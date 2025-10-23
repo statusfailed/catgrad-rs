@@ -27,17 +27,38 @@ pub enum TaggedTensorTuple<B: Backend, const N: usize> {
 
 pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
     fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N>;
+    fn ndarray_from_slice(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError>;
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
     fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::F32(arrs)
     }
+
+    fn ndarray_from_slice(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError> {
+        backend.ndarray_from_slice_f32(data, shape)
+    }
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
     fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::U32(arrs)
+    }
+
+    fn ndarray_from_slice(
+        backend: &B,
+        data: &[Self],
+        shape: Shape,
+    ) -> Result<TaggedTensor<B>, BackendError> {
+        backend.ndarray_from_slice_u32(data, shape)
     }
 }
 
@@ -62,17 +83,11 @@ impl<B: Backend> TaggedTensor<B> {
         }
     }
 
-    pub fn scalar<T: IntoTagged<B, 1>>(backend: &B, x: T) -> Self {
-        let arr: B::NdArray<T> = backend.scalar(x);
-        T::into_tagged([arr])
-    }
-
     pub fn from_slice<T: IntoTagged<B, 1>>(
         backend: &B,
         data: &[T],
         shape: Shape,
     ) -> Result<Self, BackendError> {
-        let arr = backend.ndarray_from_slice(data, shape)?;
-        Ok(T::into_tagged([arr]))
+        T::ndarray_from_slice(backend, data, shape)
     }
 }
