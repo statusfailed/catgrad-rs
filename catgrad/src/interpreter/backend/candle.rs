@@ -57,21 +57,6 @@ impl Default for CandleBackend {
 impl Backend for CandleBackend {
     type NdArray<D: HasDtype> = CandleTensor;
 
-    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
-        match target_dtype {
-            Dtype::F32 => {
-                let val = value as f32;
-                let tensor = Tensor::from_slice(&[val], (), &self.device).unwrap();
-                TaggedTensor::F32([CandleTensor(tensor)])
-            }
-            Dtype::U32 => {
-                let val = value as u32;
-                let tensor = Tensor::from_slice(&[val], (), &self.device).unwrap();
-                TaggedTensor::U32([CandleTensor(tensor)])
-            }
-        }
-    }
-
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: &[usize] = &shape.0;
         match target_dtype {

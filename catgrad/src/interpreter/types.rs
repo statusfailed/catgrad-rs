@@ -83,10 +83,6 @@ impl<B: Backend> TaggedTensor<B> {
         }
     }
 
-    pub fn scalar(backend: &B, value: f64, target_dtype: Dtype) -> Self {
-        backend.scalar(value, target_dtype)
-    }
-
     pub fn from_slice<T: IntoTagged<B, 1>>(
         backend: &B,
         data: &[T],

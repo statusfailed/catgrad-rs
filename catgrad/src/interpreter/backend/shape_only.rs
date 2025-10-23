@@ -26,13 +26,6 @@ impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
 impl Backend for ShapeOnlyBackend {
     type NdArray<D: HasDtype> = ShapeOnly;
 
-    fn scalar(&self, _value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
-        match target_dtype {
-            Dtype::F32 => TaggedTensor::F32([ShapeOnly(Shape(vec![]))]),
-            Dtype::U32 => TaggedTensor::U32([ShapeOnly(Shape(vec![]))]),
-        }
-    }
-
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         match target_dtype {
             Dtype::F32 => TaggedTensor::F32([ShapeOnly(shape)]),
@@ -311,18 +304,6 @@ impl ShapeOnlyBackend {
 mod tests {
     use super::*;
     use crate::category::core::Shape;
-
-    #[test]
-    fn test_scalar() {
-        let backend = ShapeOnlyBackend;
-        let scalar_f32 = backend.scalar(1.0, Dtype::F32);
-        let scalar_u32 = backend.scalar(42.0, Dtype::U32);
-
-        assert_eq!(scalar_f32.shape(), Shape(vec![]));
-        assert_eq!(scalar_u32.shape(), Shape(vec![]));
-        assert_eq!(scalar_f32.dtype(), Dtype::F32);
-        assert_eq!(scalar_u32.dtype(), Dtype::U32);
-    }
 
     #[test]
     fn test_zeros() {

@@ -23,8 +23,6 @@ pub trait Backend: Send + Sync + Clone + Debug {
     /// Representation of tensor values. (e.g., device ptrs, Vec, etc.)
     type NdArray<D: HasDtype>: NdArray<D, Backend = Self>;
 
-    // Generic helper functions to create ndarrays.
-    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self>;
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
     fn ndarray_from_slice_f32(

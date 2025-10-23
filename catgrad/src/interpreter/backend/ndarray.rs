@@ -9,19 +9,6 @@ pub struct NdArrayBackend;
 impl Backend for NdArrayBackend {
     type NdArray<D: HasDtype> = ArrayD<D>;
 
-    fn scalar(&self, value: f64, target_dtype: Dtype) -> TaggedTensor<Self> {
-        match target_dtype {
-            Dtype::F32 => {
-                let arr = ArrayD::from_elem(IxDyn(&[]), value as f32);
-                TaggedTensor::F32([arr])
-            }
-            Dtype::U32 => {
-                let arr = ArrayD::from_elem(IxDyn(&[]), value as u32);
-                TaggedTensor::U32([arr])
-            }
-        }
-    }
-
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: Vec<usize> = shape.0;
         match target_dtype {

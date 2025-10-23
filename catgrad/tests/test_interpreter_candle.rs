@@ -14,15 +14,6 @@ use catgrad::interpreter::{TaggedTensor, TaggedTensorTuple, Value};
 fn test_candle_backend_basic_operations() {
     let backend = CandleBackend::new();
 
-    // Test scalar creation
-    let scalar_tagged = backend.scalar(42.0, Dtype::F32);
-    let scalar = match scalar_tagged {
-        TaggedTensor::F32([arr]) => arr,
-        _ => panic!("Expected F32"),
-    };
-    // Note: Candle now creates a tensor with shape [] for scalars
-    assert_eq!(scalar.0.shape().dims(), &[] as &[usize]);
-
     // Test zeros creation
     let zeros_tagged = backend.zeros(Shape(vec![2, 3]), Dtype::F32);
     let zeros = match zeros_tagged {
@@ -566,23 +557,6 @@ fn test_candle_backend_broadcast_bad_shape() {
     }
 }
 
-#[test]
-fn test_candle_backend_broadcast_scalar() {
-    let backend = CandleBackend::new();
-
-    // Test broadcasting a scalar
-    let scalar_tagged = backend.scalar(5.0, Dtype::F32);
-
-    // Broadcast scalar to [3, 2] (concatenating [] and [3, 2])
-    let broadcasted = backend.broadcast(scalar_tagged, Shape(vec![3, 2]));
-    match broadcasted {
-        TaggedTensor::F32([arr]) => {
-            assert_eq!(arr.0.shape().dims(), &[3, 2]);
-        }
-        _ => panic!("Expected F32 result"),
-    }
-}
-
 // ============================================================================
 // ERROR HANDLING TESTS
 // ============================================================================
@@ -614,30 +588,6 @@ fn test_candle_backend_shape_mismatch_error() {
 
     // This should panic due to shape mismatch
     let _result = backend.add(TaggedTensorTuple::F32([tensor1, tensor2]));
-}
-
-#[test]
-#[should_panic(expected = "Shape mismatch in operation")]
-fn test_candle_backend_scalar_tensor_mismatch_error() {
-    let backend = CandleBackend::new();
-
-    // Create a scalar and a tensor with different shapes
-    let scalar_tagged = backend.scalar(5.0, Dtype::F32); // shape []
-    let scalar = match scalar_tagged {
-        TaggedTensor::F32([arr]) => arr,
-        _ => panic!("Expected F32"),
-    };
-    let data = vec![1.0f32, 2.0, 3.0, 4.0]; // [2, 2]
-    let tensor_tagged = backend
-        .ndarray_from_slice_f32(&data, Shape(vec![2, 2]))
-        .unwrap();
-    let tensor = match tensor_tagged {
-        TaggedTensor::F32([arr]) => arr,
-        _ => panic!("Expected F32"),
-    };
-
-    // This should panic due to shape mismatch - scalar [] vs tensor [2, 2]
-    let _result = backend.add(TaggedTensorTuple::F32([scalar, tensor]));
 }
 
 #[test]
