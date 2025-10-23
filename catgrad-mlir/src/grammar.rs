@@ -25,7 +25,7 @@ use std::fmt;
 pub struct Func {
     pub name: String,
     pub parameters: Vec<Parameter>,
-    pub return_type: Type,
+    pub return_type: Vec<Type>,
     pub body: Vec<Assignment>,
     pub return_stmt: Return,
 }
@@ -91,9 +91,25 @@ pub struct Operation {
 /// return %3 : tensor<4x16xf32>
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Return {
-    pub value: Identifier,
-    pub value_type: Type,
+pub struct Return(pub Vec<TypedIdentifier>);
+
+////////////////////////////////////////////////////////////////////////////////
+// Display helpers
+
+// Helper to create comma-separated lists from items with Display/ToString
+fn comma_separated<T: ToString>(items: &[T]) -> String {
+    items
+        .iter()
+        .map(|item| item.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+// Render a list of AnnotatedIdentifier as `{id_0}, {id_1}, ... : {ty_0}, {ty_1}, ...`
+fn render_annotated_identifiers(ids: &Vec<TypedIdentifier>) -> String {
+    let id_names = comma_separated(&ids.iter().map(|v| &v.id).collect::<Vec<_>>());
+    let id_types = comma_separated(&ids.iter().map(|v| &v.ty).collect::<Vec<_>>());
+    format!("{} : {}", id_names, id_types)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -133,21 +149,6 @@ impl fmt::Display for TypedIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {}", self.id, self.ty)
     }
-}
-
-// Render a list of AnnotatedIdentifier as `{id_0}, {id_1}, ... : {ty_0}, {ty_1}, ...`
-fn render_annotated_identifiers(ids: &Vec<TypedIdentifier>) -> String {
-    let id_names = ids
-        .iter()
-        .map(|v| v.id.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    let id_types = ids
-        .iter()
-        .map(|v| v.ty.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-    format!("{} : {}", id_names, id_types)
 }
 
 impl fmt::Display for Operation {
@@ -191,13 +192,7 @@ impl fmt::Display for Operation {
         }
 
         if !self.return_types.is_empty() {
-            let ret_str = self
-                .return_types
-                .iter()
-                .map(|t| t.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(f, " -> {}", ret_str)?;
+            write!(f, " -> {}", comma_separated(&self.return_types))?;
         }
 
         Ok(())
@@ -212,7 +207,11 @@ impl fmt::Display for Assignment {
 
 impl fmt::Display for Return {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "return {} : {}", self.value, self.value_type)
+        if self.0.is_empty() {
+            write!(f, "return")
+        } else {
+            write!(f, "return {}", render_annotated_identifiers(&self.0))
+        }
     }
 }
 
@@ -224,17 +223,13 @@ impl fmt::Display for Parameter {
 
 impl fmt::Display for Func {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params_str = self
-            .parameters
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
+        let params_str = comma_separated(&self.parameters);
+        let return_types_str = comma_separated(&self.return_type);
 
         writeln!(
             f,
             "func.func @{}({}) -> {} {{",
-            self.name, params_str, self.return_type
+            self.name, params_str, return_types_str
         )?;
 
         for assignment in &self.body {
@@ -281,10 +276,10 @@ mod tests {
                     }),
                 },
             ],
-            return_type: Type::TensorType(TensorType {
+            return_type: vec![Type::TensorType(TensorType {
                 shape: vec![4, 16],
                 dtype: "f32".to_string(),
-            }),
+            })],
             body: vec![
                 Assignment {
                     result: Identifier(0),
@@ -385,13 +380,13 @@ mod tests {
                     },
                 },
             ],
-            return_stmt: Return {
-                value: Identifier(3),
-                value_type: Type::TensorType(TensorType {
+            return_stmt: Return(vec![TypedIdentifier {
+                id: Identifier(3),
+                ty: Type::TensorType(TensorType {
                     shape: vec![4, 16],
                     dtype: "f32".to_string(),
                 }),
-            },
+            }]),
         };
 
         println!("{}", func);
