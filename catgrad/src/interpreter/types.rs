@@ -12,7 +12,7 @@ pub type ResultValues<B> = abstract_interpreter::ResultValues<Interpreter<B>>;
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
-pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug + 'static {}
+pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
 impl HasDtype for f32 {}
 impl HasDtype for u32 {}
 
