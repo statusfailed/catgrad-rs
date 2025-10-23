@@ -403,7 +403,7 @@ pub fn main() -> Result<()> {
 
     let elapsed_gen = start_gen.elapsed();
     println!(
-        "\n{} tokens generated in {} seconds. ({:.2} tokens/sec)",
+        "\n{} tokens generated in {} seconds. ({:.2} tps)",
         generated_tokens,
         (elapsed_pp + elapsed_gen).as_secs(),
         generated_tokens as f64 / (elapsed_pp + elapsed_gen).as_secs_f64(),
