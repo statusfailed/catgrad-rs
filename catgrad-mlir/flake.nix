@@ -2,11 +2,12 @@
   description = "Development environment with MLIR tools for catgrad-core";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    root.url = "path:../";           # parent flake
+    nixpkgs.follows = "root/nixpkgs";  # use parent's nixpkgs pin
+    flake-utils.follows = "root/flake-utils";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
@@ -18,13 +19,13 @@
             llvmPackages_21.mlir
             llvmPackages_21.llvm
             llvmPackages_21.clang
-            
+
             # Rust toolchain
             rustc
             cargo
             rustfmt
             clippy
-            
+
             # Python for ezmlir script
             python3
           ];
