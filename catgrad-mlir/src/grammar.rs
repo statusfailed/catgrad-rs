@@ -59,7 +59,7 @@ pub struct TensorType {
 pub struct Identifier(pub usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AnnotatedIdentifier {
+pub struct TypedIdentifier {
     pub id: Identifier,
     pub ty: Type,
 }
@@ -78,8 +78,8 @@ pub struct Assignment {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Operation {
     pub name: String,
-    pub ins: Vec<AnnotatedIdentifier>,
-    pub outs: Vec<AnnotatedIdentifier>,
+    pub ins: Vec<TypedIdentifier>,
+    pub outs: Vec<TypedIdentifier>,
     pub return_types: Vec<TensorType>,
     pub attrs: Option<String>,
     pub inner_block: Option<String>,
@@ -129,14 +129,14 @@ impl fmt::Display for Identifier {
     }
 }
 
-impl fmt::Display for AnnotatedIdentifier {
+impl fmt::Display for TypedIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {}", self.id, self.ty)
     }
 }
 
 // Render a list of AnnotatedIdentifier as `{id_0}, {id_1}, ... : {ty_0}, {ty_1}, ...`
-fn render_annotated_identifiers(ids: &Vec<AnnotatedIdentifier>) -> String {
+fn render_annotated_identifiers(ids: &Vec<TypedIdentifier>) -> String {
     let id_names = ids
         .iter()
         .map(|v| v.id.to_string())
@@ -305,14 +305,14 @@ mod tests {
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            AnnotatedIdentifier {
+                            TypedIdentifier {
                                 id: Identifier(0),
                                 ty: Type::TensorType(TensorType {
                                     shape: vec![4, 8],
                                     dtype: "f32".to_string(),
                                 }),
                             },
-                            AnnotatedIdentifier {
+                            TypedIdentifier {
                                 id: Identifier(1),
                                 ty: Type::TensorType(TensorType {
                                     shape: vec![8, 16],
@@ -320,7 +320,7 @@ mod tests {
                                 }),
                             },
                         ],
-                        outs: vec![AnnotatedIdentifier {
+                        outs: vec![TypedIdentifier {
                             id: Identifier(0),
                             ty: Type::TensorType(TensorType {
                                 shape: vec![4, 16],
@@ -354,14 +354,14 @@ mod tests {
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            AnnotatedIdentifier {
+                            TypedIdentifier {
                                 id: Identifier(1),
                                 ty: Type::TensorType(TensorType {
                                     shape: vec![4, 16],
                                     dtype: "f32".to_string(),
                                 }),
                             },
-                            AnnotatedIdentifier {
+                            TypedIdentifier {
                                 id: Identifier(2),
                                 ty: Type::TensorType(TensorType {
                                     shape: vec![16, 16],
@@ -369,7 +369,7 @@ mod tests {
                                 }),
                             },
                         ],
-                        outs: vec![AnnotatedIdentifier {
+                        outs: vec![TypedIdentifier {
                             id: Identifier(2),
                             ty: Type::TensorType(TensorType {
                                 shape: vec![4, 16],
