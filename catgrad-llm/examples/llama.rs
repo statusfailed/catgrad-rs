@@ -35,6 +35,7 @@ struct Args {
 
 /// Construct, shapecheck, and interpret the `GPT2Model` using the ndarray backend.
 fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
     // Create parameters for the model
     let backend = NdArrayBackend;
@@ -42,9 +43,13 @@ fn main() -> Result<()> {
         load_model(&args.model_name, &backend)?;
 
     let model: Box<dyn Module<1, 1>> = if config.architectures[0].as_str() == "LlamaForCausalLM" {
-        Box::new(LlamaModel { config })
+        Box::new(LlamaModel {
+            config: config.clone(),
+        })
     } else {
-        Box::new(GPT2Model { config })
+        Box::new(GPT2Model {
+            config: config.clone(),
+        })
     };
 
     // Get the model as a typed term
@@ -67,7 +72,8 @@ fn main() -> Result<()> {
 
     let mut token_ids = encoding.get_ids().to_vec();
 
-    println!("{}", args.prompt);
+    print!("{}", args.prompt);
+    let start_gen = std::time::Instant::now();
     // Run interpreter
     for _ in 0..args.seq_len {
         let next_token_id = run_interpreter(
@@ -76,12 +82,23 @@ fn main() -> Result<()> {
             interpreter_params.clone(),
             &token_ids,
         )?;
+        if config.get_eos_token_ids().contains(&(next_token_id as i32)) {
+            break;
+        }
         let decoded_token = tokenizer.decode(&[next_token_id], false).unwrap();
         token_ids.push(next_token_id);
         print!("{}", decoded_token);
         std::io::stdout().flush()?;
     }
 
+    let elapsed_gen = start_gen.elapsed();
+    let generated_tokens = args.seq_len;
+    println!(
+        "\n{} tokens generated in {} seconds. ({:.2} tps)",
+        generated_tokens,
+        elapsed_gen.as_secs(),
+        generated_tokens as f64 / elapsed_gen.as_secs_f64(),
+    );
     Ok(())
 }
 
@@ -619,48 +636,52 @@ fn load_model<B: interpreter::Backend>(
     Tokenizer,
 )> {
     let (model_paths, config_path, tokenizer_path, _) = get_model_files(model_name, "main")?;
+    let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
     let tokenizer = Tokenizer::from_file(tokenizer_path)
         .map_err(|err| anyhow::anyhow!("tokenizer load error {:?}", err))?;
-
-    let config: Config = serde_json::from_str(&std::fs::read_to_string(config_path)?)?;
-    let file = std::fs::File::open(&model_paths[0])?;
-    let data = unsafe { memmap2::Mmap::map(&file)? };
-    let tensors = safetensors::SafeTensors::deserialize(&data)?;
 
     // Read each tensor
     let mut type_map = HashMap::new();
     let mut data_map = HashMap::new();
-    for (name, view) in tensors.tensors() {
-        let shape = view.shape().to_vec();
-        let tensor_data = view.data();
 
-        use catgrad::typecheck::*;
-        // Convert dtype and load tensor data
-        let data: Vec<f32> = match view.dtype() {
-            safetensors::Dtype::F32 => tensor_data
-                .chunks_exact(4)
-                .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
-                .collect(),
-            safetensors::Dtype::BF16 => tensor_data
-                .chunks_exact(2)
-                .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
-                .collect(),
-            _ => {
-                panic!("Unsupported dtype: {:?}", view.dtype());
-            }
-        };
+    for file_path in model_paths {
+        let file = std::fs::File::open(file_path)?;
+        let data = unsafe { memmap2::Mmap::map(&file)? };
+        let tensors = safetensors::SafeTensors::deserialize(&data)?;
 
-        let tensor = interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
-            .expect("Failed to create tensor");
-        let key = path(name.split(".").collect()).expect("invalid param path");
-        data_map.insert(key.clone(), tensor);
+        for (name, view) in tensors.tensors() {
+            let shape = view.shape().to_vec();
+            let tensor_data = view.data();
 
-        let vne = shape.into_iter().map(NatExpr::Constant).collect();
-        let tensor_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-            dtype: DtypeExpr::Constant(Dtype::F32),
-            shape: ShapeExpr::Shape(vne),
-        }));
-        type_map.insert(key, tensor_type);
+            use catgrad::typecheck::*;
+            // Convert dtype and load tensor data
+            let data: Vec<f32> = match view.dtype() {
+                safetensors::Dtype::F32 => tensor_data
+                    .chunks_exact(4)
+                    .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
+                    .collect(),
+                safetensors::Dtype::BF16 => tensor_data
+                    .chunks_exact(2)
+                    .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
+                    .collect(),
+                _ => {
+                    panic!("Unsupported dtype: {:?}", view.dtype());
+                }
+            };
+
+            let tensor =
+                interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
+                    .expect("Failed to create tensor");
+            let key = path(name.split(".").collect()).expect("invalid param path");
+            data_map.insert(key.clone(), tensor);
+
+            let vne = shape.into_iter().map(NatExpr::Constant).collect();
+            let tensor_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: DtypeExpr::Constant(Dtype::F32),
+                shape: ShapeExpr::Shape(vne),
+            }));
+            type_map.insert(key, tensor_type);
+        }
     }
 
     Ok((
