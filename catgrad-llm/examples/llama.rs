@@ -35,6 +35,7 @@ struct Args {
 
 /// Construct, shapecheck, and interpret the `GPT2Model` using the ndarray backend.
 fn main() -> Result<()> {
+    env_logger::init();
     let args = Args::parse();
     // Create parameters for the model
     let backend = NdArrayBackend;
