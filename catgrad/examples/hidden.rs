@@ -139,7 +139,7 @@ impl Module<1, 1> for SimpleMNISTModel {
         let batch_size = NatExpr::Var(0);
 
         // Input shape B×28×28
-        let t_x = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        let t_x = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
             shape: ShapeExpr::Shape(vec![
                 batch_size.clone(),
@@ -149,7 +149,7 @@ impl Module<1, 1> for SimpleMNISTModel {
         }));
 
         // Output shape B×10
-        let t_y = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        let t_y = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
             shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(10)]),
         }));
@@ -170,7 +170,7 @@ fn load_param_types() -> typecheck::Parameters {
     let mut map = HashMap::new();
 
     // Layer 1: (28*28) → 100
-    let layer1_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+    let layer1_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::F32),
         shape: ShapeExpr::Shape(vec![
             NatExpr::Mul(vec![NatExpr::Constant(28), NatExpr::Constant(28)]),
@@ -183,7 +183,7 @@ fn load_param_types() -> typecheck::Parameters {
     );
 
     // Layer 2: 100 → 10
-    let layer2_type = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+    let layer2_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
         dtype: DtypeExpr::Constant(Dtype::F32),
         shape: ShapeExpr::Shape(vec![NatExpr::Constant(100), NatExpr::Constant(10)]),
     }));

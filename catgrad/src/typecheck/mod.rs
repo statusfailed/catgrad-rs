@@ -15,7 +15,9 @@ pub mod parameters;
 pub mod value_types;
 
 // public interface: value types and check function
-pub use crate::abstract_interpreter::{InterpreterError, Value};
+pub use crate::abstract_interpreter::InterpreterError;
 pub use check::{check, check_with};
 pub use parameters::Parameters;
 pub use value_types::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, TypeExpr};
+
+pub type Type = interpreter::Value;
