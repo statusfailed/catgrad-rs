@@ -7,13 +7,27 @@ use super::lower;
 pub fn lang_to_mlir(
     env: &Environment,
     params: &typecheck::Parameters,
-    term: TypedTerm,
+    mut typed_term: TypedTerm,
 ) -> Vec<grammar::Func> {
-    // Typecheck `term` and get an open hypergraph annotated with types
-    let node_annotations = typecheck::check(env, params, term.clone()).unwrap();
-    let checked_term = term.term.clone().with_nodes(|_| node_annotations).unwrap();
+    // Forget extraneous Copy operations
+    typed_term.term = open_hypergraphs::lax::var::forget::forget_monogamous(&typed_term.term);
 
-    let mlir = lower::term_to_func("term", &checked_term);
+    // Typecheck `term` and get an open hypergraph annotated with *normalized* types
+    let node_annotations = typecheck::check(env, params, typed_term.clone())
+        .unwrap()
+        .into_iter()
+        .map(typecheck::normalize)
+        .collect();
+
+    // Create a term with normalized types for node labels
+    let checked_term = typed_term
+        .term
+        .clone()
+        .with_nodes(|_| node_annotations)
+        .unwrap();
+
+    // Convert term to MLIR
+    let mlir = lower::term_to_func("term", checked_term);
 
     // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
     // let _definitions = todo!(); // list of MLIR strings / structs
