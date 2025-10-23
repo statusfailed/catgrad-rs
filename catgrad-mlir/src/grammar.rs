@@ -174,12 +174,12 @@ impl fmt::Display for Operation {
 
         // Format as: ins(%v0, %v1 : type1, type2)
         if !self.ins.is_empty() {
-            write!(f, "ins({})", render_annotated_identifiers(&self.ins))?;
+            write!(f, " ins({})", render_annotated_identifiers(&self.ins))?;
         }
 
         // Format as: outs(%v0, %v1 : type1, type2)
         if !self.outs.is_empty() {
-            write!(f, "outs({})", render_annotated_identifiers(&self.outs))?;
+            write!(f, " outs({})", render_annotated_identifiers(&self.outs))?;
         }
 
         // TODO: hack alert! we check the name of the Operation here.
