@@ -11,8 +11,20 @@ use crate::pass::to_core::Environment;
 
 use super::tensor_op::tensor_op;
 
-pub type Value = abstract_interpreter::Value<Interpreter>;
+pub(crate) type Value = abstract_interpreter::Value<Interpreter>;
 pub type ResultValues = abstract_interpreter::ResultValues<Interpreter>;
+pub type Type = abstract_interpreter::Value<Interpreter>;
+
+/// Compute the normal form for a [`Type`]
+pub fn normalize(v: Type) -> Type {
+    match v {
+        Type::Nat(n) => Type::Nat(n.nf()),
+        Type::Dtype(d) => Type::Dtype(d.nf()),
+        Type::Shape(s) => Type::Shape(s.nf()),
+        Type::Type(t) => Type::Type(t.nf()),
+        Type::Tensor(t) => Type::Tensor(t.nf()),
+    }
+}
 
 #[derive(Clone, std::fmt::Debug)]
 pub struct Interpreter {
