@@ -38,23 +38,21 @@ fn get_mlir_parameters(term: &Term) -> Vec<grammar::Parameter> {
 
 /// Convert a term's target nodes and types into the *return type* and *return statement* for a
 /// MLIR function.
-pub fn get_mlir_returns(term: &Term) -> (grammar::Return, grammar::Type) {
-    // TODO: FIXME: support multiple returns!
-    assert_eq!(
-        term.targets.len(),
-        1,
-        "term_to_mlir currently supports single target only"
-    );
-    let target_id = term.targets[0];
-    let target_type = &term.hypergraph.nodes[target_id.0];
-    let return_type = core_type_to_mlir(target_type);
+pub fn get_mlir_returns(term: &Term) -> (grammar::Return, Vec<grammar::Type>) {
+    let typed_ids = term
+        .targets
+        .iter()
+        .map(|t| {
+            let id = t.0;
+            let catgrad_ty = &term.hypergraph.nodes[id];
+            let id = grammar::Identifier(id);
+            let ty = core_type_to_mlir(catgrad_ty);
+            grammar::TypedIdentifier { id, ty }
+        })
+        .collect::<Vec<_>>();
 
-    let return_stmt = grammar::Return {
-        value: grammar::Identifier(target_id.0),
-        value_type: grammar::Type::Index, // FIXME!
-    };
-
-    (return_stmt, return_type)
+    let types = typed_ids.iter().map(|tid| tid.ty.clone()).collect();
+    (grammar::Return(typed_ids), types)
 }
 
 // TODO: FIXME!
