@@ -372,7 +372,8 @@ impl CandleBackend {
     }
 
     fn index_tensor(tensor: Tensor, dim: usize, indices: Tensor) -> Tensor {
-        tensor.index_select(&indices, dim).unwrap()
+        let idx = indices.flatten_all().unwrap();
+        tensor.index_select(&idx, dim).unwrap()
     }
 
     fn slice_tensor(tensor: Tensor, dim: usize, start: usize, len: usize) -> Tensor {
