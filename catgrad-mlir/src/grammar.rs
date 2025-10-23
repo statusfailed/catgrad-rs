@@ -59,9 +59,9 @@ pub struct TensorType {
 pub struct Identifier(pub usize);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdentifierWithType {
-    pub value: Identifier,
-    pub value_type: Option<Type>,
+pub struct AnnotatedIdentifier {
+    pub id: Identifier,
+    pub ty: Type,
 }
 
 /// An assignment of expression to variable name, e.g.
@@ -78,8 +78,8 @@ pub struct Assignment {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Operation {
     pub name: String,
-    pub ins: Vec<IdentifierWithType>,
-    pub outs: Vec<IdentifierWithType>,
+    pub ins: Vec<AnnotatedIdentifier>,
+    pub outs: Vec<AnnotatedIdentifier>,
     pub return_types: Vec<TensorType>,
     pub attrs: Option<String>,
     pub inner_block: Option<String>,
@@ -129,13 +129,25 @@ impl fmt::Display for Identifier {
     }
 }
 
-impl fmt::Display for IdentifierWithType {
+impl fmt::Display for AnnotatedIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.value_type {
-            Some(t) => write!(f, "{} : {}", self.value, t),
-            None => write!(f, "{}", self.value),
-        }
+        write!(f, "{} : {}", self.id, self.ty)
     }
+}
+
+// Render a list of AnnotatedIdentifier as `{id_0}, {id_1}, ... : {ty_0}, {ty_1}, ...`
+fn render_annotated_identifiers(ids: &Vec<AnnotatedIdentifier>) -> String {
+    let id_names = ids
+        .iter()
+        .map(|v| v.id.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let id_types = ids
+        .iter()
+        .map(|v| v.ty.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{} : {}", id_names, id_types)
 }
 
 impl fmt::Display for Operation {
@@ -155,42 +167,17 @@ impl fmt::Display for Operation {
             }
         }
 
+        // Format as: ins(%v0, %v1 : type1, type2)
         if !self.ins.is_empty() {
-            // Format as: ins(%v0, %v1 : type1, type2)
-            let var_names = self
-                .ins
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let types = self
-                .ins
-                .iter()
-                .filter_map(|v| v.value_type.as_ref())
-                .map(|t| t.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(f, " ins({} : {})", var_names, types)?;
+            write!(f, "ins({})", render_annotated_identifiers(&self.ins))?;
         }
 
+        // Format as: outs(%v0, %v1 : type1, type2)
         if !self.outs.is_empty() {
-            // Format as: outs(%v0 : type0)
-            let var_names = self
-                .outs
-                .iter()
-                .map(|v| v.value.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            let types = self
-                .outs
-                .iter()
-                .filter_map(|v| v.value_type.as_ref())
-                .map(|t| t.to_string())
-                .collect::<Vec<_>>()
-                .join(", ");
-            write!(f, " outs({} : {})", var_names, types)?;
+            write!(f, "outs({})", render_annotated_identifiers(&self.outs))?;
         }
 
+        // TODO: hack alert! we check the name of the Operation here.
         // For non-linalg.generic operations, attributes go after ins/outs
         if self.name != "linalg.generic" {
             if let Some(attrs) = &self.attrs {
@@ -318,27 +305,27 @@ mod tests {
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            IdentifierWithType {
-                                value: Identifier(0),
-                                value_type: Some(Type::TensorType(TensorType {
+                            AnnotatedIdentifier {
+                                id: Identifier(0),
+                                ty: Type::TensorType(TensorType {
                                     shape: vec![4, 8],
                                     dtype: "f32".to_string(),
-                                })),
+                                }),
                             },
-                            IdentifierWithType {
-                                value: Identifier(1),
-                                value_type: Some(Type::TensorType(TensorType {
+                            AnnotatedIdentifier {
+                                id: Identifier(1),
+                                ty: Type::TensorType(TensorType {
                                     shape: vec![8, 16],
                                     dtype: "f32".to_string(),
-                                })),
+                                }),
                             },
                         ],
-                        outs: vec![IdentifierWithType {
-                            value: Identifier(0),
-                            value_type: Some(Type::TensorType(TensorType {
+                        outs: vec![AnnotatedIdentifier {
+                            id: Identifier(0),
+                            ty: Type::TensorType(TensorType {
                                 shape: vec![4, 16],
                                 dtype: "f32".to_string(),
-                            })),
+                            }),
                         }],
                         return_types: vec![TensorType {
                             shape: vec![4, 16],
@@ -367,27 +354,27 @@ mod tests {
                     operation: Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
-                            IdentifierWithType {
-                                value: Identifier(1),
-                                value_type: Some(Type::TensorType(TensorType {
+                            AnnotatedIdentifier {
+                                id: Identifier(1),
+                                ty: Type::TensorType(TensorType {
                                     shape: vec![4, 16],
                                     dtype: "f32".to_string(),
-                                })),
+                                }),
                             },
-                            IdentifierWithType {
-                                value: Identifier(2),
-                                value_type: Some(Type::TensorType(TensorType {
+                            AnnotatedIdentifier {
+                                id: Identifier(2),
+                                ty: Type::TensorType(TensorType {
                                     shape: vec![16, 16],
                                     dtype: "f32".to_string(),
-                                })),
+                                }),
                             },
                         ],
-                        outs: vec![IdentifierWithType {
-                            value: Identifier(2),
-                            value_type: Some(Type::TensorType(TensorType {
+                        outs: vec![AnnotatedIdentifier {
+                            id: Identifier(2),
+                            ty: Type::TensorType(TensorType {
                                 shape: vec![4, 16],
                                 dtype: "f32".to_string(),
-                            })),
+                            }),
                         }],
                         return_types: vec![TensorType {
                             shape: vec![4, 16],
