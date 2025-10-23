@@ -27,7 +27,7 @@ pub enum TaggedTensorTuple<B: Backend, const N: usize> {
 
 pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
     fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N>;
-    fn from_slice_tagged(
+    fn ndarray_from_slice(
         backend: &B,
         data: &[Self],
         shape: Shape,
@@ -39,7 +39,7 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
         TaggedTensorTuple::F32(arrs)
     }
 
-    fn from_slice_tagged(
+    fn ndarray_from_slice(
         backend: &B,
         data: &[Self],
         shape: Shape,
@@ -53,7 +53,7 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
         TaggedTensorTuple::U32(arrs)
     }
 
-    fn from_slice_tagged(
+    fn ndarray_from_slice(
         backend: &B,
         data: &[Self],
         shape: Shape,
@@ -92,6 +92,6 @@ impl<B: Backend> TaggedTensor<B> {
         data: &[T],
         shape: Shape,
     ) -> Result<Self, BackendError> {
-        T::from_slice_tagged(backend, data, shape)
+        T::ndarray_from_slice(backend, data, shape)
     }
 }
