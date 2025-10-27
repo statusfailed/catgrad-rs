@@ -1,5 +1,4 @@
 use super::backend::Backend;
-use super::parameters::Parameters;
 use super::tensor_op::tensor_op;
 use super::types::*;
 

@@ -206,9 +206,8 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
     let layer1_data: Vec<f32> = (0..784 * 100)
         .map(|i| (i as f32 * 0.01 % 2.0) - 1.0) // Simple pattern: values between -1 and 1
         .collect();
-    let layer1_tensor =
-        interpreter::TaggedTensor::from_slice(backend, &layer1_data, Shape(vec![784, 100]))
-            .expect("Failed to create layer1 tensor");
+    let layer1_tensor = interpreter::tensor(backend, Shape(vec![784, 100]), &layer1_data)
+        .expect("failed to create tensor");
     map.insert(
         path(vec!["0", "weights"]).expect("invalid param path"),
         layer1_tensor,
@@ -218,9 +217,8 @@ fn load_param_data<B: interpreter::Backend>(backend: &B) -> interpreter::Paramet
     let layer2_data: Vec<f32> = (0..100 * 10)
         .map(|i| (i as f32 * 0.01 % 2.0) - 1.0)
         .collect();
-    let layer2_tensor =
-        interpreter::TaggedTensor::from_slice(backend, &layer2_data, Shape(vec![100, 10]))
-            .expect("Failed to create layer2 tensor");
+    let layer2_tensor = interpreter::tensor(backend, Shape(vec![100, 10]), &layer2_data)
+        .expect("failed to create tensor");
     map.insert(
         path(vec!["1", "weights"]).expect("invalid param path"),
         layer2_tensor,

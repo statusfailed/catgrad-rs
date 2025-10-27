@@ -7,12 +7,11 @@ pub mod interpreter;
 pub use interpreter::*;
 
 pub mod backend;
-pub mod parameters;
+//pub mod parameters;
 pub mod tensor_op;
 
 pub use crate::category::core::Shape;
 pub use backend::{Backend, BackendError};
-pub use parameters::Parameters;
 
 #[cfg(all(test, feature = "ndarray-backend"))]
 mod tests;
