@@ -6,6 +6,7 @@ use catgrad::ssa::{SSA, ssa};
 use open_hypergraphs::lax::OpenHypergraph;
 
 use crate::grammar;
+use crate::util::*;
 
 pub type Term = OpenHypergraph<typecheck::Type, lang::Operation>;
 
@@ -57,27 +58,9 @@ pub fn get_mlir_returns(term: &Term) -> (grammar::Return, Vec<grammar::Type>) {
     (grammar::Return(typed_ids), types)
 }
 
-pub fn get_mlir_body(term: Term) -> Vec<grammar::Assignment> {
+pub fn get_mlir_body(term: Term) -> Vec<grammar::Statement> {
     let ops = ssa(term.to_strict()).expect("FIXME: unable to decompose input term");
-    ops.iter().map(to_assignments).flatten().collect()
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Helpers
-
-/// Convert a [`typechecker::Type`] into an MLIR representation.
-/// This maps everything except Nat to `Tensor`,
-///
-fn core_type_to_mlir(_core_type: &Type) -> grammar::Type {
-    // TODO: FIXME: return real grammar::Type
-    return grammar::Type::Index;
-}
-
-fn to_typed_identifier((n, t): &(open_hypergraphs::lax::NodeId, Type)) -> grammar::TypedIdentifier {
-    grammar::TypedIdentifier {
-        id: grammar::Identifier(n.0),
-        ty: core_type_to_mlir(t),
-    }
+    ops.iter().map(to_statements).flatten().collect()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,7 +69,7 @@ fn to_typed_identifier((n, t): &(open_hypergraphs::lax::NodeId, Type)) -> gramma
 // TODO: generate a unique kernel for each <name, source, target> type?
 
 /// Make a list of assignment statements from a single op
-fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     // TODO: prelude - generate any "outs"?
 
     // Get LHS of assignment and types
@@ -96,41 +79,38 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
         .map(|(i, t)| (grammar::Identifier(i.0), core_type_to_mlir(t)))
         .unzip();
 
-    let ins = ssa.sources.iter().map(to_typed_identifier).collect();
-    let outs = ssa.targets.iter().map(to_typed_identifier).collect();
+    //let ins: Vec<_> = ssa.sources.iter().map(to_typed_identifier).collect();
+    //let outs: Vec<_> = ssa.targets.iter().map(to_typed_identifier).collect();
 
-    match &ssa.op {
+    let mut statements = match &ssa.op {
         // Declarations lower to explicit snippets
-        lang::Operation::Declaration(path) => {
-            let expr = grammar::Expr::Operation(grammar::Operation {
-                name: format!("\"{}\"", path.to_string()),
-                ins,
-                outs,
-                return_types,
-                attrs: None,
-                inner_block: Some("TODO".to_string()),
-            });
-
-            vec![grammar::Assignment { result, expr }]
-        }
+        lang::Operation::Declaration(path) => lower_operation(path, ssa)
+            .into_iter()
+            .map(Into::into)
+            .collect(),
 
         // Definitions always lower to *kernel* calls.
         lang::Operation::Definition(path) => {
             let ins = ssa.sources.iter().map(to_typed_identifier).collect();
 
-            let expr = grammar::Expr::Call(grammar::Call {
+            let expr = grammar::Call {
                 name: path.to_string(),
                 args: ins,
                 return_type: return_types,
-            });
+            }
+            .into();
 
-            vec![grammar::Assignment { result, expr }]
+            vec![grammar::Assignment { result, expr }.into()]
         }
-        lang::Operation::Literal(lit) => vec![grammar::Assignment {
-            result,
-            expr: literal_to_operation(&lit),
-        }],
-    }
+        lang::Operation::Literal(lit) => {
+            let expr = literal_to_operation(&lit);
+            vec![grammar::Assignment { result, expr }.into()]
+        }
+    };
+
+    let comment = grammar::Statement::Comment(format!("{}", pretty_op(&ssa.op)));
+    statements.insert(0, comment);
+    statements
 }
 
 fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
@@ -149,4 +129,23 @@ fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
         attrs: Some(attr),
         inner_block: None,
     })
+}
+
+fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    use super::ops;
+    match path.to_string().as_str() {
+        "cartesian.copy" => ops::render_copy(ssa),
+        "tensor.shape" => ops::render_shape(ssa),
+        "tensor.dtype" => vec![],
+        "tensor.neg" => ops::render_neg(ssa),
+        _ => vec![],
+    }
+}
+
+fn pretty_op(op: &lang::Operation) -> String {
+    match op {
+        lang::Operation::Declaration(path) => path.to_string(),
+        lang::Operation::Definition(path) => path.to_string(),
+        lang::Operation::Literal(lit) => format!("{:?}", lit),
+    }
 }
