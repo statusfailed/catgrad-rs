@@ -75,7 +75,7 @@ pub struct TypedIdentifier {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Assignment {
     pub result: Vec<Identifier>,
-    pub operation: Operation,
+    pub expr: Expr,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -176,6 +176,25 @@ impl fmt::Display for TypedIdentifier {
     }
 }
 
+impl fmt::Display for Expr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Expr::Call(call) => call.fmt(f),
+            Expr::Operation(operation) => operation.fmt(f),
+        }
+    }
+}
+
+impl fmt::Display for Call {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}({})", self.id, render_annotated_identifiers(&self.args))?;
+        if !self.return_type.is_empty() {
+            write!(f, " -> {}", comma_separated(&self.return_type))?;
+        }
+        Ok(())
+    }
+}
+
 impl fmt::Display for Operation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Special case for tensor.empty() - it uses : instead of ->
@@ -227,7 +246,7 @@ impl fmt::Display for Operation {
 impl fmt::Display for Assignment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let lhs = comma_separated(&self.result);
-        write!(f, "{} = {}", lhs, self.operation)
+        write!(f, "{} = {}", lhs, self.expr)
     }
 }
 
@@ -309,7 +328,7 @@ mod tests {
             body: vec![
                 Assignment {
                     result: vec![Identifier(0)],
-                    operation: Operation {
+                    expr: Expr::Operation(Operation {
                         name: "tensor.empty()".to_string(),
                         ins: vec![],
                         outs: vec![],
@@ -319,11 +338,11 @@ mod tests {
                         })],
                         attrs: None,
                         inner_block: None,
-                    },
+                    }),
                 },
                 Assignment {
                     result: vec![Identifier(1)],
-                    operation: Operation {
+                    expr: Expr::Operation(Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
                             TypedIdentifier {
@@ -354,11 +373,11 @@ mod tests {
                         })],
                         attrs: None,
                         inner_block: None,
-                    },
+                    }),
                 },
                 Assignment {
                     result: vec![Identifier(2)],
-                    operation: Operation {
+                    expr: Expr::Operation(Operation {
                         name: "tensor.empty()".to_string(),
                         ins: vec![],
                         outs: vec![],
@@ -368,11 +387,11 @@ mod tests {
                         })],
                         attrs: None,
                         inner_block: None,
-                    },
+                    }),
                 },
                 Assignment {
                     result: vec![Identifier(3)],
-                    operation: Operation {
+                    expr: Expr::Operation(Operation {
                         name: "linalg.matmul".to_string(),
                         ins: vec![
                             TypedIdentifier {
@@ -403,7 +422,7 @@ mod tests {
                         })],
                         attrs: None,
                         inner_block: None,
-                    },
+                    }),
                 },
             ],
             return_stmt: Return(vec![TypedIdentifier {
