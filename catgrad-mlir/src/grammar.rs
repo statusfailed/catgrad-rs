@@ -79,6 +79,21 @@ pub struct Assignment {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Expr {
+    // function call
+    Call(Call),
+    // operation
+    Operation(Operation),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Call {
+    pub id: Identifier,
+    pub args: Vec<TypedIdentifier>,
+    pub return_type: Vec<Type>, // always a tuple?
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Operation {
     pub name: String,
     pub ins: Vec<TypedIdentifier>,
