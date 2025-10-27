@@ -74,14 +74,10 @@ fn main() -> Result<()> {
 
     print!("{}", args.prompt);
     let start_gen = std::time::Instant::now();
+    let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
     // Run interpreter
     for _ in 0..args.seq_len {
-        let next_token_id = run_interpreter(
-            &typed_term,
-            env.clone(),
-            interpreter_params.clone(),
-            &token_ids,
-        )?;
+        let next_token_id = run_interpreter(&typed_term, &interpreter, &token_ids)?;
         if config.get_eos_token_ids().contains(&(next_token_id as i32)) {
             break;
         }
@@ -104,15 +100,9 @@ fn main() -> Result<()> {
 
 fn run_interpreter(
     typed_term: &TypedTerm,
-    env: Environment,
-    interpreter_params: interpreter::Parameters<NdArrayBackend>,
+    interpreter: &interpreter::Interpreter<NdArrayBackend>,
     input_data: &[u32],
 ) -> Result<u32> {
-    let backend = NdArrayBackend;
-
-    // Create interpreter
-    let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
-
     let input_tensor = interpreter::tensor(
         &interpreter.backend,
         Shape(vec![1, input_data.len()]),
