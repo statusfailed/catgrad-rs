@@ -73,6 +73,13 @@ fn core_type_to_mlir(_core_type: &Type) -> grammar::Type {
     return grammar::Type::Index;
 }
 
+fn to_typed_identifier((n, t): &(open_hypergraphs::lax::NodeId, Type)) -> grammar::TypedIdentifier {
+    grammar::TypedIdentifier {
+        id: grammar::Identifier(n.0),
+        ty: core_type_to_mlir(t),
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Map individual ops
 // TODO: own module?
@@ -89,13 +96,16 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
         .map(|(i, t)| (grammar::Identifier(i.0), core_type_to_mlir(t)))
         .unzip();
 
+    let ins = ssa.sources.iter().map(to_typed_identifier).collect();
+    let outs = ssa.targets.iter().map(to_typed_identifier).collect();
+
     match &ssa.op {
         // Declarations lower to explicit snippets
         lang::Operation::Declaration(path) => {
             let operation = grammar::Operation {
-                name: path.to_string(),
-                ins: vec![],
-                outs: vec![],
+                name: format!("\"{}\"", path.to_string()),
+                ins,
+                outs,
                 return_types,
                 attrs: None,
                 inner_block: Some("TODO".to_string()),
@@ -106,7 +116,19 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
 
         // Definitions always lower to *kernel* calls.
         lang::Operation::Definition(path) => {
-            todo!("definition: {}", path);
+            let ins = ssa.sources.iter().map(to_typed_identifier).collect();
+            let outs = ssa.targets.iter().map(to_typed_identifier).collect();
+
+            let operation = grammar::Operation {
+                name: format!("\"{}\"", path.to_string()),
+                ins,
+                outs,
+                return_types,
+                attrs: None,
+                inner_block: Some("TODO".to_string()),
+            };
+
+            vec![grammar::Assignment { result, operation }]
         }
         lang::Operation::Literal(lit) => vec![grammar::Assignment {
             result,
