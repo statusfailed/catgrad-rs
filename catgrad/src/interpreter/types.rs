@@ -7,6 +7,7 @@ use crate::category::core::{Dtype, Shape};
 
 pub type Value<B> = abstract_interpreter::Value<Interpreter<B>>;
 pub type ResultValues<B> = abstract_interpreter::ResultValues<Interpreter<B>>;
+pub type Parameters<B> = abstract_interpreter::parameters::Parameters<Interpreter<B>>;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Multiple tagged ndarrays

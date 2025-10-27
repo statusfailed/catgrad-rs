@@ -669,9 +669,8 @@ fn load_model<B: interpreter::Backend>(
                 }
             };
 
-            let tensor =
-                interpreter::TaggedTensor::from_slice(backend, &data, Shape(shape.clone()))
-                    .expect("Failed to create tensor");
+            let tensor = interpreter::tensor(backend, Shape(shape.clone()), &data)
+                .expect("failed to create tensor");
             let key = path(name.split(".").collect()).expect("invalid param path");
             data_map.insert(key.clone(), tensor);
 
