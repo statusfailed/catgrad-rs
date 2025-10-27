@@ -11,6 +11,7 @@
 //!    return %3 : tensor<4x16xf32>
 //!  }
 //! ```
+use derive_more::From;
 use std::fmt;
 
 /// A top-level MLIR function, for example:
@@ -26,7 +27,7 @@ pub struct Func {
     pub name: String,
     pub parameters: Vec<Parameter>,
     pub return_type: Vec<Type>,
-    pub body: Vec<Assignment>,
+    pub body: Vec<Statement>,
     pub return_stmt: Return,
 }
 
@@ -67,6 +68,12 @@ pub struct TypedIdentifier {
     pub ty: Type,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, From)]
+pub enum Statement {
+    Comment(String),
+    Assignment(Assignment),
+}
+
 /// An assignment of expression to variable name, e.g.
 ///
 /// ```mlir
@@ -78,7 +85,7 @@ pub struct Assignment {
     pub expr: Expr,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, From)]
 pub enum Expr {
     // function call
     Call(Call),
@@ -175,6 +182,15 @@ impl fmt::Display for Identifier {
 impl fmt::Display for TypedIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} : {}", self.id, self.ty)
+    }
+}
+
+impl fmt::Display for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Statement::Comment(comment) => write!(f, "// {}", comment),
+            Statement::Assignment(assignment) => assignment.fmt(f),
+        }
     }
 }
 

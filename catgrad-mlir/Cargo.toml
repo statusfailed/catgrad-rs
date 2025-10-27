@@ -10,4 +10,5 @@ documentation = "https://docs.rs/catgrad"
 
 [dependencies]
 catgrad = { version = "0.2.1", path = "../catgrad" }
+derive_more = { version = "2.0.1", features = ["from"] }
 open-hypergraphs = "0.2.7"
