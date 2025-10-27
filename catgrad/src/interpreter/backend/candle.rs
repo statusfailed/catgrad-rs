@@ -513,8 +513,6 @@ impl CandleBackend {
 }
 
 impl<D: HasDtype> NdArray<D> for CandleTensor {
-    type Backend = CandleBackend;
-
     fn shape(&self) -> Shape {
         Shape(self.0.dims().to_vec())
     }

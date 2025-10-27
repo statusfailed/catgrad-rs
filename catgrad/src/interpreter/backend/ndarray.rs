@@ -495,8 +495,6 @@ impl NdArrayBackend {
 }
 
 impl<D: HasDtype> NdArray<D> for ArrayD<D> {
-    type Backend = NdArrayBackend;
-
     fn shape(&self) -> Shape {
         Shape(self.shape().to_vec())
     }

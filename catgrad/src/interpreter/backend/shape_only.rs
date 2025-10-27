@@ -16,8 +16,6 @@ impl ShapeOnly {
 }
 
 impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
-    type Backend = ShapeOnlyBackend;
-
     fn shape(&self) -> Shape {
         self.0.clone()
     }
