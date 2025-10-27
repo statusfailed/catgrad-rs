@@ -84,6 +84,8 @@ pub enum Expr {
     Call(Call),
     // operation
     Operation(Operation),
+    // bare identifiers
+    Identifier(Identifier),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -181,6 +183,7 @@ impl fmt::Display for Expr {
         match self {
             Expr::Call(call) => call.fmt(f),
             Expr::Operation(operation) => operation.fmt(f),
+            Expr::Identifier(identifier) => identifier.fmt(f),
         }
     }
 }
