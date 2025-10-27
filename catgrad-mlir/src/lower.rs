@@ -117,15 +117,11 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
         // Definitions always lower to *kernel* calls.
         lang::Operation::Definition(path) => {
             let ins = ssa.sources.iter().map(to_typed_identifier).collect();
-            let outs = ssa.targets.iter().map(to_typed_identifier).collect();
 
-            let expr = grammar::Expr::Operation(grammar::Operation {
-                name: format!("\"{}\"", path.to_string()),
-                ins,
-                outs,
-                return_types,
-                attrs: None,
-                inner_block: Some("TODO".to_string()),
+            let expr = grammar::Expr::Call(grammar::Call {
+                name: path.to_string(),
+                args: ins,
+                return_type: return_types,
             });
 
             vec![grammar::Assignment { result, expr }]

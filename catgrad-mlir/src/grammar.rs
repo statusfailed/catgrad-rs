@@ -88,7 +88,7 @@ pub enum Expr {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
-    pub id: Identifier,
+    pub name: String,
     pub args: Vec<TypedIdentifier>,
     pub return_type: Vec<Type>, // always a tuple?
 }
@@ -187,9 +187,15 @@ impl fmt::Display for Expr {
 
 impl fmt::Display for Call {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}({})", self.id, render_annotated_identifiers(&self.args))?;
+        let arg_names = comma_separated(&self.args.iter().map(|v| &v.id).collect::<Vec<_>>());
+        let arg_types = comma_separated(&self.args.iter().map(|v| &v.ty).collect::<Vec<_>>());
+
+        write!(f, "{}({})", self.name, arg_names)?;
+        if !self.args.is_empty() {
+            write!(f, " : ({})", arg_types)?;
+        }
         if !self.return_type.is_empty() {
-            write!(f, " -> {}", comma_separated(&self.return_type))?;
+            write!(f, " -> ({})", comma_separated(&self.return_type))?;
         }
         Ok(())
     }
