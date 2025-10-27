@@ -102,16 +102,16 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
     match &ssa.op {
         // Declarations lower to explicit snippets
         lang::Operation::Declaration(path) => {
-            let operation = grammar::Operation {
+            let expr = grammar::Expr::Operation(grammar::Operation {
                 name: format!("\"{}\"", path.to_string()),
                 ins,
                 outs,
                 return_types,
                 attrs: None,
                 inner_block: Some("TODO".to_string()),
-            };
+            });
 
-            vec![grammar::Assignment { result, operation }]
+            vec![grammar::Assignment { result, expr }]
         }
 
         // Definitions always lower to *kernel* calls.
@@ -119,25 +119,25 @@ fn to_assignments(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
             let ins = ssa.sources.iter().map(to_typed_identifier).collect();
             let outs = ssa.targets.iter().map(to_typed_identifier).collect();
 
-            let operation = grammar::Operation {
+            let expr = grammar::Expr::Operation(grammar::Operation {
                 name: format!("\"{}\"", path.to_string()),
                 ins,
                 outs,
                 return_types,
                 attrs: None,
                 inner_block: Some("TODO".to_string()),
-            };
+            });
 
-            vec![grammar::Assignment { result, operation }]
+            vec![grammar::Assignment { result, expr }]
         }
         lang::Operation::Literal(lit) => vec![grammar::Assignment {
             result,
-            operation: literal_to_operation(&lit),
+            expr: literal_to_operation(&lit),
         }],
     }
 }
 
-fn literal_to_operation(lit: &lang::Literal) -> grammar::Operation {
+fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
     let (attr, ty) = match lit {
         lang::Literal::F32(x) => (x.to_string(), grammar::Type::F32),
         lang::Literal::U32(x) => (x.to_string(), grammar::Type::U32),
@@ -145,12 +145,12 @@ fn literal_to_operation(lit: &lang::Literal) -> grammar::Operation {
         lang::Literal::Dtype(_) => todo!(), // error
     };
 
-    grammar::Operation {
+    grammar::Expr::Operation(grammar::Operation {
         name: "arith.constant".to_string(),
         ins: vec![],
         outs: vec![],
         return_types: vec![ty],
         attrs: Some(attr),
         inner_block: None,
-    }
+    })
 }
