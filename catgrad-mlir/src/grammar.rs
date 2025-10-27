@@ -48,6 +48,7 @@ pub enum Type {
     U32,
     F32,
     TensorType(TensorType),
+    Tuple(Vec<Type>),
 }
 
 /// A type like `tensor<4x8xf32>`
@@ -124,6 +125,11 @@ impl fmt::Display for Type {
             Type::TensorType(tensor_type) => tensor_type.fmt(f),
             Type::U32 => write!(f, "u32"),
             Type::F32 => write!(f, "f32"),
+            Type::Tuple(types) => {
+                write!(f, "(")?;
+                write!(f, "{}", comma_separated(types))?;
+                write!(f, ")")
+            }
         }
     }
 }
