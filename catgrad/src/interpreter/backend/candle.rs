@@ -421,11 +421,28 @@ impl CandleBackend {
         CandleTensor(x.0.cos().unwrap())
     }
 
+    // Candle's pow function does not support negative base and silently generates NaNs
+    // so we do element-wise powf https://github.com/huggingface/candle/issues/1640
     fn pow(x: CandleTensor, y: CandleTensor) -> CandleTensor {
         if x.0.dims() != y.0.dims() {
             panic!("Shape mismatch in operation");
         }
-        CandleTensor(x.0.pow(&y.0).unwrap())
+
+        // Convert tensors to vectors for element-wise powf operation
+        let x_vec: Vec<f32> = x.0.flatten_all().unwrap().to_vec1().unwrap();
+        let y_vec: Vec<f32> = y.0.flatten_all().unwrap().to_vec1().unwrap();
+
+        // Perform element-wise powf
+        let result_vec: Vec<f32> = x_vec
+            .iter()
+            .zip(y_vec.iter())
+            .map(|(a, b)| a.powf(*b))
+            .collect();
+
+        // Convert back to tensor with original shape
+        let shape = x.0.dims();
+        let result_tensor = Tensor::from_slice(&result_vec, shape, x.0.device()).unwrap();
+        CandleTensor(result_tensor)
     }
 
     fn sum(x: CandleTensor) -> CandleTensor {
