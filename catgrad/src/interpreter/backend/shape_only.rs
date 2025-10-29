@@ -19,6 +19,9 @@ impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
     fn shape(&self) -> Shape {
         self.0.clone()
     }
+    fn to_vec(&self) -> Vec<D> {
+        Vec::with_capacity(self.0.size())
+    }
 }
 
 impl Backend for ShapeOnlyBackend {

@@ -80,6 +80,7 @@ pub trait Backend: Send + Sync + Clone + Debug {
 
 pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug {
     fn shape(&self) -> Shape;
+    fn to_vec(&self) -> Vec<D>;
 }
 
 #[derive(Debug, Clone)]

@@ -498,12 +498,14 @@ impl<D: HasDtype> NdArray<D> for ArrayD<D> {
     fn shape(&self) -> Shape {
         Shape(self.shape().to_vec())
     }
+
+    fn to_vec(&self) -> Vec<D> {
+        self.as_slice().unwrap().to_vec()
+    }
 }
 
 #[test]
 fn test_batched_matmul() {
-    use ndarray::ArrayD;
-
     // Test with 2 batch dimensions: [2, 3, 2, 2] × [2, 3, 2, 1] = [2, 3, 2, 1]
     let lhs_data = vec![
         1.0f32, 2.0, 3.0, 4.0, // batch 0,0
@@ -550,8 +552,6 @@ fn test_batched_matmul() {
 
 #[test]
 fn test_add() {
-    use ndarray::ArrayD;
-
     let x_data = vec![1.0f32, 2.0, 3.0, 4.0];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
 
@@ -573,8 +573,6 @@ fn test_add() {
 
 #[test]
 fn test_sub() {
-    use ndarray::ArrayD;
-
     let x_data = vec![10.0f32, 8.0, 6.0, 4.0];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 2]), x_data).unwrap();
 
@@ -596,8 +594,6 @@ fn test_sub() {
 
 #[test]
 fn test_sum() {
-    use ndarray::ArrayD;
-
     // Test summing across last dimension: [2, 3] -> [2]
     let x_data = vec![1u32, 2, 3, 4, 5, 6];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();
@@ -641,8 +637,6 @@ fn test_sum() {
 }
 #[test]
 fn test_max() {
-    use ndarray::ArrayD;
-
     // Test max across last dimension: [2, 3] -> [2, 1]
     let x_data = vec![1.0f32, 5.0, 3.0, 2.0, 8.0, 4.0];
     let x = ArrayD::from_shape_vec(ndarray::IxDyn(&[2, 3]), x_data).unwrap();

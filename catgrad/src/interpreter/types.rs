@@ -13,9 +13,15 @@ pub type Parameters<B> = abstract_interpreter::parameters::Parameters<Interprete
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
+#[cfg(not(feature = "candle-backend"))]
 pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
-impl HasDtype for f32 {}
-impl HasDtype for u32 {}
+#[cfg(not(feature = "candle-backend"))]
+impl<T> HasDtype for T where T: Copy + Send + Sync + std::fmt::Debug {}
+
+#[cfg(feature = "candle-backend")]
+pub trait HasDtype: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
+#[cfg(feature = "candle-backend")]
+impl<T> HasDtype for T where T: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
 
 /// A collection of n tensors of the same dtype
 #[derive(Copy, Clone, Debug)]
