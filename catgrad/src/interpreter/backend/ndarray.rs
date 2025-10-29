@@ -1,13 +1,13 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
-use crate::interpreter::backend::{Backend, BackendError, NdArray};
+use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
 use ndarray::{ArrayD, Axis, IxDyn};
 
 #[derive(Clone, Debug)]
 pub struct NdArrayBackend;
 
 impl Backend for NdArrayBackend {
-    type NdArray<D: HasDtype> = ArrayD<D>;
+    type BackendTensor<D: HasDtype> = ArrayD<D>;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: Vec<usize> = shape.0;
@@ -494,7 +494,7 @@ impl NdArrayBackend {
     }
 }
 
-impl<D: HasDtype> NdArray<D> for ArrayD<D> {
+impl<D: HasDtype> BackendTensorOps<D> for ArrayD<D> {
     fn shape(&self) -> Shape {
         Shape(self.shape().to_vec())
     }
