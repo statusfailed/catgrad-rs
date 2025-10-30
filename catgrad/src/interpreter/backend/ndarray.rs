@@ -2,12 +2,20 @@ use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
 use ndarray::{ArrayD, Axis, IxDyn};
+use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
 pub struct NdArrayBackend;
 
 impl Backend for NdArrayBackend {
-    type BackendTensor<D: HasDtype> = ArrayD<D>;
+    type BackendTensor<D: Copy + Send + Sync + Debug> = ArrayD<D>;
+
+    fn to_vec(&self, vec: TaggedTensor<Self>) -> TaggedVec {
+        match vec {
+            TaggedTensor::F32([x]) => TaggedVec::F32(x.as_slice().unwrap().to_vec()),
+            TaggedTensor::U32([x]) => TaggedVec::U32(x.as_slice().unwrap().to_vec()),
+        }
+    }
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: Vec<usize> = shape.0;
@@ -268,29 +276,43 @@ impl Backend for NdArrayBackend {
 }
 
 impl NdArrayBackend {
-    fn reshape_ndarray<D: HasDtype>(arr: ArrayD<D>, new_shape: Shape) -> ArrayD<D> {
+    fn reshape_ndarray<D: Copy + Send + Sync + Debug>(
+        arr: ArrayD<D>,
+        new_shape: Shape,
+    ) -> ArrayD<D> {
         let new_dims = ndarray::IxDyn(&new_shape.0);
         arr.to_shape(new_dims).unwrap().to_owned()
     }
 
-    fn broadcast_ndarray<D: HasDtype + Clone>(arr: ArrayD<D>, shape: Shape) -> ArrayD<D> {
+    fn broadcast_ndarray<D: Copy + Send + Sync + Debug + Clone>(
+        arr: ArrayD<D>,
+        shape: Shape,
+    ) -> ArrayD<D> {
         let broadcasted = arr.broadcast(ndarray::IxDyn(&shape.0)).unwrap();
         broadcasted.to_owned()
     }
 
-    fn transpose_ndarray<D: HasDtype>(arr: ArrayD<D>, dim0: usize, dim1: usize) -> ArrayD<D> {
+    fn transpose_ndarray<D: Copy + Send + Sync + Debug>(
+        arr: ArrayD<D>,
+        dim0: usize,
+        dim1: usize,
+    ) -> ArrayD<D> {
         let mut res = arr.to_owned();
         res.swap_axes(dim0, dim1);
         res
     }
 
-    fn index_ndarray<D: HasDtype>(arr: ArrayD<D>, dim: usize, indices: ArrayD<u32>) -> ArrayD<D> {
+    fn index_ndarray<D: Copy + Send + Sync + Debug>(
+        arr: ArrayD<D>,
+        dim: usize,
+        indices: ArrayD<u32>,
+    ) -> ArrayD<D> {
         let idx = indices.iter().map(|&i| i as usize).collect::<Vec<_>>();
 
         arr.select(Axis(dim), &idx)
     }
 
-    fn slice_ndarray<D: HasDtype>(
+    fn slice_ndarray<D: Copy + Send + Sync + Debug>(
         arr: ArrayD<D>,
         dim: usize,
         start: usize,
@@ -300,13 +322,17 @@ impl NdArrayBackend {
         r.to_owned()
     }
 
-    fn concat_ndarray<D: HasDtype>(a: ArrayD<D>, b: ArrayD<D>, dim: usize) -> ArrayD<D> {
+    fn concat_ndarray<D: Copy + Send + Sync + Debug>(
+        a: ArrayD<D>,
+        b: ArrayD<D>,
+        dim: usize,
+    ) -> ArrayD<D> {
         ndarray::concatenate(Axis(dim), &[a.view(), b.view()]).unwrap()
     }
 
     fn add<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x += y` if x is contiguous.
@@ -315,7 +341,7 @@ impl NdArrayBackend {
 
     fn sub<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         // PERFORMANCE does ndarray reuse an x/y buffer if possible? If not, can we improve things
         // using in-place updates? That is, use `x -= y` if x is contiguous.
@@ -324,14 +350,14 @@ impl NdArrayBackend {
 
     fn mul<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         x * y
     }
 
     fn div<D>(x: ArrayD<D>, y: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         x / y
     }
@@ -400,7 +426,7 @@ impl NdArrayBackend {
 
     fn sum<D>(x: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         // across the last dimension
         let axis = x.ndim() - 1;
@@ -409,7 +435,7 @@ impl NdArrayBackend {
 
     fn matmul_generic<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         // For now, only handle rank 2 case
         assert_eq!(lhs.ndim(), 2, "matmul: self must be rank 2");
@@ -427,7 +453,7 @@ impl NdArrayBackend {
 
     pub fn batched_matmul<D>(lhs: ArrayD<D>, rhs: ArrayD<D>) -> ArrayD<D>
     where
-        D: HasDtype + ndarray::LinalgScalar,
+        D: ndarray::LinalgScalar,
     {
         // PERFORMANCE: Haven't checked fast/slow paths in this code; use rayon to parallelise?
         assert!(
@@ -494,13 +520,9 @@ impl NdArrayBackend {
     }
 }
 
-impl<D: HasDtype> BackendTensorOps<D> for ArrayD<D> {
+impl<D: Clone + Send + Sync + std::fmt::Debug> BackendTensorOps for ArrayD<D> {
     fn shape(&self) -> Shape {
         Shape(self.shape().to_vec())
-    }
-
-    fn to_vec(&self) -> Vec<D> {
-        self.as_slice().unwrap().to_vec()
     }
 }
 

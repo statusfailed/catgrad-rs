@@ -1,4 +1,3 @@
-use catgrad::interpreter::backend::BackendTensorOps;
 use catgrad::interpreter::backend::candle::CandleBackend;
 use catgrad::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad::prelude::ops::*;
@@ -127,18 +126,18 @@ fn run_interpreter<B: interpreter::Backend>(
     .expect("Failed to create input tensor");
 
     // Run the model
-    let results = interpreter
+    let mut results = interpreter
         .run(typed_term.term.clone(), vec![input_tensor])
         .expect("Failed to run inference");
 
     // Print info about the main output (should be the last one)
-    if let Some(output) = results.last() {
+    if let Some(output) = results.pop() {
         match output {
-            interpreter::Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
-                let v = arr.to_vec();
-                Ok(v[v.len() - 1])
-            }
-            t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
+            interpreter::Value::Tensor(arr) => match interpreter.backend.to_vec(arr) {
+                interpreter::TaggedVec::U32(v) => Ok(v[v.len() - 1]),
+                _ => Err(anyhow::anyhow!("Unexpected output dtype")),
+            },
+            t => Err(anyhow::anyhow!("Output was not a tensor: {:?}", t)),
         }
     } else {
         Err(anyhow::anyhow!("No result"))

@@ -55,7 +55,14 @@ impl Default for CandleBackend {
 }
 
 impl Backend for CandleBackend {
-    type BackendTensor<D: HasDtype> = CandleTensor;
+    type BackendTensor<D: Copy + Send + Sync + std::fmt::Debug> = CandleTensor;
+
+    fn to_vec(&self, vec: TaggedTensor<Self>) -> TaggedVec {
+        match vec {
+            TaggedTensor::F32([x]) => TaggedVec::F32(x.0.flatten_all().unwrap().to_vec1().unwrap()),
+            TaggedTensor::U32([x]) => TaggedVec::U32(x.0.flatten_all().unwrap().to_vec1().unwrap()),
+        }
+    }
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: &[usize] = &shape.0;
@@ -529,12 +536,9 @@ impl CandleBackend {
     }
 }
 
-impl<D: HasDtype> BackendTensorOps<D> for CandleTensor {
+impl BackendTensorOps for CandleTensor {
     fn shape(&self) -> Shape {
         Shape(self.0.dims().to_vec())
-    }
-    fn to_vec(&self) -> Vec<D> {
-        self.0.flatten_all().unwrap().to_vec1::<D>().unwrap()
     }
 }
 
