@@ -12,16 +12,11 @@ pub type Parameters<B> = abstract_interpreter::parameters::Parameters<Interprete
 ////////////////////////////////////////////////////////////////////////////////
 // Multiple tagged ndarrays
 
-// TODO: make this sealed
-#[cfg(not(feature = "candle-backend"))]
-pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
-#[cfg(not(feature = "candle-backend"))]
-impl<T> HasDtype for T where T: Copy + Send + Sync + std::fmt::Debug {}
-
-#[cfg(feature = "candle-backend")]
-pub trait HasDtype: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
-#[cfg(feature = "candle-backend")]
-impl<T> HasDtype for T where T: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
+#[derive(Clone, Debug)]
+pub enum TaggedVec {
+    F32(Vec<f32>),
+    U32(Vec<u32>),
+}
 
 /// A collection of n tensors of the same dtype
 #[derive(Copy, Clone, Debug)]
@@ -32,7 +27,9 @@ pub enum TaggedTensorTuple<B: Backend, const N: usize> {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
+pub trait IntoTagged<B: Backend, const N: usize>:
+    Clone + std::fmt::Debug + Copy + Sync + Send
+{
     fn into_tagged(arr: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N>;
     fn ndarray_from_slice(
         backend: &B,

@@ -15,17 +15,14 @@ impl ShapeOnly {
     }
 }
 
-impl<D: HasDtype> BackendTensorOps<D> for ShapeOnly {
+impl BackendTensorOps for ShapeOnly {
     fn shape(&self) -> Shape {
         self.0.clone()
-    }
-    fn to_vec(&self) -> Vec<D> {
-        Vec::with_capacity(self.0.size())
     }
 }
 
 impl Backend for ShapeOnlyBackend {
-    type BackendTensor<D: HasDtype> = ShapeOnly;
+    type BackendTensor<D: Copy + Send + Sync + std::fmt::Debug> = ShapeOnly;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         match target_dtype {
@@ -234,6 +231,10 @@ impl Backend for ShapeOnlyBackend {
                 U32([ShapeOnly(s)])
             }
         }
+    }
+
+    fn to_vec(&self, _vec: TaggedTensor<Self>) -> TaggedVec {
+        panic!("not supported");
     }
 }
 
