@@ -21,7 +21,7 @@ pub mod candle;
 /// - Reductions preserve rank. For example, sum tensor shape `[2,3,4]` gives `[2,3,1]` instead of `[2,3]`.
 pub trait Backend: Send + Sync + Clone + Debug {
     /// Representation of tensor values. (e.g., device ptrs, Vec, etc.)
-    type NdArray<D: HasDtype>: NdArray<D>;
+    type BackendTensor<D: HasDtype>: BackendTensorOps<D>;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
@@ -78,8 +78,9 @@ pub trait Backend: Send + Sync + Clone + Debug {
     fn arange(&self, end: usize) -> TaggedTensor<Self>;
 }
 
-pub trait NdArray<D: HasDtype>: Send + Sync + Clone + Debug {
+pub trait BackendTensorOps<D: HasDtype>: Send + Sync + Clone + Debug {
     fn shape(&self) -> Shape;
+    fn to_vec(&self) -> Vec<D>;
 }
 
 #[derive(Debug, Clone)]

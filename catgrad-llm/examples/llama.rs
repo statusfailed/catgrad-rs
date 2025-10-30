@@ -1,3 +1,5 @@
+use catgrad::interpreter::backend::BackendTensorOps;
+use catgrad::interpreter::backend::candle::CandleBackend;
 use catgrad::interpreter::backend::ndarray::NdArrayBackend;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
@@ -10,7 +12,7 @@ use catgrad_llm::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use tokenizers::tokenizer::Tokenizer;
 
 #[derive(Parser, Debug)]
@@ -31,14 +33,28 @@ struct Args {
     /// Enable typecheck
     #[arg(short = 't', long)]
     typecheck: bool,
+    /// Backend to use
+    #[arg(short = 'b', long, value_enum, default_value_t = BackendChoice::Ndarray)]
+    backend: BackendChoice,
 }
 
-/// Construct, shapecheck, and interpret the `GPT2Model` using the ndarray backend.
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum BackendChoice {
+    Ndarray,
+    Candle,
+}
+
+/// Construct, shapecheck, and interpret the `GPT2Model` using the selected backend.
 fn main() -> Result<()> {
     env_logger::init();
     let args = Args::parse();
-    // Create parameters for the model
-    let backend = NdArrayBackend;
+    match args.backend {
+        BackendChoice::Ndarray => run_with_backend(&args, NdArrayBackend),
+        BackendChoice::Candle => run_with_backend(&args, CandleBackend::new()),
+    }
+}
+
+fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<()> {
     let (interpreter_params, parameters, config, tokenizer) =
         load_model(&args.model_name, &backend)?;
 
@@ -98,9 +114,9 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_interpreter(
+fn run_interpreter<B: interpreter::Backend>(
     typed_term: &TypedTerm,
-    interpreter: &interpreter::Interpreter<NdArrayBackend>,
+    interpreter: &interpreter::Interpreter<B>,
     input_data: &[u32],
 ) -> Result<u32> {
     let input_tensor = interpreter::tensor(
@@ -119,7 +135,8 @@ fn run_interpreter(
     if let Some(output) = results.last() {
         match output {
             interpreter::Value::Tensor(interpreter::TaggedTensor::U32([arr])) => {
-                Ok(arr.as_slice().unwrap()[arr.len() - 1])
+                let v = arr.to_vec();
+                Ok(v[v.len() - 1])
             }
             t => Err(anyhow::anyhow!("Unexpected output type {:?}", t)),
         }

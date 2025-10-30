@@ -1,6 +1,6 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
-use crate::interpreter::backend::{Backend, BackendError, NdArray};
+use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
 use candle_core::{D, DType, Device, Tensor};
 
 // ============================================================================
@@ -55,7 +55,7 @@ impl Default for CandleBackend {
 }
 
 impl Backend for CandleBackend {
-    type NdArray<D: HasDtype> = CandleTensor;
+    type BackendTensor<D: HasDtype> = CandleTensor;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         let dims: &[usize] = &shape.0;
@@ -529,16 +529,17 @@ impl CandleBackend {
     }
 }
 
-impl<D: HasDtype> NdArray<D> for CandleTensor {
+impl<D: HasDtype> BackendTensorOps<D> for CandleTensor {
     fn shape(&self) -> Shape {
         Shape(self.0.dims().to_vec())
+    }
+    fn to_vec(&self) -> Vec<D> {
+        self.0.flatten_all().unwrap().to_vec1::<D>().unwrap()
     }
 }
 
 #[test]
 fn test_batched_matmul() {
-    use candle_core::Tensor;
-
     // Test with 2 batch dimensions: [2, 3, 2, 2] × [2, 3, 2, 1] = [2, 3, 2, 1]
     let lhs_data = vec![
         1.0f32, 2.0, 3.0, 4.0, // batch 0,0

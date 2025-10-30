@@ -1,7 +1,7 @@
 /// A backend which only does shape computations, not tensor ones.
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
-use crate::interpreter::backend::{Backend, BackendError};
+use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
 
 #[derive(Clone, Debug)]
 pub struct ShapeOnlyBackend;
@@ -15,14 +15,17 @@ impl ShapeOnly {
     }
 }
 
-impl<D: HasDtype> crate::interpreter::backend::NdArray<D> for ShapeOnly {
+impl<D: HasDtype> BackendTensorOps<D> for ShapeOnly {
     fn shape(&self) -> Shape {
         self.0.clone()
+    }
+    fn to_vec(&self) -> Vec<D> {
+        Vec::with_capacity(self.0.size())
     }
 }
 
 impl Backend for ShapeOnlyBackend {
-    type NdArray<D: HasDtype> = ShapeOnly;
+    type BackendTensor<D: HasDtype> = ShapeOnly;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         match target_dtype {

@@ -13,21 +13,27 @@ pub type Parameters<B> = abstract_interpreter::parameters::Parameters<Interprete
 // Multiple tagged ndarrays
 
 // TODO: make this sealed
+#[cfg(not(feature = "candle-backend"))]
 pub trait HasDtype: Copy + Send + Sync + std::fmt::Debug {}
-impl HasDtype for f32 {}
-impl HasDtype for u32 {}
+#[cfg(not(feature = "candle-backend"))]
+impl<T> HasDtype for T where T: Copy + Send + Sync + std::fmt::Debug {}
+
+#[cfg(feature = "candle-backend")]
+pub trait HasDtype: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
+#[cfg(feature = "candle-backend")]
+impl<T> HasDtype for T where T: candle_core::WithDType + Copy + Send + Sync + std::fmt::Debug {}
 
 /// A collection of n tensors of the same dtype
 #[derive(Copy, Clone, Debug)]
 pub enum TaggedTensorTuple<B: Backend, const N: usize> {
-    F32([B::NdArray<f32>; N]),
-    U32([B::NdArray<u32>; N]),
+    F32([B::BackendTensor<f32>; N]),
+    U32([B::BackendTensor<u32>; N]),
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasDtype {
-    fn into_tagged(arr: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N>;
+    fn into_tagged(arr: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N>;
     fn ndarray_from_slice(
         backend: &B,
         data: &[Self],
@@ -36,7 +42,7 @@ pub trait IntoTagged<B: Backend, const N: usize>: Clone + std::fmt::Debug + HasD
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
-    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
+    fn into_tagged(arrs: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::F32(arrs)
     }
 
@@ -50,7 +56,7 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
-    fn into_tagged(arrs: [B::NdArray<Self>; N]) -> TaggedTensorTuple<B, N> {
+    fn into_tagged(arrs: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::U32(arrs)
     }
 
