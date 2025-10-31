@@ -125,38 +125,28 @@ fn allclose_f32(a: &[f32], b: &[f32], rtol: f32, atol: f32) -> bool {
 
 #[test]
 fn test_run_exp() {
+    use catgrad::interpreter::{TaggedVec, Value};
+
     let data: Vec<f32> = vec![0.0, 1.0, 2.0, -1.0]; // Shape (2, 2)
-    let result = run_test_with_inputs(Exp.term().unwrap(), |backend| {
+    let mut result = run_test_with_inputs(Exp.term().unwrap(), |backend| {
         vec![tensor(backend, Shape(vec![2, 2]), &data).unwrap()]
     });
 
-    // make sure actual result is a single F32 array
-    use catgrad::interpreter::{TaggedTensor, Value};
-    let actual = match &result[..] {
-        [Value::Tensor(TaggedTensor::F32([actual]))] => actual,
-        xs => panic!("wrong output type: {xs:?}"),
+    let actual = if let Some(Value::Tensor(tensor)) = result.pop() {
+        assert!(result.is_empty()); // we only had one result
+        tensor
+    } else {
+        panic!("Invalid result type");
     };
 
     // Create expected result (e^x for each element)
     let expected: Vec<f32> = data.iter().map(|&x| x.exp()).collect();
     let backend = NdArrayBackend;
-    let expected_tensor = tensor(&backend, Shape(vec![2, 2]), &expected).unwrap();
 
-    match (&expected_tensor, actual) {
-        (Value::Tensor(TaggedTensor::F32([exp])), actual_arr) => {
-            // For floating point, we need to use approximate equality
-            // Since compare uses exact equality, we'll keep the allclose check for now
-            // TODO: Consider adding an approximate equality method to the Backend trait
-            assert!(
-                allclose_f32(
-                    actual_arr.as_slice().unwrap(),
-                    exp.as_slice().unwrap(),
-                    1e-5,
-                    1e-8
-                ),
-                "actual should be close to expected!"
-            );
-        }
-        _ => panic!("Expected F32 tensors"),
+    if let TaggedVec::F32(actual) = backend.to_vec(actual) {
+        let is_close = allclose_f32(&actual, &expected, 1e-5, 1e-8);
+        assert!(is_close, "actual should be close to expected!");
+    } else {
+        panic!("wrong tensor dtype");
     }
 }
