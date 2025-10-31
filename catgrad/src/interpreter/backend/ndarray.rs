@@ -7,13 +7,46 @@ use std::fmt::Debug;
 #[derive(Clone, Debug)]
 pub struct NdArrayBackend;
 
+// We can't really handle HKTs properly in rust, so that means the ndarray backend suffers through
+// some unfortunate "double tagging" of values.
+// this has some unsafe methods (to_<dtype>), but panics here are always programmer errors.
+#[derive(Clone, Debug, PartialEq)]
+pub enum TaggedArrayD {
+    F32(ArrayD<f32>),
+    U32(ArrayD<u32>),
+}
+
+impl TaggedArrayD {
+    fn unwrap_f32(self) -> ArrayD<f32> {
+        match self {
+            TaggedArrayD::F32(x) => x,
+            _ => panic!("Not f32 array"),
+        }
+    }
+
+    fn unwrap_u32(self) -> ArrayD<u32> {
+        match self {
+            TaggedArrayD::U32(x) => x,
+            _ => panic!("Not f32 array"),
+        }
+    }
+}
+
+fn from_f32(x: ArrayD<f32>) -> TaggedTensor<NdArrayBackend> {
+    TaggedTensor::F32([TaggedArrayD::F32(x)])
+}
+
+fn from_u32(x: ArrayD<u32>) -> TaggedTensor<NdArrayBackend> {
+    TaggedTensor::U32([TaggedArrayD::U32(x)])
+}
+
 impl Backend for NdArrayBackend {
-    type BackendTensor<D: Copy + Send + Sync + Debug> = ArrayD<D>;
+    type BackendTensor = TaggedArrayD;
 
     fn to_vec(&self, vec: TaggedTensor<Self>) -> TaggedVec {
         match vec {
-            TaggedTensor::F32([x]) => TaggedVec::F32(x.as_slice().unwrap().to_vec()),
-            TaggedTensor::U32([x]) => TaggedVec::U32(x.as_slice().unwrap().to_vec()),
+            TaggedTensor::F32([x]) => TaggedVec::F32(x.unwrap_f32().as_slice().unwrap().to_vec()),
+            TaggedTensor::U32([x]) => TaggedVec::U32(x.unwrap_u32().as_slice().unwrap().to_vec()),
         }
     }
 
@@ -21,11 +54,11 @@ impl Backend for NdArrayBackend {
         let dims: Vec<usize> = shape.0;
         match target_dtype {
             Dtype::F32 => {
-                let arr = ArrayD::from_elem(IxDyn(&dims), 0.0f32);
+                let arr = TaggedArrayD::F32(ArrayD::from_elem(IxDyn(&dims), 0.0f32));
                 TaggedTensor::F32([arr])
             }
             Dtype::U32 => {
-                let arr = ArrayD::from_elem(IxDyn(&dims), 0u32);
+                let arr = TaggedArrayD::U32(ArrayD::from_elem(IxDyn(&dims), 0u32));
                 TaggedTensor::U32([arr])
             }
         }
@@ -39,7 +72,8 @@ impl Backend for NdArrayBackend {
         let dims: Vec<usize> = shape.0;
         let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
             .map_err(|_| BackendError::ShapeError)?;
-        Ok(TaggedTensor::F32([arr]))
+
+        Ok(from_f32(arr))
     }
 
     fn ndarray_from_slice_u32(
@@ -50,77 +84,79 @@ impl Backend for NdArrayBackend {
         let dims: Vec<usize> = shape.0;
         let arr = ArrayD::from_shape_vec(IxDyn(&dims), data.to_vec())
             .map_err(|_| BackendError::ShapeError)?;
-        Ok(TaggedTensor::U32([arr]))
+        Ok(from_u32(arr))
     }
 
     fn arange(&self, end: usize) -> TaggedTensor<Self> {
-        let result = ndarray::Array::range(0.0, end as f32, 1.0).into_dyn();
-        let result = TaggedTensor::F32([result]);
+        // TODO: use from_iter instead?
+        let result = from_f32(ndarray::Array::range(0.0, end as f32, 1.0).into_dyn());
         self.cast(result, Dtype::U32)
     }
 
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self> {
-        match (&x, target_dtype) {
-            (TaggedTensor::F32(arr), Dtype::U32) => {
-                let data: Vec<u32> = arr[0].iter().map(|&val| val as u32).collect();
-                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
-                TaggedTensor::U32([result])
+        match (x, target_dtype) {
+            (TaggedTensor::F32([arr]), Dtype::U32) => {
+                let arr = arr.unwrap_f32();
+                let data: Vec<u32> = arr.iter().map(|&val| val as u32).collect();
+                let result = ArrayD::from_shape_vec(arr.raw_dim(), data).unwrap();
+                from_u32(result)
             }
-            (TaggedTensor::U32(arr), Dtype::F32) => {
-                let data: Vec<f32> = arr[0].iter().map(|&val| val as f32).collect();
-                let result = ArrayD::from_shape_vec(arr[0].raw_dim(), data).unwrap();
-                TaggedTensor::F32([result])
+            (TaggedTensor::U32([arr]), Dtype::F32) => {
+                let arr = arr.unwrap_u32();
+                let data: Vec<f32> = arr.iter().map(|&val| val as f32).collect();
+                let result = ArrayD::from_shape_vec(arr.raw_dim(), data).unwrap();
+                from_f32(result)
             }
-            (TaggedTensor::F32(_), Dtype::F32) => x,
-            (TaggedTensor::U32(_), Dtype::U32) => x,
+            (x @ TaggedTensor::F32(_), Dtype::F32) => x,
+            (x @ TaggedTensor::U32(_), Dtype::U32) => x,
         }
     }
 
     fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::batched_matmul(x, y)]),
-            U32([x, y]) => U32([Self::batched_matmul(x, y)]),
+            F32([x, y]) => from_f32(Self::batched_matmul(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::batched_matmul(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
     fn add(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::add(x, y)]),
-            U32([x, y]) => U32([Self::add(x, y)]),
+            F32([x, y]) => from_f32(Self::add(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::add(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
     fn sub(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::sub(x, y)]),
-            U32([x, y]) => U32([Self::sub(x, y)]),
+            F32([x, y]) => from_f32(Self::sub(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::sub(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
     fn mul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::mul(x, y)]),
-            U32([x, y]) => U32([Self::mul(x, y)]),
+            F32([x, y]) => from_f32(Self::mul(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::mul(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
     fn div(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::div(x, y)]),
-            U32([x, y]) => U32([Self::div(x, y)]),
+            F32([x, y]) => from_f32(Self::div(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::div(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
     fn pow(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match lhs {
-            F32([x, y]) => F32([Self::pow_f32(x, y)]),
-            U32([x, y]) => U32([Self::pow_u32(x, y)]),
+            F32([x, y]) => from_f32(Self::pow_f32(x.unwrap_f32(), y.unwrap_f32())),
+            U32([x, y]) => from_u32(Self::pow_u32(x.unwrap_u32(), y.unwrap_u32())),
         }
     }
 
@@ -128,12 +164,16 @@ impl Backend for NdArrayBackend {
         use TaggedTensorTuple::*;
         match lhs {
             F32([x, y]) => {
+                let x = x.unwrap_f32();
+                let y = y.unwrap_f32();
                 let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x < y);
-                F32([res.mapv(|x| x as u32 as f32)])
+                from_f32(res.mapv(|x| x as u32 as f32))
             }
             U32([x, y]) => {
+                let x = x.unwrap_u32();
+                let y = y.unwrap_u32();
                 let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x < y);
-                U32([res.mapv(|x| x as u32)])
+                from_u32(res.mapv(|x| x as u32))
             }
         }
     }
@@ -142,12 +182,16 @@ impl Backend for NdArrayBackend {
         use TaggedTensorTuple::*;
         match lhs {
             F32([x, y]) => {
+                let x = x.unwrap_f32();
+                let y = y.unwrap_f32();
                 let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x == y);
-                F32([res.mapv(|x| x as u32 as f32)])
+                from_f32(res.mapv(|x| x as u32 as f32))
             }
             U32([x, y]) => {
+                let x = x.unwrap_u32();
+                let y = y.unwrap_u32();
                 let res = ndarray::Zip::from(&x).and(&y).map_collect(|&x, &y| x == y);
-                U32([res.mapv(|x| x as u32)])
+                from_u32(res.mapv(|x| x as u32))
             }
         }
     }
@@ -155,15 +199,15 @@ impl Backend for NdArrayBackend {
     fn neg(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::neg_f32(arr)]),
-            U32([arr]) => U32([Self::neg_u32(arr)]),
+            F32([arr]) => from_f32(Self::neg_f32(arr.unwrap_f32())),
+            U32([arr]) => from_u32(Self::neg_u32(arr.unwrap_u32())),
         }
     }
 
     fn sin(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([arr.sin()]),
+            F32([arr]) => from_f32(arr.unwrap_f32().sin()),
             _ => panic!("Invalid input types for sin"),
         }
     }
@@ -171,7 +215,7 @@ impl Backend for NdArrayBackend {
     fn cos(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([arr.cos()]),
+            F32([arr]) => from_f32(arr.unwrap_f32().cos()),
             _ => panic!("Invalid input types for cos"),
         }
     }
@@ -179,40 +223,40 @@ impl Backend for NdArrayBackend {
     fn max(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::max_f32(arr)]),
-            U32([arr]) => U32([Self::max_u32(arr)]),
+            F32([arr]) => from_f32(Self::max_f32(arr.unwrap_f32())),
+            U32([arr]) => from_u32(Self::max_u32(arr.unwrap_u32())),
         }
     }
 
     fn sum(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::sum(arr)]),
-            U32([arr]) => U32([Self::sum(arr)]),
+            F32([arr]) => from_f32(Self::sum(arr.unwrap_f32())),
+            U32([arr]) => from_u32(Self::sum(arr.unwrap_u32())),
         }
     }
 
     fn argmax(&self, x: TaggedTensor<Self>) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => U32([Self::argmax_f32(arr)]),
-            U32([arr]) => U32([Self::argmax_u32(arr)]),
+            F32([arr]) => from_u32(Self::argmax_f32(arr.unwrap_f32())),
+            U32([arr]) => from_u32(Self::argmax_u32(arr.unwrap_u32())),
         }
     }
 
     fn broadcast(&self, x: TaggedTensor<Self>, shape: Shape) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::broadcast_ndarray(arr, shape)]),
-            U32([arr]) => U32([Self::broadcast_ndarray(arr, shape)]),
+            F32([arr]) => from_f32(Self::broadcast_ndarray(arr.unwrap_f32(), shape)),
+            U32([arr]) => from_u32(Self::broadcast_ndarray(arr.unwrap_u32(), shape)),
         }
     }
 
     fn transpose(&self, x: TaggedTensor<Self>, dim0: usize, dim1: usize) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::transpose_ndarray(arr, dim0, dim1)]),
-            U32([arr]) => U32([Self::transpose_ndarray(arr, dim0, dim1)]),
+            F32([arr]) => from_f32(Self::transpose_ndarray(arr.unwrap_f32(), dim0, dim1)),
+            U32([arr]) => from_u32(Self::transpose_ndarray(arr.unwrap_u32(), dim0, dim1)),
         }
     }
 
@@ -224,8 +268,16 @@ impl Backend for NdArrayBackend {
     ) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match (x, indices) {
-            (F32([arr]), U32([indices])) => F32([Self::index_ndarray(arr, dim, indices)]),
-            (U32([arr]), U32([indices])) => U32([Self::index_ndarray(arr, dim, indices)]),
+            (F32([arr]), U32([indices])) => from_f32(Self::index_ndarray(
+                arr.unwrap_f32(),
+                dim,
+                indices.unwrap_u32(),
+            )),
+            (U32([arr]), U32([indices])) => from_u32(Self::index_ndarray(
+                arr.unwrap_u32(),
+                dim,
+                indices.unwrap_u32(),
+            )),
             _ => panic!("Invalid input types for indexing"),
         }
     }
@@ -239,16 +291,16 @@ impl Backend for NdArrayBackend {
     ) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::slice_ndarray(arr, dim, start, len)]),
-            U32([arr]) => U32([Self::slice_ndarray(arr, dim, start, len)]),
+            F32([arr]) => from_f32(Self::slice_ndarray(arr.unwrap_f32(), dim, start, len)),
+            U32([arr]) => from_u32(Self::slice_ndarray(arr.unwrap_u32(), dim, start, len)),
         }
     }
 
     fn reshape(&self, x: TaggedTensor<Self>, new_shape: Shape) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
-            F32([arr]) => F32([Self::reshape_ndarray(arr, new_shape)]),
-            U32([arr]) => U32([Self::reshape_ndarray(arr, new_shape)]),
+            F32([arr]) => from_f32(Self::reshape_ndarray(arr.unwrap_f32(), new_shape)),
+            U32([arr]) => from_u32(Self::reshape_ndarray(arr.unwrap_u32(), new_shape)),
         }
     }
 
@@ -260,8 +312,12 @@ impl Backend for NdArrayBackend {
     ) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match (x, y) {
-            (F32([a]), F32([b])) => F32([Self::concat_ndarray(a, b, dim)]),
-            (U32([a]), U32([b])) => U32([Self::concat_ndarray(a, b, dim)]),
+            (F32([a]), F32([b])) => {
+                from_f32(Self::concat_ndarray(a.unwrap_f32(), b.unwrap_f32(), dim))
+            }
+            (U32([a]), U32([b])) => {
+                from_u32(Self::concat_ndarray(a.unwrap_u32(), b.unwrap_u32(), dim))
+            }
             _ => panic!("Incompatible types for concatenation"),
         }
     }
@@ -520,9 +576,15 @@ impl NdArrayBackend {
     }
 }
 
-impl<D: Clone + Send + Sync + std::fmt::Debug> BackendTensorOps for ArrayD<D> {
+impl BackendTensorOps for TaggedArrayD {
     fn shape(&self) -> Shape {
-        Shape(self.shape().to_vec())
+        Shape(
+            match self {
+                TaggedArrayD::F32(x) => x.shape(),
+                TaggedArrayD::U32(x) => x.shape(),
+            }
+            .to_vec(),
+        )
     }
 }
 

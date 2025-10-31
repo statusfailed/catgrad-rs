@@ -22,7 +22,7 @@ impl BackendTensorOps for ShapeOnly {
 }
 
 impl Backend for ShapeOnlyBackend {
-    type BackendTensor<D: Copy + Send + Sync + std::fmt::Debug> = ShapeOnly;
+    type BackendTensor = ShapeOnly;
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self> {
         match target_dtype {
