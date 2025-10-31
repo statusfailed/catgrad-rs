@@ -21,8 +21,8 @@ pub enum TaggedVec {
 /// A collection of n tensors of the same dtype
 #[derive(Copy, Clone, Debug)]
 pub enum TaggedTensorTuple<B: Backend, const N: usize> {
-    F32([B::BackendTensor<f32>; N]),
-    U32([B::BackendTensor<u32>; N]),
+    F32([B::BackendTensor; N]),
+    U32([B::BackendTensor; N]),
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +30,7 @@ pub enum TaggedTensorTuple<B: Backend, const N: usize> {
 pub trait IntoTagged<B: Backend, const N: usize>:
     Clone + std::fmt::Debug + Copy + Sync + Send
 {
-    fn into_tagged(arr: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N>;
+    fn into_tagged(arr: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N>;
     fn ndarray_from_slice(
         backend: &B,
         data: &[Self],
@@ -39,7 +39,7 @@ pub trait IntoTagged<B: Backend, const N: usize>:
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
-    fn into_tagged(arrs: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N> {
+    fn into_tagged(arrs: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::F32(arrs)
     }
 
@@ -53,7 +53,7 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
 }
 
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
-    fn into_tagged(arrs: [B::BackendTensor<Self>; N]) -> TaggedTensorTuple<B, N> {
+    fn into_tagged(arrs: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::U32(arrs)
     }
 

@@ -55,7 +55,7 @@ impl Default for CandleBackend {
 }
 
 impl Backend for CandleBackend {
-    type BackendTensor<D: Copy + Send + Sync + std::fmt::Debug> = CandleTensor;
+    type BackendTensor = CandleTensor;
 
     fn to_vec(&self, vec: TaggedTensor<Self>) -> TaggedVec {
         match vec {
