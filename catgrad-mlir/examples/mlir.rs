@@ -3,7 +3,7 @@ use catgrad_mlir::pass::lang_to_mlir;
 
 /// Construct, shapecheck, and lower an `Exp` function to MLIR
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model = nn::Exp;
+    let model = nn::Sigmoid;
 
     // Get the model as a typed term
     let typed_term = model.term().expect("Failed to create typed term");

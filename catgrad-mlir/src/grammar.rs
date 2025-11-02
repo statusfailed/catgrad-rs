@@ -46,6 +46,7 @@ pub struct Parameter {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Index,
+    Bool,
     U32,
     F32,
     TensorType(TensorType),
@@ -55,8 +56,20 @@ pub enum Type {
 /// A type like `tensor<4x8xf32>`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorType {
-    pub shape: Vec<usize>,
+    pub shape: Shape,
     pub dtype: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Shape {
+    Unknown,
+    Shape(Vec<Option<usize>>),
+}
+
+impl From<Vec<usize>> for Shape {
+    fn from(dims: Vec<usize>) -> Self {
+        Shape::Shape(dims.into_iter().map(Some).collect())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -146,6 +159,7 @@ impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Type::Index => write!(f, "index"),
+            Type::Bool => write!(f, "bool"),
             Type::TensorType(tensor_type) => tensor_type.fmt(f),
             Type::U32 => write!(f, "u32"),
             Type::F32 => write!(f, "f32"),
@@ -160,16 +174,26 @@ impl fmt::Display for Type {
 
 impl fmt::Display for TensorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "tensor<{}x{}>",
-            self.shape
-                .iter()
-                .map(|d| d.to_string())
-                .collect::<Vec<_>>()
-                .join("x"),
-            self.dtype
-        )
+        write!(f, "tensor<{}x{}>", self.shape, self.dtype)
+    }
+}
+
+impl fmt::Display for Shape {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Shape::Unknown => write!(f, "*"),
+            Shape::Shape(dims) => {
+                let dims_str = dims
+                    .iter()
+                    .map(|d| match d {
+                        None => "?".to_string(),
+                        Some(d) => d.to_string(),
+                    })
+                    .collect::<Vec<_>>()
+                    .join("x");
+                write!(f, "{}", dims_str)
+            }
+        }
     }
 }
 
@@ -204,12 +228,13 @@ impl fmt::Display for Expr {
     }
 }
 
+// E.g. `func.call @id(%v3) : (index) -> (index)`
 impl fmt::Display for Call {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let arg_names = comma_separated(&self.args.iter().map(|v| &v.id).collect::<Vec<_>>());
         let arg_types = comma_separated(&self.args.iter().map(|v| &v.ty).collect::<Vec<_>>());
 
-        write!(f, "{}({})", self.name, arg_names)?;
+        write!(f, "func.call @{}({})", self.name, arg_names)?;
         if !self.args.is_empty() {
             write!(f, " : ({})", arg_types)?;
         }
@@ -327,27 +352,27 @@ mod tests {
                 Parameter {
                     name: "arg0".to_string(),
                     param_type: Type::TensorType(TensorType {
-                        shape: vec![4, 8],
+                        shape: vec![4, 8].into(),
                         dtype: "f32".to_string(),
                     }),
                 },
                 Parameter {
                     name: "arg1".to_string(),
                     param_type: Type::TensorType(TensorType {
-                        shape: vec![8, 16],
+                        shape: vec![8, 16].into(),
                         dtype: "f32".to_string(),
                     }),
                 },
                 Parameter {
                     name: "arg2".to_string(),
                     param_type: Type::TensorType(TensorType {
-                        shape: vec![16, 16],
+                        shape: vec![16, 16].into(),
                         dtype: "f32".to_string(),
                     }),
                 },
             ],
             return_type: vec![Type::TensorType(TensorType {
-                shape: vec![4, 16],
+                shape: vec![4, 16].into(),
                 dtype: "f32".to_string(),
             })],
             body: vec![
@@ -358,7 +383,7 @@ mod tests {
                         ins: vec![],
                         outs: vec![],
                         return_types: vec![Type::TensorType(TensorType {
-                            shape: vec![4, 16],
+                            shape: vec![4, 16].into(),
                             dtype: "f32".to_string(),
                         })],
                         attrs: None,
@@ -449,7 +474,10 @@ mod tests {
                         inner_block: None,
                     }),
                 },
-            ],
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
             return_stmt: Return(vec![TypedIdentifier {
                 id: Identifier(3),
                 ty: Type::TensorType(TensorType {
