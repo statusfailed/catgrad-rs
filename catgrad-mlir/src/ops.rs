@@ -191,16 +191,10 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 
     vec![grammar::Assignment {
         result: vec![target_id],
-        expr: grammar::Expr::Operation(grammar::Operation {
+        expr: grammar::Expr::Elementwise(grammar::Elementwise {
             name: "arith.sitofp".to_string(),
-            ins: vec![grammar::TypedIdentifier {
-                id: tensor_id,
-                ty: source_type,
-            }],
-            outs: vec![],
-            return_types: vec![target_type],
-            attrs: None,
-            inner_block: None,
+            operands: vec![tensor_id],
+            ty: target_type,
         }),
     }]
 }
@@ -218,22 +212,10 @@ pub fn add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 
     vec![grammar::Assignment {
         result: vec![target_id],
-        expr: grammar::Expr::Operation(grammar::Operation {
+        expr: grammar::Expr::Elementwise(grammar::Elementwise {
             name: "arith.addf".to_string(),
-            ins: vec![
-                grammar::TypedIdentifier {
-                    id: lhs_id,
-                    ty: lhs_type,
-                },
-                grammar::TypedIdentifier {
-                    id: rhs_id,
-                    ty: rhs_type,
-                },
-            ],
-            outs: vec![],
-            return_types: vec![result_type],
-            attrs: None,
-            inner_block: None,
+            operands: vec![lhs_id, rhs_id],
+            ty: result_type,
         }),
     }]
 }
@@ -251,22 +233,10 @@ pub fn div(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 
     vec![grammar::Assignment {
         result: vec![target_id],
-        expr: grammar::Expr::Operation(grammar::Operation {
+        expr: grammar::Expr::Elementwise(grammar::Elementwise {
             name: "arith.divf".to_string(),
-            ins: vec![
-                grammar::TypedIdentifier {
-                    id: lhs_id,
-                    ty: lhs_type,
-                },
-                grammar::TypedIdentifier {
-                    id: rhs_id,
-                    ty: rhs_type,
-                },
-            ],
-            outs: vec![],
-            return_types: vec![result_type],
-            attrs: None,
-            inner_block: None,
+            operands: vec![lhs_id, rhs_id],
+            ty: result_type,
         }),
     }]
 }
