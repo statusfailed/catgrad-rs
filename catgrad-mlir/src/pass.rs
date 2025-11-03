@@ -46,6 +46,9 @@ pub fn lang_to_mlir(
         .with_nodes(|_| node_annotations)
         .unwrap();
 
+    // Forget all copy ops for MLIR (it's harder to deal with)
+    let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
+
     // Convert term to MLIR
     let mlir = lower::term_to_func("term", checked_term);
 

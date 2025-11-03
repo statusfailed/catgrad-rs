@@ -21,15 +21,22 @@ pub fn copy(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
         .collect()
 }
 
+// NOTE: this just usese arith.constant false to return a bool.
+// We don't actually put shape information into mlir
 pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     // typechecked ssa should never break this invariant
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
-    let source_id = grammar::Identifier(ssa.sources[0].0.0);
     let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
     vec![grammar::Assignment {
         result: vec![target_id],
-        expr: grammar::Expr::Identifier(source_id),
+        expr: grammar::Expr::Constant(grammar::Constant {
+            name: "arith.constant".to_string(),
+            value: Some("false".to_string()),
+            ty: None,
+        }),
     }]
 }
 
@@ -60,8 +67,6 @@ pub fn neg(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
-
-    println!("ssa: {:?}", ssa.sources);
 
     // Irrefutable matches because typecheck should catch errors
     let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
@@ -146,4 +151,128 @@ fn make_affine_map(dims: Vec<Option<usize>>, out_rank: usize) -> String {
         params.join(", "),
         outputs.join(", ")
     )
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// NOTE: below here are essentially unfinished!
+
+// TODO: FIXME: this just uses arith.sitofp, which is not always correct
+pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let source_type = core_type_to_mlir(&ssa.sources[0].1);
+
+    // Extract dtype from second source
+    let Type::Dtype(catgrad::typecheck::DtypeExpr::Constant(target_dtype)) = &ssa.sources[1].1
+    else {
+        panic!("cast dtype must be a constant")
+    };
+
+    // Create target type with same shape but new dtype
+    let target_type = match &ssa.sources[0].1 {
+        Type::Tensor(TypeExpr::NdArrayType(NdArrayType { shape, .. })) => {
+            let tensor_type = grammar::TensorType {
+                shape: match shape {
+                    catgrad::typecheck::ShapeExpr::Shape(nat_exprs) => grammar::Shape::Shape(
+                        nat_exprs
+                            .iter()
+                            .map(|dim| match dim {
+                                catgrad::typecheck::NatExpr::Constant(c) => Some(*c),
+                                catgrad::typecheck::NatExpr::Var(_) => None,
+                                _ => todo!("unnormalized NatExpr"),
+                            })
+                            .collect(),
+                    ),
+                    _ => grammar::Shape::Unknown,
+                },
+                dtype: target_dtype.to_string(),
+            };
+            grammar::Type::TensorType(tensor_type)
+        }
+        _ => panic!("cast source must be a tensor"),
+    };
+
+    vec![grammar::Assignment {
+        result: vec![target_id],
+        expr: grammar::Expr::Operation(grammar::Operation {
+            name: "arith.sitofp".to_string(),
+            ins: vec![grammar::TypedIdentifier {
+                id: tensor_id,
+                ty: source_type,
+            }],
+            outs: vec![],
+            return_types: vec![target_type],
+            attrs: None,
+            inner_block: None,
+        }),
+    }]
+}
+
+pub fn add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
+    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
+    let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
+    let result_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![grammar::Assignment {
+        result: vec![target_id],
+        expr: grammar::Expr::Operation(grammar::Operation {
+            name: "arith.addf".to_string(),
+            ins: vec![
+                grammar::TypedIdentifier {
+                    id: lhs_id,
+                    ty: lhs_type,
+                },
+                grammar::TypedIdentifier {
+                    id: rhs_id,
+                    ty: rhs_type,
+                },
+            ],
+            outs: vec![],
+            return_types: vec![result_type],
+            attrs: None,
+            inner_block: None,
+        }),
+    }]
+}
+
+pub fn div(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
+    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
+    let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
+    let result_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![grammar::Assignment {
+        result: vec![target_id],
+        expr: grammar::Expr::Operation(grammar::Operation {
+            name: "arith.divf".to_string(),
+            ins: vec![
+                grammar::TypedIdentifier {
+                    id: lhs_id,
+                    ty: lhs_type,
+                },
+                grammar::TypedIdentifier {
+                    id: rhs_id,
+                    ty: rhs_type,
+                },
+            ],
+            outs: vec![],
+            return_types: vec![result_type],
+            attrs: None,
+            inner_block: None,
+        }),
+    }]
 }

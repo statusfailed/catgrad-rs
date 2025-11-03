@@ -121,7 +121,7 @@ pub struct Call {
 pub struct Constant {
     pub name: String,
     pub value: Option<String>,
-    pub ty: Type,
+    pub ty: Option<Type>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -238,14 +238,17 @@ impl fmt::Display for Expr {
     }
 }
 
-// E.g. `arith.constant 5.0 : f32` or `tensor.empty() : tensor<4x16xf32>`
+// E.g. `arith.constant 5.0 : f32`, `tensor.empty() : tensor<4x16xf32>`, or `arith.constant false`
 impl fmt::Display for Constant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)?;
         if let Some(value) = &self.value {
             write!(f, " {}", value)?;
         }
-        write!(f, " : {}", self.ty)
+        if let Some(ty) = &self.ty {
+            write!(f, " : {}", ty)?;
+        }
+        Ok(())
     }
 }
 
