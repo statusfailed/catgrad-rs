@@ -83,8 +83,8 @@ pub struct TypedIdentifier {
 
 #[derive(Debug, Clone, PartialEq, Eq, From)]
 pub enum Statement {
-    Comment(String),
     Assignment(Assignment),
+    Custom(String),
 }
 
 /// An assignment of expression to variable name, e.g.
@@ -239,8 +239,8 @@ impl fmt::Display for TypedIdentifier {
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Statement::Comment(comment) => write!(f, "// {}", comment),
             Statement::Assignment(assignment) => assignment.fmt(f),
+            Statement::Custom(content) => write!(f, "{}", content),
         }
     }
 }
@@ -257,11 +257,14 @@ impl fmt::Display for Expr {
     }
 }
 
-// E.g. `arith.negf %v0 : tensor<3x1x4xf32>`
+// E.g. `arith.negf %v0 : tensor<3x1x4xf32>` or `arith.addf %v0, %v1 : tensor<3x1x4xf32>`
 impl fmt::Display for Elementwise {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.name)?;
-        for operand in &self.operands {
+        for (i, operand) in self.operands.iter().enumerate() {
+            if i > 0 {
+                write!(f, ",")?;
+            }
             write!(f, " {}", operand)?;
         }
         write!(f, " : {}", self.ty)

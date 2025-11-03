@@ -108,7 +108,7 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
         }
     };
 
-    let comment = grammar::Statement::Comment(format!("{:?}", ssa.op)); // pretty_op(&ssa.op)));
+    let comment = grammar::Statement::Custom(format!("// {:?}", ssa.op)); // pretty_op(&ssa.op)));
     statements.insert(0, comment);
     statements
 }
