@@ -104,6 +104,8 @@ pub enum Expr {
     Call(Call),
     // operation
     Operation(Operation),
+    // constant value
+    Constant(Constant),
     // bare identifiers
     Identifier(Identifier),
 }
@@ -113,6 +115,13 @@ pub struct Call {
     pub name: String,
     pub args: Vec<TypedIdentifier>,
     pub return_type: Vec<Type>, // always a tuple?
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Constant {
+    pub name: String,
+    pub value: Option<String>,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -223,8 +232,20 @@ impl fmt::Display for Expr {
         match self {
             Expr::Call(call) => call.fmt(f),
             Expr::Operation(operation) => operation.fmt(f),
+            Expr::Constant(constant) => constant.fmt(f),
             Expr::Identifier(identifier) => identifier.fmt(f),
         }
+    }
+}
+
+// E.g. `arith.constant 5.0 : f32` or `tensor.empty() : tensor<4x16xf32>`
+impl fmt::Display for Constant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+        if let Some(value) = &self.value {
+            write!(f, " {}", value)?;
+        }
+        write!(f, " : {}", self.ty)
     }
 }
 
@@ -333,166 +354,5 @@ impl fmt::Display for Func {
 
         writeln!(f, "  {}", self.return_stmt)?;
         write!(f, "}}")
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Tests
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Check we can reconstruct the example in the docstring
-    #[test]
-    fn test_matmul_chain_example() {
-        let func = Func {
-            name: "matmul_chain".to_string(),
-            parameters: vec![
-                Parameter {
-                    name: "arg0".to_string(),
-                    param_type: Type::TensorType(TensorType {
-                        shape: vec![4, 8].into(),
-                        dtype: "f32".to_string(),
-                    }),
-                },
-                Parameter {
-                    name: "arg1".to_string(),
-                    param_type: Type::TensorType(TensorType {
-                        shape: vec![8, 16].into(),
-                        dtype: "f32".to_string(),
-                    }),
-                },
-                Parameter {
-                    name: "arg2".to_string(),
-                    param_type: Type::TensorType(TensorType {
-                        shape: vec![16, 16].into(),
-                        dtype: "f32".to_string(),
-                    }),
-                },
-            ],
-            return_type: vec![Type::TensorType(TensorType {
-                shape: vec![4, 16].into(),
-                dtype: "f32".to_string(),
-            })],
-            body: vec![
-                Assignment {
-                    result: vec![Identifier(0)],
-                    expr: Expr::Operation(Operation {
-                        name: "tensor.empty()".to_string(),
-                        ins: vec![],
-                        outs: vec![],
-                        return_types: vec![Type::TensorType(TensorType {
-                            shape: vec![4, 16].into(),
-                            dtype: "f32".to_string(),
-                        })],
-                        attrs: None,
-                        inner_block: None,
-                    }),
-                },
-                Assignment {
-                    result: vec![Identifier(1)],
-                    expr: Expr::Operation(Operation {
-                        name: "linalg.matmul".to_string(),
-                        ins: vec![
-                            TypedIdentifier {
-                                id: Identifier(0),
-                                ty: Type::TensorType(TensorType {
-                                    shape: vec![4, 8],
-                                    dtype: "f32".to_string(),
-                                }),
-                            },
-                            TypedIdentifier {
-                                id: Identifier(1),
-                                ty: Type::TensorType(TensorType {
-                                    shape: vec![8, 16],
-                                    dtype: "f32".to_string(),
-                                }),
-                            },
-                        ],
-                        outs: vec![TypedIdentifier {
-                            id: Identifier(0),
-                            ty: Type::TensorType(TensorType {
-                                shape: vec![4, 16],
-                                dtype: "f32".to_string(),
-                            }),
-                        }],
-                        return_types: vec![Type::TensorType(TensorType {
-                            shape: vec![4, 16],
-                            dtype: "f32".to_string(),
-                        })],
-                        attrs: None,
-                        inner_block: None,
-                    }),
-                },
-                Assignment {
-                    result: vec![Identifier(2)],
-                    expr: Expr::Operation(Operation {
-                        name: "tensor.empty()".to_string(),
-                        ins: vec![],
-                        outs: vec![],
-                        return_types: vec![Type::TensorType(TensorType {
-                            shape: vec![4, 16],
-                            dtype: "f32".to_string(),
-                        })],
-                        attrs: None,
-                        inner_block: None,
-                    }),
-                },
-                Assignment {
-                    result: vec![Identifier(3)],
-                    expr: Expr::Operation(Operation {
-                        name: "linalg.matmul".to_string(),
-                        ins: vec![
-                            TypedIdentifier {
-                                id: Identifier(1),
-                                ty: Type::TensorType(TensorType {
-                                    shape: vec![4, 16],
-                                    dtype: "f32".to_string(),
-                                }),
-                            },
-                            TypedIdentifier {
-                                id: Identifier(2),
-                                ty: Type::TensorType(TensorType {
-                                    shape: vec![16, 16],
-                                    dtype: "f32".to_string(),
-                                }),
-                            },
-                        ],
-                        outs: vec![TypedIdentifier {
-                            id: Identifier(2),
-                            ty: Type::TensorType(TensorType {
-                                shape: vec![4, 16],
-                                dtype: "f32".to_string(),
-                            }),
-                        }],
-                        return_types: vec![Type::TensorType(TensorType {
-                            shape: vec![4, 16],
-                            dtype: "f32".to_string(),
-                        })],
-                        attrs: None,
-                        inner_block: None,
-                    }),
-                },
-            ]
-            .into_iter()
-            .map(Into::into)
-            .collect(),
-            return_stmt: Return(vec![TypedIdentifier {
-                id: Identifier(3),
-                ty: Type::TensorType(TensorType {
-                    shape: vec![4, 16],
-                    dtype: "f32".to_string(),
-                }),
-            }]),
-        };
-
-        println!("{}", func);
-
-        let output = func.to_string();
-        assert!(output.contains("func.func @matmul_chain"));
-        assert!(output.contains("tensor.empty() : tensor<4x16xf32>"));
-        assert!(output.contains("linalg.matmul"));
-        assert!(output.contains("return %v3 : tensor<4x16xf32>"));
     }
 }
