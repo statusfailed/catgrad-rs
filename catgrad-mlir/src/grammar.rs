@@ -106,6 +106,8 @@ pub enum Expr {
     Operation(Operation),
     // constant value
     Constant(Constant),
+    // elementwise operation
+    Elementwise(Elementwise),
     // bare identifiers
     Identifier(Identifier),
 }
@@ -122,6 +124,13 @@ pub struct Constant {
     pub name: String,
     pub value: Option<String>,
     pub ty: Option<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Elementwise {
+    pub name: String,
+    pub operands: Vec<Identifier>,
+    pub ty: Type,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -183,7 +192,16 @@ impl fmt::Display for Type {
 
 impl fmt::Display for TensorType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "tensor<{}x{}>", self.shape, self.dtype)
+        match &self.shape {
+            Shape::Shape(dims) if dims.is_empty() => {
+                // Scalar tensor: tensor<f32>
+                write!(f, "tensor<{}>", self.dtype)
+            }
+            _ => {
+                // Non-scalar tensor: tensor<4x8xf32>
+                write!(f, "tensor<{}x{}>", self.shape, self.dtype)
+            }
+        }
     }
 }
 
@@ -233,8 +251,20 @@ impl fmt::Display for Expr {
             Expr::Call(call) => call.fmt(f),
             Expr::Operation(operation) => operation.fmt(f),
             Expr::Constant(constant) => constant.fmt(f),
+            Expr::Elementwise(elementwise) => elementwise.fmt(f),
             Expr::Identifier(identifier) => identifier.fmt(f),
         }
+    }
+}
+
+// E.g. `arith.negf %v0 : tensor<3x1x4xf32>`
+impl fmt::Display for Elementwise {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)?;
+        for operand in &self.operands {
+            write!(f, " {}", operand)?;
+        }
+        write!(f, " : {}", self.ty)
     }
 }
 
@@ -271,12 +301,6 @@ impl fmt::Display for Call {
 
 impl fmt::Display for Operation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Special case for tensor.empty() - it uses : instead of ->
-        if self.name == "tensor.empty()" && !self.return_types.is_empty() {
-            write!(f, "{} : {}", self.name, self.return_types[0])?;
-            return Ok(());
-        }
-
         write!(f, "{}", self.name)?;
 
         // For linalg.generic, attributes go in curly braces right after the operation name

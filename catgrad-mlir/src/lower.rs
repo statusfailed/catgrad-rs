@@ -108,7 +108,7 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
         }
     };
 
-    let comment = grammar::Statement::Comment(format!("{}", pretty_op(&ssa.op)));
+    let comment = grammar::Statement::Comment(format!("{:?}", ssa.op)); // pretty_op(&ssa.op)));
     statements.insert(0, comment);
     statements
 }
@@ -124,8 +124,20 @@ fn as_floating(x: String) -> String {
 
 fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
     let (value, ty) = match lit {
-        lang::Literal::F32(x) => (as_floating(x.to_string()), Some(grammar::Type::F32)),
-        lang::Literal::U32(x) => (x.to_string(), Some(grammar::Type::U32)),
+        lang::Literal::F32(x) => (
+            as_floating(x.to_string()),
+            Some(grammar::Type::TensorType(grammar::TensorType {
+                shape: grammar::Shape::Shape(vec![]), // Empty shape = scalar tensor
+                dtype: "f32".to_string(),
+            })),
+        ),
+        lang::Literal::U32(x) => (
+            x.to_string(),
+            Some(grammar::Type::TensorType(grammar::TensorType {
+                shape: grammar::Shape::Shape(vec![]), // Empty shape = scalar tensor
+                dtype: "u32".to_string(),
+            })),
+        ),
         lang::Literal::Nat(x) => (x.to_string(), Some(grammar::Type::Index)),
         lang::Literal::Dtype(_) => ("false".to_string(), None), // No type for bool
     };
