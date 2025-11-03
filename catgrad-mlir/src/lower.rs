@@ -113,32 +113,41 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements
 }
 
+// This is an awful hack
+fn as_floating(x: String) -> String {
+    if x.contains(".") {
+        x.to_string()
+    } else {
+        format!("{x}.0")
+    }
+}
+
 fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
-    let (attr, ty) = match lit {
-        lang::Literal::F32(x) => (x.to_string(), grammar::Type::F32),
+    let (value, ty) = match lit {
+        lang::Literal::F32(x) => (as_floating(x.to_string()), grammar::Type::F32),
         lang::Literal::U32(x) => (x.to_string(), grammar::Type::U32),
         lang::Literal::Nat(x) => (x.to_string(), grammar::Type::Index),
         lang::Literal::Dtype(_) => ("false".to_string(), grammar::Type::Bool),
     };
 
-    grammar::Expr::Operation(grammar::Operation {
+    grammar::Expr::Constant(grammar::Constant {
         name: "arith.constant".to_string(),
-        ins: vec![],
-        outs: vec![],
-        return_types: vec![ty],
-        attrs: Some(attr),
-        inner_block: None,
+        value: Some(value),
+        ty: Some(ty),
     })
 }
 
 fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     use super::ops;
     match path.to_string().as_str() {
-        "cartesian.copy" => ops::copy(ssa),
         "tensor.shape" => ops::shape(ssa),
         "tensor.dtype" => vec![],
         "tensor.neg" => ops::neg(ssa),
         "tensor.broadcast" => ops::broadcast(ssa),
+        "tensor.cast" => ops::cast(ssa),
+        "tensor.add" => ops::add(ssa),
+        "tensor.div" => ops::div(ssa),
+        // "cartesian.copy" => ops::copy(ssa),
         _ => vec![],
     }
 }
