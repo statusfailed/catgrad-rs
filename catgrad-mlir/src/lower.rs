@@ -118,7 +118,7 @@ fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
         lang::Literal::F32(x) => (x.to_string(), grammar::Type::F32),
         lang::Literal::U32(x) => (x.to_string(), grammar::Type::U32),
         lang::Literal::Nat(x) => (x.to_string(), grammar::Type::Index),
-        lang::Literal::Dtype(_) => todo!(), // unit type? use bool?
+        lang::Literal::Dtype(_) => ("false".to_string(), grammar::Type::Bool),
     };
 
     grammar::Expr::Operation(grammar::Operation {
@@ -134,10 +134,11 @@ fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
 fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     use super::ops;
     match path.to_string().as_str() {
-        "cartesian.copy" => ops::render_copy(ssa),
-        "tensor.shape" => ops::render_shape(ssa),
+        "cartesian.copy" => ops::copy(ssa),
+        "tensor.shape" => ops::shape(ssa),
         "tensor.dtype" => vec![],
-        "tensor.neg" => ops::render_neg(ssa),
+        "tensor.neg" => ops::neg(ssa),
+        "tensor.broadcast" => ops::broadcast(ssa),
         _ => vec![],
     }
 }
