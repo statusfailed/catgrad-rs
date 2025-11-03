@@ -50,16 +50,10 @@ pub fn neg(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 
     vec![grammar::Assignment {
         result: vec![target_id],
-        expr: grammar::Expr::Operation(grammar::Operation {
+        expr: grammar::Expr::Elementwise(grammar::Elementwise {
             name: "arith.negf".to_string(),
-            ins: vec![grammar::TypedIdentifier {
-                id: source_id,
-                ty: source_type.clone(),
-            }],
-            outs: vec![],
-            return_types: vec![source_type],
-            attrs: None,
-            inner_block: None,
+            operands: vec![source_id],
+            ty: source_type,
         }),
     }]
 }
