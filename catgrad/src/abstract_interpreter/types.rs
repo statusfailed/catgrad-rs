@@ -26,7 +26,7 @@ pub type ResultValues<I> = std::result::Result<Vec<Value<I>>, InterpreterError>;
 ///
 /// In addition, functions like `pack`, `unpack`, etc. allow the interpreter to parametrise
 /// the behaviour of [`eval`](super::eval::eval).
-pub trait Interpreter: Clone {
+pub trait Interpreter: Clone + Debug {
     type Nat: Clone + Debug + PartialEq;
     type Dtype: Clone + Debug + PartialEq;
     type Shape: Clone + Debug + PartialEq;
