@@ -1,7 +1,7 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
-use ndarray::{ArrayD, Axis, IxDyn};
+use ndarray::{ArcArray, ArrayD, Axis, IxDyn};
 use std::fmt::Debug;
 
 #[derive(Clone, Debug)]
@@ -12,32 +12,32 @@ pub struct NdArrayBackend;
 // this has some unsafe methods (to_<dtype>), but panics here are always programmer errors.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TaggedArrayD {
-    F32(ArrayD<f32>),
-    U32(ArrayD<u32>),
+    F32(ArcArray<f32, IxDyn>),
+    U32(ArcArray<u32, IxDyn>),
 }
 
 impl TaggedArrayD {
     fn unwrap_f32(self) -> ArrayD<f32> {
         match self {
-            TaggedArrayD::F32(x) => x,
+            TaggedArrayD::F32(x) => x.into_owned(),
             _ => panic!("Not f32 array"),
         }
     }
 
     fn unwrap_u32(self) -> ArrayD<u32> {
         match self {
-            TaggedArrayD::U32(x) => x,
-            _ => panic!("Not f32 array"),
+            TaggedArrayD::U32(x) => x.into_owned(),
+            _ => panic!("Not u32 array"),
         }
     }
 }
 
 fn from_f32(x: ArrayD<f32>) -> TaggedTensor<NdArrayBackend> {
-    TaggedTensor::F32([TaggedArrayD::F32(x)])
+    TaggedTensor::F32([TaggedArrayD::F32(x.into_shared())])
 }
 
 fn from_u32(x: ArrayD<u32>) -> TaggedTensor<NdArrayBackend> {
-    TaggedTensor::U32([TaggedArrayD::U32(x)])
+    TaggedTensor::U32([TaggedArrayD::U32(x.into_shared())])
 }
 
 impl Backend for NdArrayBackend {
@@ -54,11 +54,11 @@ impl Backend for NdArrayBackend {
         let dims: Vec<usize> = shape.0;
         match target_dtype {
             Dtype::F32 => {
-                let arr = TaggedArrayD::F32(ArrayD::from_elem(IxDyn(&dims), 0.0f32));
+                let arr = TaggedArrayD::F32(ArcArray::from_elem(IxDyn(&dims), 0.0f32));
                 TaggedTensor::F32([arr])
             }
             Dtype::U32 => {
-                let arr = TaggedArrayD::U32(ArrayD::from_elem(IxDyn(&dims), 0u32));
+                let arr = TaggedArrayD::U32(ArcArray::from_elem(IxDyn(&dims), 0u32));
                 TaggedTensor::U32([arr])
             }
         }
