@@ -197,18 +197,18 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     mask * ninf
 }
 
-pub fn linear_no_bias(builder: &Builder, _in_dim: usize, _out_dim: usize, p: Path, x: Var) -> Var {
+pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
     let w = param(builder, &p.extend(["weight"]).unwrap());
 
     let dim0 = lit(builder, nat(0));
     let dim1 = lit(builder, nat(1));
     let w_t = transpose(builder, dim0, dim1, w);
 
-    // hack batch size
-    let sh = shape(builder, w_t.clone());
-    let [seq_len, hidden_dim] = unpack::<2>(builder, sh);
-    let batch_size = lit(builder, nat(1));
-    let sh = pack::<3>(builder, [batch_size, seq_len, hidden_dim]);
+    let sh = shape(builder, x.clone());
+    let [batch_size] = unpack::<1>(builder, sh);
+    let in_dim = lit(builder, nat(in_dim as u32));
+    let out_dim = lit(builder, nat(out_dim as u32));
+    let sh = pack::<3>(builder, [batch_size, in_dim, out_dim]);
 
     let w_t = reshape(builder, sh, w_t);
 
