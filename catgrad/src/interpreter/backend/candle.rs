@@ -352,7 +352,17 @@ impl CandleBackend {
     }
 
     fn reshape_tensor(tensor: Tensor, new_shape: Shape) -> Tensor {
-        tensor.reshape(&*new_shape.0).unwrap()
+        let dims_s = tensor.dims();
+        let dims_t = new_shape.0.clone();
+
+        // This is the special but very common case of [A, B] -> [1, A, B]
+        // Use unsqueeze() since it does not copy, whereas Candle reshape()
+        // copies when the source is not contiguous
+        if dims_t[0] == 1 && dims_t[1..] == *dims_s {
+            tensor.unsqueeze(0).unwrap()
+        } else {
+            tensor.reshape(&*new_shape.0).unwrap()
+        }
     }
 
     fn transpose_tensor(tensor: Tensor, dim0: usize, dim1: usize) -> Tensor {
@@ -508,14 +518,21 @@ impl CandleBackend {
             let rhs_n = rhs_matrix_dims[1];
 
             // Reshape to (batch_size, m, k) and (batch_size, k, n)
-            let lhs_reshaped = lhs.reshape(&[batch_size, lhs_m, lhs_k]).unwrap();
-            let rhs_reshaped = rhs.reshape(&[batch_size, rhs_k, rhs_n]).unwrap();
+            // Avoid unnecessary reshaping if already batched
+            let (lhs_reshaped, rhs_reshaped) = if lhs_dims.len() > 3 {
+                (
+                    lhs.reshape(&[batch_size, lhs_m, lhs_k]).unwrap(),
+                    rhs.reshape(&[batch_size, rhs_k, rhs_n]).unwrap(),
+                )
+            } else {
+                (lhs.clone(), rhs)
+            };
 
             // Perform batched matrix multiplication
             let mut results = Vec::new();
             for b in 0..batch_size {
-                let lhs_batch = lhs_reshaped.get(b).unwrap();
-                let rhs_batch = rhs_reshaped.get(b).unwrap();
+                let lhs_batch = lhs_reshaped.narrow(0, b, 1).unwrap();
+                let rhs_batch = rhs_reshaped.narrow(0, b, 1).unwrap();
                 let batch_result = lhs_batch.matmul(&rhs_batch).unwrap();
                 results.push(batch_result);
             }
