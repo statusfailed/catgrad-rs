@@ -59,6 +59,7 @@ pub struct Config {
     #[serde(alias = "n_head")]
     pub num_attention_heads: usize,
     pub num_key_value_heads: usize,
+    pub attention_bias: bool,
     pub head_dim: usize,
     pub decoder_sparse_step: usize,
     pub num_experts_per_tok: usize,
@@ -83,6 +84,8 @@ pub struct Config {
     pub residual_multiplier: f32,
     pub logits_scaling: f32,
     pub rope_theta: f32,
+    #[serde(default = "default_partial_rotary_factor")]
+    pub partial_rotary_factor: f32,
     pub local_rope_theta: f32,
     pub global_rope_theta: f32,
     #[serde(alias = "_sliding_window_pattern")]
@@ -97,6 +100,7 @@ pub struct Config {
     pub layer_norm_eps: f32,
     pub rms_norm_eps: f32,
     pub tie_word_embeddings: bool,
+    pub use_qk_norm: bool,
     pub eos_token_id: Option<EosTokenId>,
     pub vocab_size: usize,
     pub model_type: String,
@@ -105,6 +109,10 @@ pub struct Config {
     // This is set by the app to determine whether to use f16 or f32 for weights at runtime
     #[serde(skip)]
     pub dtype: Dtype,
+}
+
+fn default_partial_rotary_factor() -> f32 {
+    1.0
 }
 
 impl Config {
@@ -179,7 +187,12 @@ impl Cache {
                 positions,
                 config.get_head_dim(),
             ),
-            _ => rope_tables(builder, config.rope_theta, positions, config.get_head_dim()),
+            _ => rope_tables(
+                builder,
+                config.rope_theta,
+                positions,
+                ((config.get_head_dim() as f32) * config.partial_rotary_factor) as usize,
+            ),
         };
 
         let kv_cache_type = NdArrayType::new(Shape(vec![]), Dtype::F32);
