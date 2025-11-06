@@ -60,7 +60,7 @@ pub fn get_mlir_returns(term: &Term) -> (grammar::Return, Vec<grammar::Type>) {
 
 pub fn get_mlir_body(term: Term) -> Vec<grammar::Statement> {
     let ops = ssa(term.to_strict()).expect("FIXME: unable to decompose input term");
-    ops.iter().map(to_statements).flatten().collect()
+    ops.iter().flat_map(to_statements).collect()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,10 +84,7 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
 
     let mut statements = match &ssa.op {
         // Declarations lower to explicit snippets
-        lang::Operation::Declaration(path) => lower_operation(path, ssa)
-            .into_iter()
-            .map(Into::into) // Assignment → Statement
-            .collect(),
+        lang::Operation::Declaration(path) => lower_operation(path, ssa),
 
         // Definitions always lower to *func* calls.
         lang::Operation::Definition(path) => {
@@ -102,72 +99,81 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
 
             vec![grammar::Assignment { result, expr }.into()]
         }
-        lang::Operation::Literal(lit) => {
-            let expr = literal_to_operation(&lit);
-            vec![grammar::Assignment { result, expr }.into()]
-        }
+        lang::Operation::Literal(lit) => literal_to_statements(lit, result),
     };
 
-    let comment = grammar::Statement::Custom(format!("// {:?}", ssa.op)); // pretty_op(&ssa.op)));
+    let comment = grammar::Statement::Custom(format!("// {:?}", ssa.op));
     statements.insert(0, comment);
     statements
 }
 
 // This is an awful hack
 fn as_floating(x: String) -> String {
-    if x.contains(".") {
-        x.to_string()
-    } else {
-        format!("{x}.0")
+    if x.contains(".") { x } else { format!("{x}.0") }
+}
+
+fn literal_to_statements(
+    lit: &lang::Literal,
+    result: Vec<grammar::Identifier>,
+) -> Vec<grammar::Statement> {
+    match lit {
+        lang::Literal::F32(x) => make_scalar_tensor_statements(
+            result[0].clone(),
+            as_floating(x.to_string()),
+            "f32".to_string(),
+        ),
+        lang::Literal::U32(x) => {
+            make_scalar_tensor_statements(result[0].clone(), x.to_string(), "u32".to_string())
+        }
+        lang::Literal::Nat(x) => {
+            let expr = grammar::Expr::Constant(grammar::Constant {
+                name: "arith.constant".to_string(),
+                value: Some(x.to_string()),
+                ty: Some(grammar::Type::Index),
+            });
+            vec![grammar::Assignment { result, expr }.into()]
+        }
+        lang::Literal::Dtype(_) => {
+            let expr = grammar::Expr::Constant(grammar::Constant {
+                name: "arith.constant".to_string(),
+                value: Some("false".to_string()),
+                ty: None,
+            });
+            vec![grammar::Assignment { result, expr }.into()]
+        }
     }
 }
 
-fn literal_to_operation(lit: &lang::Literal) -> grammar::Expr {
-    let (value, ty) = match lit {
-        lang::Literal::F32(x) => (
-            as_floating(x.to_string()),
-            Some(grammar::Type::TensorType(grammar::TensorType {
-                shape: grammar::Shape::Shape(vec![]), // Empty shape = scalar tensor
-                dtype: "f32".to_string(),
-            })),
-        ),
-        lang::Literal::U32(x) => (
-            x.to_string(),
-            Some(grammar::Type::TensorType(grammar::TensorType {
-                shape: grammar::Shape::Shape(vec![]), // Empty shape = scalar tensor
-                dtype: "u32".to_string(),
-            })),
-        ),
-        lang::Literal::Nat(x) => (x.to_string(), Some(grammar::Type::Index)),
-        lang::Literal::Dtype(_) => ("false".to_string(), None), // No type for bool
-    };
+fn make_scalar_tensor_statements(
+    target_id: grammar::Identifier,
+    value: String,
+    dtype: String,
+) -> Vec<grammar::Statement> {
+    let scalar_constant = grammar::Statement::Custom(format!(
+        "  %v{}_scalar = arith.constant {} : {}",
+        target_id.0, value, dtype
+    ));
 
-    grammar::Expr::Constant(grammar::Constant {
-        name: "arith.constant".to_string(),
-        value: Some(value),
-        ty,
-    })
+    let tensor_from_elements = grammar::Statement::Custom(format!(
+        "  {} = tensor.from_elements %v{}_scalar : tensor<{}>",
+        target_id, target_id.0, dtype
+    ));
+
+    vec![scalar_constant, tensor_from_elements]
 }
 
-fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     use super::ops;
     match path.to_string().as_str() {
-        "tensor.shape" => ops::shape(ssa),
+        "tensor.shape" => ops::shape(ssa).into_iter().map(Into::into).collect(),
         "tensor.dtype" => vec![],
-        "tensor.neg" => ops::neg(ssa),
+        "tensor.neg" => ops::neg(ssa).into_iter().map(Into::into).collect(),
         "tensor.broadcast" => ops::broadcast(ssa),
-        "tensor.cast" => ops::cast(ssa),
-        "tensor.add" => ops::add(ssa),
-        "tensor.div" => ops::div(ssa),
-        // "cartesian.copy" => ops::copy(ssa),
+        "tensor.cast" => ops::cast(ssa).into_iter().map(Into::into).collect(),
+        "tensor.add" => ops::add(ssa).into_iter().map(Into::into).collect(),
+        "tensor.pow" => ops::pow(ssa).into_iter().map(Into::into).collect(),
+        "tensor.div" => ops::div(ssa).into_iter().map(Into::into).collect(),
+        // "cartesian.copy" => ops::copy(ssa).into_iter().map(Into::into).collect(),,
         _ => vec![],
-    }
-}
-
-fn pretty_op(op: &lang::Operation) -> String {
-    match op {
-        lang::Operation::Declaration(path) => path.to_string(),
-        lang::Operation::Definition(path) => path.to_string(),
-        lang::Operation::Literal(lit) => format!("{:?}", lit),
     }
 }

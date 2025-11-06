@@ -1,6 +1,4 @@
-use catgrad::category::lang;
 use catgrad::prelude::*;
-use open_hypergraphs::lax::*;
 
 use super::grammar;
 use super::lower;
@@ -23,10 +21,19 @@ pub fn lang_to_mlir(
     params: &typecheck::Parameters,
     mut typed_term: TypedTerm,
 ) -> Vec<grammar::Func> {
-    // Verify no free Dtype variables (which cannot be compiled in MLIR)
+    let term = typed_term.term;
+
+    // Inline all operations
+    // TODO: use catgrad's inline; refactor lang to use Def?
+    let defs = env
+        .definitions
+        .iter()
+        .map(|(path, typed_term)| (path.clone(), typed_term.term.clone()))
+        .collect();
+    let term = crate::inline::inline(defs, term);
 
     // Forget extraneous Copy operations
-    typed_term.term = open_hypergraphs::lax::var::forget::forget_monogamous(&typed_term.term);
+    typed_term.term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
 
     // Typecheck `term` and get an open hypergraph annotated with *normalized* types
     let node_annotations: Vec<_> = typecheck::check(env, params, typed_term.clone())
@@ -35,16 +42,16 @@ pub fn lang_to_mlir(
         .map(typecheck::normalize)
         .collect();
 
-    // Verify there were no non-constant Dtypes in the entrypoint term's node annotations
+    // Verify no free Dtype variables (which cannot be compiled in MLIR) by checking there were no
+    // non-constant Dtypes in the entrypoint term's node annotations
     // TODO: replace assertion with a Result
     assert!(node_annotations.iter().all(is_dtype_monomorphic));
 
     // Create a term with normalized types for node labels
-    let checked_term = typed_term
-        .term
-        .clone()
-        .with_nodes(|_| node_annotations)
-        .unwrap();
+    let checked_term = typed_term.term.with_nodes(|_| node_annotations).unwrap();
+
+    // Map type-level ops to identities at runtime
+    let checked_term = crate::functor::forget_identity_casts(&checked_term);
 
     // Forget all copy ops for MLIR (it's harder to deal with)
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);

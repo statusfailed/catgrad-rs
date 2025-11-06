@@ -166,7 +166,7 @@ fn comma_separated<T: ToString>(items: &[T]) -> String {
 }
 
 // Render a list of AnnotatedIdentifier as `{id_0}, {id_1}, ... : {ty_0}, {ty_1}, ...`
-fn render_annotated_identifiers(ids: &Vec<TypedIdentifier>) -> String {
+fn render_annotated_identifiers(ids: &[TypedIdentifier]) -> String {
     let id_names = comma_separated(&ids.iter().map(|v| &v.id).collect::<Vec<_>>());
     let id_types = comma_separated(&ids.iter().map(|v| &v.ty).collect::<Vec<_>>());
     format!("{} : {}", id_names, id_types)
