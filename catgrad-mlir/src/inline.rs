@@ -1,6 +1,3 @@
-use open_hypergraphs::lax::functor::*;
-use open_hypergraphs::lax::*;
-
 use catgrad::category::lang::Operation;
 use catgrad::prelude::*;
 
@@ -10,7 +7,6 @@ use open_hypergraphs::lax::{
 };
 
 use std::collections::HashMap;
-use std::hash::Hash;
 
 #[derive(Clone)]
 pub struct Inline<O> {
