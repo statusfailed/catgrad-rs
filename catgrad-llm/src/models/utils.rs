@@ -245,6 +245,7 @@ pub trait ModelBuilder {
 
 use super::deepseek::Model as DeepSeekV3Model;
 use super::gemma::Model as GemmaModel;
+use super::glm4::Model as GLM4Model;
 use super::gpt_oss::Model as GPTOssModel;
 use super::gpt2::Model as GPT2Model;
 use super::granite::Model as GraniteModel;
@@ -270,6 +271,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GraniteMoeHybridForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GptOssForCausalLM" => Ok(Box::new(GPTOssModel {})),
+        "Glm4MoeForCausalLM" => Ok(Box::new(GLM4Model {})),
         "ModernBertDecoderForCausalLM" => Ok(Box::new(ModernBertDecoderModel {})),
         "Phi3ForCausalLM" => Ok(Box::new(PhiModel {})),
         "SmolLM3ForCausalLM" => Ok(Box::new(SmolLM3Model {})),
