@@ -165,11 +165,11 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 }
 
 pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
-    let d = lit(builder, nat(chunk_size as u32));
-    let ddim = lit(builder, nat(dim as u32));
+    let d = chunk_size.to_var(builder);
+    let ddim = (dim as u32).to_var(builder);
     let mut outputs = vec![];
     for i in 0..chunks {
-        let id = lit(builder, nat(i as u32)) * d.clone();
+        let id = i.to_var(builder) * d.clone();
         let s = slice(builder, ddim.clone(), id, d.clone(), x.clone());
         outputs.push(s);
     }
@@ -182,7 +182,7 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     let sh = pack::<2>(builder, [size.clone(), size.clone()]);
     let i = broadcast(builder, i, sh.clone());
 
-    let one = lit(builder, nat(1));
+    let one = 1.to_var(builder);
     let shr = pack::<2>(builder, [size.clone(), one]);
     let j = arange(builder, size);
     let j = reshape(builder, shr, j);
@@ -200,14 +200,14 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
 pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
     let w = param(builder, &p.extend(["weight"]).unwrap());
 
-    let dim0 = lit(builder, nat(0));
-    let dim1 = lit(builder, nat(1));
+    let dim0 = 0.to_var(builder);
+    let dim1 = 1.to_var(builder);
     let w_t = transpose(builder, dim0, dim1, w);
 
     let sh = shape(builder, x.clone());
     let [batch_size] = unpack::<1>(builder, sh);
-    let in_dim = lit(builder, nat(in_dim as u32));
-    let out_dim = lit(builder, nat(out_dim as u32));
+    let in_dim = in_dim.to_var(builder);
+    let out_dim = out_dim.to_var(builder);
     let sh = pack::<3>(builder, [batch_size, in_dim, out_dim]);
 
     let w_t = reshape(builder, sh, w_t);
@@ -280,7 +280,7 @@ pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
     let x_shape = shape(builder, x.clone());
     let mut s = unpack::<N>(builder, x_shape).to_vec();
-    s.insert(dim, lit(builder, nat(1)));
+    s.insert(dim, 1.to_var(builder));
     let new_shape = pack::<M>(builder, s.try_into().unwrap());
     reshape(builder, new_shape, x)
 }

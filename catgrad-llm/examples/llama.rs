@@ -155,7 +155,7 @@ pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
 
     let x = broadcast(builder, x, sh);
 
-    let rnkv = num_kv_heads * lit(builder, nat(rep as u32));
+    let rnkv = num_kv_heads * rep.to_var(builder);
     let sh = shape!(builder, b, rnkv, s, head_dim);
     reshape(builder, sh, x)
 }
@@ -270,7 +270,7 @@ impl LlamaModel {
             builder,
             &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
         );
-        let dim = lit(builder, nat(0));
+        let dim = 0.to_var(builder);
         let te = index(builder, wte, dim, x);
 
         unsqueeze::<2, 3>(builder, 0, te)
@@ -471,7 +471,7 @@ impl GPT2Model {
 
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
-        let dim = lit(builder, nat(0));
+        let dim = 0.to_var(builder);
         let te = index(builder, wte, dim.clone(), x);
 
         // add back batch size dim
