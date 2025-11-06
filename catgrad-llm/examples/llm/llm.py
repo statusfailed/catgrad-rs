@@ -46,7 +46,7 @@ if __name__ == "__main__":
     model.generation_config.top_p = None
     model.generation_config.top_k = None
 
-    inputs = tokenizer(prompt, return_tensors="pt")
+    inputs = tokenizer(prompt, return_token_type_ids=False, return_tensors="pt")
     logits = model.generate(**inputs, max_new_tokens=args.seq_len, do_sample=False)
     output = tokenizer.decode(logits[0])
 
