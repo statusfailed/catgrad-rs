@@ -33,7 +33,7 @@ pub mod prelude;
 #[macro_export]
 macro_rules! shape {
     ($b:expr, $($x:expr),+ $(,)?) => {{
-        let dims = [ $( $crate::prelude::IntoNatVar::to_var((&$x), $b) ),+ ];
+        let dims = [ $( $crate::prelude::IntoNatVar::to_nat((&$x), $b) ),+ ];
         pack($b, dims)
     }};
 }
