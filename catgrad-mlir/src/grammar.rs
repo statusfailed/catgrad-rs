@@ -108,6 +108,8 @@ pub enum Expr {
     Constant(Constant),
     // elementwise operation
     Elementwise(Elementwise),
+    // custom MLIR expression
+    Custom(String),
     // bare identifiers
     Identifier(Identifier),
 }
@@ -252,6 +254,7 @@ impl fmt::Display for Expr {
             Expr::Operation(operation) => operation.fmt(f),
             Expr::Constant(constant) => constant.fmt(f),
             Expr::Elementwise(elementwise) => elementwise.fmt(f),
+            Expr::Custom(content) => write!(f, "{}", content),
             Expr::Identifier(identifier) => identifier.fmt(f),
         }
     }
