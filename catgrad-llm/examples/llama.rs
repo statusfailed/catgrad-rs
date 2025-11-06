@@ -57,9 +57,16 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
     let (interpreter_params, parameters, config, tokenizer) =
         load_model(&args.model_name, &backend)?;
 
+    let encoding = tokenizer
+        .encode(args.prompt.clone(), true)
+        .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
+
+    let mut token_ids = encoding.get_ids().to_vec();
+
     let model: Box<dyn Module<1, 1>> = if config.architectures[0].as_str() == "LlamaForCausalLM" {
         Box::new(LlamaModel {
             config: config.clone(),
+            max_sequence_length: args.seq_len + token_ids.len(),
         })
     } else {
         Box::new(GPT2Model {
@@ -80,12 +87,6 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
         typecheck::check(&env, &parameters, typed_term.clone())
             .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
     }
-
-    let encoding = tokenizer
-        .encode(args.prompt.clone(), true)
-        .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
-
-    let mut token_ids = encoding.get_ids().to_vec();
 
     print!("{}", args.prompt);
     let start_gen = std::time::Instant::now();
@@ -256,8 +257,27 @@ fn llm_type() -> ([Type; 1], [Type; 1]) {
     ([t_x], [t_y])
 }
 
+struct Cache {
+    pub cos: Var,
+    pub sin: Var,
+}
+
+impl Cache {
+    pub fn init(builder: &Builder, config: &Config, positions: usize) -> Self {
+        let (cos, sin) = rope_tables(
+            builder,
+            config.rope_theta,
+            positions.to_nat(builder),
+            config.get_head_dim(),
+        );
+
+        Self { cos, sin }
+    }
+}
+
 pub struct LlamaModel {
     config: Config,
+    max_sequence_length: usize,
 }
 
 impl LlamaModel {
@@ -276,26 +296,26 @@ impl LlamaModel {
         unsqueeze::<2, 3>(builder, 0, te)
     }
 
-    fn mlp(&self, builder: &Builder, config: &Config, p: Path, x: Var) -> Var {
+    fn mlp(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let gate = linear_no_bias(
             builder,
-            config.hidden_size,
-            config.intermediate_size,
+            self.config.hidden_size,
+            self.config.intermediate_size,
             p.extend(["gate_proj"]).unwrap(),
             x.clone(),
         );
         let up = linear_no_bias(
             builder,
-            config.hidden_size,
-            config.intermediate_size,
+            self.config.hidden_size,
+            self.config.intermediate_size,
             p.extend(["up_proj"]).unwrap(),
             x,
         );
         let x = nn::silu(builder, gate) * up;
         linear_no_bias(
             builder,
-            config.intermediate_size,
-            config.hidden_size,
+            self.config.intermediate_size,
+            self.config.hidden_size,
             p.extend(["down_proj"]).unwrap(),
             x,
         )
@@ -305,15 +325,15 @@ impl LlamaModel {
         &self,
         builder: &Builder,
         _layer_id: usize,
-        config: &Config,
+        cache: &mut Cache,
         pos: usize,
         p: Path,
         x: Var,
     ) -> Var {
-        let dim = config.hidden_size;
-        let num_heads = config.num_attention_heads;
-        let head_dim = config.hidden_size / num_heads;
-        let num_kv_heads = config.num_key_value_heads;
+        let dim = self.config.hidden_size;
+        let num_heads = self.config.num_attention_heads;
+        let head_dim = self.config.hidden_size / num_heads;
+        let num_kv_heads = self.config.num_key_value_heads;
         let rep = num_heads / num_kv_heads;
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
@@ -332,6 +352,7 @@ impl LlamaModel {
 
         let sh = shape!(builder, b, s, num_kv_heads, head_dim);
         let k = reshape(builder, sh.clone(), k);
+
         let v = reshape(builder, sh, v);
         let sh = shape!(builder, b, s, num_heads, head_dim);
         let q = reshape(builder, sh, q);
@@ -343,8 +364,22 @@ impl LlamaModel {
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
 
-        let q = rope(builder, config.rope_theta, pos, s.clone(), head_dim, q);
-        let k = rope(builder, config.rope_theta, pos, s.clone(), head_dim, k);
+        let q = apply_rope_embedding(
+            builder,
+            pos.to_nat(builder),
+            head_dim,
+            cache.cos.clone(),
+            cache.sin.clone(),
+            q,
+        );
+        let k = apply_rope_embedding(
+            builder,
+            pos.to_nat(builder),
+            head_dim,
+            cache.cos.clone(),
+            cache.sin.clone(),
+            k,
+        );
 
         let tk = transpose(builder, 2, 3, k);
         let attn = matmul(builder, q, tk);
@@ -370,7 +405,7 @@ impl LlamaModel {
         &self,
         builder: &Builder,
         _layer_id: usize,
-        config: &Config,
+        cache: &mut Cache,
         pos: usize,
         p: Path,
         x: Var,
@@ -385,7 +420,7 @@ impl LlamaModel {
         let x = self.attention(
             builder,
             _layer_id,
-            &self.config,
+            cache,
             pos,
             p.extend(["self_attn"]).unwrap(),
             x,
@@ -398,7 +433,7 @@ impl LlamaModel {
             p.extend(["post_attention_layernorm"]).unwrap(),
             x,
         );
-        let x = self.mlp(builder, config, p.extend(["mlp"]).unwrap(), x);
+        let x = self.mlp(builder, p.extend(["mlp"]).unwrap(), x);
         x + res
     }
 }
@@ -411,7 +446,7 @@ impl Module<1, 1> for LlamaModel {
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
         let root = self.path();
 
-        // self.info();
+        let mut cache = Cache::init(builder, &self.config, self.max_sequence_length);
 
         let mut x = self.embeddings(builder, root.clone(), x);
 
@@ -419,7 +454,7 @@ impl Module<1, 1> for LlamaModel {
             x = self.layer(
                 builder,
                 i,
-                &self.config,
+                &mut cache,
                 0,
                 root.extend(["model", "layers", &i.to_string()]).unwrap(),
                 x,
@@ -516,23 +551,16 @@ impl GPT2Model {
         self.gpt_linear(builder, dim * 4, dim, p.extend(["c_proj"]).unwrap(), x)
     }
 
-    fn attention(
-        &self,
-        builder: &Builder,
-        _layer_id: usize,
-        config: &Config,
-        p: Path,
-        x: Var,
-    ) -> Var {
-        let dim = config.hidden_size;
-        let num_heads = config.num_attention_heads;
+    fn attention(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
+        let dim = self.config.hidden_size;
+        let num_heads = self.config.num_attention_heads;
         let head_dim = dim / num_heads;
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
 
         let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.extend(["c_attn"]).unwrap(), x);
 
-        let a = nn::chunk(builder, 2, 3, config.hidden_size, c_attn);
+        let a = nn::chunk(builder, 2, 3, self.config.hidden_size, c_attn);
         let q = a[0].clone();
         let k = a[1].clone();
         let v = a[2].clone();
@@ -579,7 +607,7 @@ impl GPT2Model {
         // layers
         let res = x.clone();
         let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_1, x);
-        let x = self.attention(builder, _layer_id, &self.config, attn, x);
+        let x = self.attention(builder, _layer_id, attn, x);
         let x = res + x;
 
         let res = x.clone();
