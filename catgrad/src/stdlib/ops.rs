@@ -9,15 +9,15 @@ pub use ops::{
 };
 
 pub fn cast(builder: &Builder, x: Var, d: impl IntoDtypeVar) -> Var {
-    ops::cast(builder, x, d.to_var(builder))
+    ops::cast(builder, x, d.to_nat(builder))
 }
 
 pub fn arange(builder: &Builder, end: impl IntoNatVar) -> Var {
-    ops::arange(builder, end.to_var(builder))
+    ops::arange(builder, end.to_nat(builder))
 }
 
 pub fn concat(builder: &Builder, dim: impl IntoNatVar, x: Var, y: Var) -> Var {
-    ops::concat(builder, dim.to_var(builder), x, y)
+    ops::concat(builder, dim.to_nat(builder), x, y)
 }
 
 pub fn slice(
@@ -29,9 +29,9 @@ pub fn slice(
 ) -> Var {
     ops::slice(
         builder,
-        dim.to_var(builder),
-        start.to_var(builder),
-        len.to_var(builder),
+        dim.to_nat(builder),
+        start.to_nat(builder),
+        len.to_nat(builder),
         x,
     )
 }
@@ -62,36 +62,36 @@ pub fn inverse(builder: &Builder, x: Var) -> Var {
 
 /// Transpose a tensor using either symbolic (Var) or static (u32) dims
 pub fn transpose(builder: &Builder, a: impl IntoNatVar, b: impl IntoNatVar, x: Var) -> Var {
-    ops::transpose(builder, a.to_var(builder), b.to_var(builder), x)
+    ops::transpose(builder, a.to_nat(builder), b.to_nat(builder), x)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Types convertible to a Var representing a Nat
 
 pub trait IntoNatVar {
-    fn to_var(&self, builder: &Builder) -> Var;
+    fn to_nat(&self, builder: &Builder) -> Var;
 }
 
 impl IntoNatVar for Var {
-    fn to_var(&self, _builder: &Builder) -> Var {
+    fn to_nat(&self, _builder: &Builder) -> Var {
         self.clone()
     }
 }
 
 impl IntoNatVar for u32 {
-    fn to_var(&self, builder: &Builder) -> Var {
+    fn to_nat(&self, builder: &Builder) -> Var {
         lit(builder, nat(*self))
     }
 }
 
 impl IntoNatVar for i32 {
-    fn to_var(&self, builder: &Builder) -> Var {
+    fn to_nat(&self, builder: &Builder) -> Var {
         lit(builder, nat((*self).try_into().unwrap()))
     }
 }
 
 impl IntoNatVar for usize {
-    fn to_var(&self, builder: &Builder) -> Var {
+    fn to_nat(&self, builder: &Builder) -> Var {
         lit(builder, nat((*self).try_into().unwrap()))
     }
 }
@@ -100,17 +100,17 @@ impl IntoNatVar for usize {
 // Types convertible to a Var representing a Dtype
 
 pub trait IntoDtypeVar {
-    fn to_var(&self, builder: &Builder) -> Var;
+    fn to_nat(&self, builder: &Builder) -> Var;
 }
 
 impl IntoDtypeVar for crate::category::core::Dtype {
-    fn to_var(&self, builder: &Builder) -> Var {
+    fn to_nat(&self, builder: &Builder) -> Var {
         dtype_constant(builder, crate::category::core::Dtype::F32)
     }
 }
 
 impl IntoDtypeVar for Var {
-    fn to_var(&self, _builder: &Builder) -> Var {
+    fn to_nat(&self, _builder: &Builder) -> Var {
         self.clone()
     }
 }
