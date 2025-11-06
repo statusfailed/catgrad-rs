@@ -5,16 +5,17 @@ use catgrad_legacy::{
     core::{Dtype, NdArrayType, Shape, Var},
 };
 
+use serde::Deserialize;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum EosTokenId {
     Single(i32),
     Multiple(Vec<i32>),
 }
 
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct Llama3RopeScaling {
     pub factor: f32,
     pub low_freq_factor: f32,
@@ -23,7 +24,7 @@ pub struct Llama3RopeScaling {
     pub rope_type: String,
 }
 
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct YarnRopeScaling {
     pub factor: f32,
@@ -37,7 +38,7 @@ pub struct YarnRopeScaling {
     pub rope_type: String,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(untagged)]
 pub enum RopeScaling {
     #[serde(alias = "llama3")]
@@ -48,7 +49,7 @@ pub enum RopeScaling {
 
 // This configuration contains the union of relevant fields from all supported models.
 // Models ignore fields they don't need. The aliases are for GPT-2 alternative names.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default)]
 pub struct Config {
     #[serde(alias = "n_embd")]
