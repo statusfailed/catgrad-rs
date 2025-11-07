@@ -100,7 +100,7 @@ impl GPT2Model {
         self.gpt_linear(builder, dim, dim, p.extend(["c_proj"]).unwrap(), attn)
     }
 
-    fn layer(&self, builder: &Builder, _layer_id: usize, p: Path, x: Var) -> Var {
+    fn layer(&self, builder: &Builder, layer_id: usize, p: Path, x: Var) -> Var {
         // Params
         let ln_1 = p.extend(["ln_1"]).unwrap();
         let attn = p.extend(["attn"]).unwrap();
@@ -110,7 +110,7 @@ impl GPT2Model {
         // layers
         let res = x.clone();
         let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_1, x);
-        let x = self.attention(builder, _layer_id, attn, x);
+        let x = self.attention(builder, layer_id, attn, x);
         let x = res + x;
 
         let res = x.clone();

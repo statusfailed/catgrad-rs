@@ -129,7 +129,7 @@ impl LlamaModel {
     fn layer(
         &self,
         builder: &Builder,
-        _layer_id: usize,
+        layer_id: usize,
         cache: &mut Cache,
         pos: usize,
         p: Path,
@@ -144,7 +144,7 @@ impl LlamaModel {
         );
         let x = self.attention(
             builder,
-            _layer_id,
+            layer_id,
             cache,
             pos,
             p.extend(["self_attn"]).unwrap(),

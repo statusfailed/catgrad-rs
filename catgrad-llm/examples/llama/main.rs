@@ -13,6 +13,7 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use tokenizers::tokenizer::Tokenizer;
 
+mod gemma3;
 mod gpt2;
 mod helpers;
 mod llama;
@@ -66,15 +67,19 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
 
     let mut token_ids = encoding.get_ids().to_vec();
 
-    let model: Box<dyn Module<1, 1>> = if config.architectures[0].as_str() == "LlamaForCausalLM" {
-        Box::new(llama::LlamaModel {
+    let model: Box<dyn Module<1, 1>> = match config.architectures[0].as_str() {
+        "LlamaForCausalLM" => Box::new(llama::LlamaModel {
             config: config.clone(),
             max_sequence_length: args.seq_len + token_ids.len(),
-        })
-    } else {
-        Box::new(gpt2::GPT2Model {
+        }),
+        "Gemma3ForCausalLM" => Box::new(gemma3::Gemma3Model {
             config: config.clone(),
-        })
+            max_sequence_length: args.seq_len + token_ids.len(),
+        }),
+        "GPT2LMHeadModel" => Box::new(gpt2::GPT2Model {
+            config: config.clone(),
+        }),
+        _ => panic!("Unsupported model architecture {}", config.architectures[0]),
     };
 
     // Get the model as a typed term

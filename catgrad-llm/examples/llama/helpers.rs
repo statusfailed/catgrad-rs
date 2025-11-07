@@ -78,12 +78,11 @@ pub fn apply_rope_embedding(
 }
 
 /// Apply RoPE (Rotary Positional Embedding) to the input tensor by calculating the tables
-#[allow(dead_code)]
 pub fn rope(
     builder: &Builder,
     theta: f32,
     pos: impl IntoNatVar,
-    seq_len: impl IntoNatVar,
+    seq_len: &impl IntoNatVar,
     head_dim: usize,
     x: Var,
 ) -> Var {
