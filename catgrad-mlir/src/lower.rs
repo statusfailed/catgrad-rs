@@ -165,6 +165,7 @@ fn make_scalar_tensor_statements(
 fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     use super::ops;
     match path.to_string().as_str() {
+        "cartesian.copy" => panic!("Copy ops must be forgotten before MLIR"),
         "tensor.shape" => ops::shape(ssa).into_iter().map(Into::into).collect(),
         "tensor.dtype" => vec![],
         "tensor.neg" => ops::neg(ssa).into_iter().map(Into::into).collect(),
@@ -173,7 +174,6 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.add" => ops::add(ssa).into_iter().map(Into::into).collect(),
         "tensor.pow" => ops::pow(ssa).into_iter().map(Into::into).collect(),
         "tensor.div" => ops::div(ssa).into_iter().map(Into::into).collect(),
-        // "cartesian.copy" => ops::copy(ssa).into_iter().map(Into::into).collect(),,
         _ => vec![],
     }
 }
