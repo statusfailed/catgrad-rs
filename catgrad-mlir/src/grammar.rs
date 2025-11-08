@@ -114,6 +114,18 @@ pub enum Expr {
     Identifier(Identifier),
 }
 
+impl Expr {
+    pub fn into_assignment<T, O>(self, ssa: &catgrad::ssa::SSA<T, O>) -> Assignment {
+        let result = ssa
+            .targets
+            .iter()
+            .map(|(target_node, _)| Identifier(target_node.0))
+            .collect();
+
+        Assignment { result, expr: self }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
     pub name: String,
