@@ -29,25 +29,14 @@ pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.targets.len() == 1);
     let _target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    vec![grammar::Expr::Constant(grammar::Constant {
-        name: "arith.constant".to_string(),
-        value: Some("false".to_string()),
-        ty: None,
-    }).into_assignment(ssa)]
-}
-
-pub fn neg(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
-    // typechecked ssa should never break this invariant
-    assert!(ssa.sources.len() == 1);
-    assert!(ssa.targets.len() == 1);
-    let source_id = grammar::Identifier(ssa.sources[0].0.0);
-    let source_type = core_type_to_mlir(&ssa.sources[0].1);
-
-    vec![grammar::Expr::Elementwise(grammar::Elementwise {
-        name: "arith.negf".to_string(),
-        operands: vec![source_id],
-        ty: source_type,
-    }).into_assignment(ssa)]
+    vec![
+        grammar::Expr::Constant(grammar::Constant {
+            name: "arith.constant".to_string(),
+            value: Some("false".to_string()),
+            ty: None,
+        })
+        .into_assignment(ssa),
+    ]
 }
 
 pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
@@ -170,53 +159,57 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
         (lang::Dtype::U32, lang::Dtype::U32) => panic!("Invalid cast U32 → U32"),
     };
 
-    vec![grammar::Expr::Custom(format!(
-        "{} {} : {} to {}",
-        op_name, tensor_id, source_type, target_type
-    )).into_assignment(ssa)]
+    vec![
+        grammar::Expr::Custom(format!(
+            "{} {} : {} to {}",
+            op_name, tensor_id, source_type, target_type
+        ))
+        .into_assignment(ssa),
+    ]
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Elementwise ops
+
+fn elementwise(op_name: &str, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    let operands: Vec<grammar::Identifier> = ssa
+        .sources
+        .iter()
+        .map(|(source_node, _)| grammar::Identifier(source_node.0))
+        .collect();
+    let result_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![
+        grammar::Expr::Elementwise(grammar::Elementwise {
+            name: op_name.to_string(),
+            operands,
+            ty: result_type,
+        })
+        .into_assignment(ssa),
+    ]
+}
+
+pub fn neg(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    // typechecked ssa should never break this invariant
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+    elementwise("arith.negf", ssa)
 }
 
 pub fn add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
-
-    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
-    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
-    let result_type = core_type_to_mlir(&ssa.targets[0].1);
-
-    vec![grammar::Expr::Elementwise(grammar::Elementwise {
-        name: "arith.addf".to_string(),
-        operands: vec![lhs_id, rhs_id],
-        ty: result_type,
-    }).into_assignment(ssa)]
+    elementwise("arith.addf", ssa)
 }
 
 pub fn pow(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
-
-    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
-    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
-    let result_type = core_type_to_mlir(&ssa.targets[0].1);
-
-    vec![grammar::Expr::Elementwise(grammar::Elementwise {
-        name: "math.powf".to_string(),
-        operands: vec![lhs_id, rhs_id],
-        ty: result_type,
-    }).into_assignment(ssa)]
+    elementwise("math.powf", ssa)
 }
 
 pub fn div(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
-
-    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
-    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
-    let result_type = core_type_to_mlir(&ssa.targets[0].1);
-
-    vec![grammar::Expr::Elementwise(grammar::Elementwise {
-        name: "arith.divf".to_string(),
-        operands: vec![lhs_id, rhs_id],
-        ty: result_type,
-    }).into_assignment(ssa)]
+    elementwise("arith.divf", ssa)
 }
