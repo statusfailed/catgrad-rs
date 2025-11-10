@@ -1,5 +1,5 @@
+use libffi::middle::*;
 use std::ffi::{CString, c_void};
-use std::ptr;
 
 #[repr(C)]
 struct Memref3d {
@@ -9,9 +9,6 @@ struct Memref3d {
     sizes: [i64; 3],
     strides: [i64; 3],
 }
-
-type NegateFn =
-    unsafe extern "C" fn(*mut f32, *mut f32, i64, i64, i64, i64, i64, i64, i64) -> Memref3d;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     unsafe {
@@ -41,8 +38,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Err("Failed to find symbol".into());
         }
 
-        let negate_f32: NegateFn = std::mem::transmute(func_ptr);
-
         // Define a static 3x1x4 tensor as the input buffer
         let mut input = [
             [[1.0f32, 2.0, 3.0, 4.0]],
@@ -62,26 +57,58 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         // Construct a memref descriptor describing the input buffer
-        let input_memref = Memref3d {
-            allocated: input.as_mut_ptr() as *mut f32,
-            aligned: input.as_mut_ptr() as *mut f32,
-            offset: 0,
-            sizes: [3, 1, 4],
-            strides: [4, 4, 1],
-        };
+        let input_ptr = input.as_mut_ptr() as *mut f32;
+        let offset = 0i64;
+        let sizes = [3i64, 1i64, 4i64];
+        let strides = [4i64, 4i64, 1i64];
 
-        // Invoke the MLIR function
-        let result = negate_f32(
-            input_memref.allocated,
-            input_memref.aligned,
-            input_memref.offset,
-            input_memref.sizes[0],
-            input_memref.sizes[1],
-            input_memref.sizes[2],
-            input_memref.strides[0],
-            input_memref.strides[1],
-            input_memref.strides[2],
-        );
+        // Set up libffi for dynamic function call
+        // Function signature: fn(*mut f32, *mut f32, i64, i64, i64, i64, i64, i64, i64) -> Memref3d
+        let arg_types = vec![
+            Type::pointer(), // allocated
+            Type::pointer(), // aligned
+            Type::i64(),     // offset
+            Type::i64(),     // sizes[0]
+            Type::i64(),     // sizes[1]
+            Type::i64(),     // sizes[2]
+            Type::i64(),     // strides[0]
+            Type::i64(),     // strides[1]
+            Type::i64(),     // strides[2]
+        ];
+
+        // Return type is a struct - expand arrays as individual fields
+        let struct_fields = vec![
+            Type::pointer(), // allocated
+            Type::pointer(), // aligned
+            Type::i64(),     // offset
+            Type::i64(),     // sizes[0]
+            Type::i64(),     // sizes[1]
+            Type::i64(),     // sizes[2]
+            Type::i64(),     // strides[0]
+            Type::i64(),     // strides[1]
+            Type::i64(),     // strides[2]
+        ];
+        let return_type = Type::structure(struct_fields);
+
+        let cif = Cif::new(arg_types, return_type);
+
+        // Prepare arguments with proper lifetime management
+        let ptr_arg1 = input_ptr as *mut c_void;
+        let ptr_arg2 = input_ptr as *mut c_void;
+
+        let mut args: Vec<Arg> = Vec::new();
+        args.push(Arg::new(&ptr_arg1));
+        args.push(Arg::new(&ptr_arg2));
+        args.push(Arg::new(&offset));
+        args.push(Arg::new(&sizes[0]));
+        args.push(Arg::new(&sizes[1]));
+        args.push(Arg::new(&sizes[2]));
+        args.push(Arg::new(&strides[0]));
+        args.push(Arg::new(&strides[1]));
+        args.push(Arg::new(&strides[2]));
+
+        // Call the function dynamically
+        let result: Memref3d = cif.call(CodePtr(func_ptr), &args);
 
         // Print the negated output tensor from the returned memref
         println!("output...");
