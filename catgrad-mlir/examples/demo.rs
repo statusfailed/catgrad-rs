@@ -89,26 +89,11 @@ impl ValueType {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Utility functions
-
-fn print_memref3d(name: &str, memref: &Memref3d) {
-    unsafe {
-        println!("{}...", name);
-        for i in 0..3 {
-            for j in 0..1 {
-                for k in 0..4 {
-                    let idx = i * 4 + j * 4 + k;
-                    print!("{:6.2} ", *memref.aligned.add(idx as usize));
-                }
-                println!();
-            }
-        }
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // Utility to call the function pointer with specified source/target types
 
+// TODO: MEMORY MANAGEMENT
+// Returned `Value`s internally have ptrs to array data which needs to be freed manually.
+// FIX: take ownership when wrapping in a more accessible catgrad type.
 fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -> Vec<Value> {
     // Derive source types from the source values (flat map to get individual arg types)
     let source_types: Vec<Type> = source_values
@@ -126,13 +111,11 @@ fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -
     unsafe {
         let cif = Cif::new(source_types, return_type);
 
-        // Calculate the size manually for two Memref3d structs
-        // Each Memref3d: 2 pointers + 1 i64 + 3 i64 + 3 i64 = 2*8 + 7*8 = 72 bytes
-        // Two Memref3d structs = 144 bytes (assuming no padding between them)
-        let result_size = 2 * std::mem::size_of::<Memref3d>();
+        // Calculate result buffer size dynamically
+        let result_size = calculate_result_size(&target_types);
         let mut result = vec![0u8; result_size];
 
-        // Call using raw ffi_call directly (based on low::call else block)
+        // Call using raw ffi_call directly
         raw::ffi_call(
             cif.as_raw_ptr(),
             Some(*ptr.as_safe_fun()),
@@ -140,13 +123,44 @@ fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -
             args.as_ptr() as *mut *mut c_void,
         );
 
-        // Parse the two memrefs manually from the buffer
-        let memref1: Memref3d = std::ptr::read(result.as_ptr() as *const Memref3d);
-        let memref2: Memref3d =
-            std::ptr::read(result.as_ptr().add(std::mem::size_of::<Memref3d>()) as *const Memref3d);
+        // Parse results dynamically from the buffer
+        parse_results_from_buffer(&result, &target_types)
+    }
+}
 
-        // Convert to our Value enum
-        vec![Value::Memref3d(memref1), Value::Memref3d(memref2)]
+fn calculate_result_size(target_types: &[ValueType]) -> usize {
+    target_types
+        .iter()
+        .map(|vt| match vt {
+            ValueType::Memref3d => std::mem::size_of::<Memref3d>(),
+            ValueType::I64 => std::mem::size_of::<i64>(),
+        })
+        .sum()
+}
+
+fn parse_results_from_buffer(buffer: &[u8], target_types: &[ValueType]) -> Vec<Value> {
+    unsafe {
+        let mut offset = 0;
+        let mut results = Vec::new();
+
+        for target_type in target_types {
+            let value = match target_type {
+                ValueType::Memref3d => {
+                    let memref: Memref3d =
+                        std::ptr::read(buffer.as_ptr().add(offset) as *const Memref3d);
+                    offset += std::mem::size_of::<Memref3d>();
+                    Value::Memref3d(memref)
+                }
+                ValueType::I64 => {
+                    let val: i64 = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
+                    offset += std::mem::size_of::<i64>();
+                    Value::I64(val)
+                }
+            };
+            results.push(value);
+        }
+
+        results
     }
 }
 
@@ -233,4 +247,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utility functions
+
+fn print_memref3d(name: &str, memref: &Memref3d) {
+    unsafe {
+        println!("{}...", name);
+        for i in 0..3 {
+            for j in 0..1 {
+                for k in 0..4 {
+                    let idx = i * 4 + j * 4 + k;
+                    print!("{:6.2} ", *memref.aligned.add(idx as usize));
+                }
+                println!();
+            }
+        }
+    }
 }
