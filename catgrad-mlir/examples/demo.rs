@@ -1,5 +1,7 @@
 use libffi::middle::*;
+use libffi::raw;
 use std::ffi::{CString, c_void};
+use std::mem;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Known types
@@ -108,36 +110,43 @@ fn print_memref3d(name: &str, memref: &Memref3d) {
 // Utility to call the function pointer with specified source/target types
 
 fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -> Vec<Value> {
+    // Derive source types from the source values (flat map to get individual arg types)
+    let source_types: Vec<Type> = source_values
+        .iter()
+        .flat_map(|v| v.to_type().to_fields())
+        .collect();
+
+    // Build args from source values (flatten all args)
+    let args: Vec<Arg> = source_values.iter().flat_map(|v| v.to_args()).collect();
+
+    // Build return type from target types
+    let result_fields: Vec<Type> = target_types.iter().map(|vt| vt.to_type()).collect();
+    let return_type = Type::structure(result_fields);
+
     unsafe {
-        // Derive source types from the source values (flat map to get individual arg types)
-        let source_types: Vec<Type> = source_values
-            .iter()
-            .flat_map(|v| v.to_type().to_fields())
-            .collect();
-
-        // Build args from source values (flatten all args)
-        let args: Vec<Arg> = source_values.iter().flat_map(|v| v.to_args()).collect();
-
-        // Build return type from target types
-        let result_fields: Vec<Type> = target_types.iter().map(|vt| vt.to_type()).collect();
-        let return_type = Type::structure(result_fields);
-
         let cif = Cif::new(source_types, return_type);
 
-        // For now, use the concrete struct approach since raw bytes aren't working
-        #[repr(C)]
-        struct DualMemrefResult {
-            negated: Memref3d,
-            unchanged: Memref3d,
-        }
+        // Calculate the size manually for two Memref3d structs
+        // Each Memref3d: 2 pointers + 1 i64 + 3 i64 + 3 i64 = 2*8 + 7*8 = 72 bytes
+        // Two Memref3d structs = 144 bytes (assuming no padding between them)
+        let result_size = 2 * std::mem::size_of::<Memref3d>();
+        let mut result = vec![0u8; result_size];
 
-        let result: DualMemrefResult = cif.call(ptr, &args);
+        // Call using raw ffi_call directly (based on low::call else block)
+        raw::ffi_call(
+            cif.as_raw_ptr(),
+            Some(*ptr.as_safe_fun()),
+            result.as_mut_ptr().cast::<c_void>(),
+            args.as_ptr() as *mut *mut c_void,
+        );
+
+        // Parse the two memrefs manually from the buffer
+        let memref1: Memref3d = std::ptr::read(result.as_ptr() as *const Memref3d);
+        let memref2: Memref3d =
+            std::ptr::read(result.as_ptr().add(std::mem::size_of::<Memref3d>()) as *const Memref3d);
 
         // Convert to our Value enum
-        vec![
-            Value::Memref3d(result.negated),
-            Value::Memref3d(result.unchanged),
-        ]
+        vec![Value::Memref3d(memref1), Value::Memref3d(memref2)]
     }
 }
 
