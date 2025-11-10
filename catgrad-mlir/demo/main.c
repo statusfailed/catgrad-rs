@@ -5,7 +5,7 @@
 
 
 // Structure describing a rank-3 MLIR memref descriptor.
-// Mirrors the layout produced by MLIR’s LLVM lowering for tensor<3x1x4xf32>.
+// Mirrors the layout produced by MLIR's LLVM lowering for tensor<3x1x4xf32>.
 struct memref3d {
     float *allocated;   // Base pointer returned by malloc (or similar)
     float *aligned;     // Aligned pointer to the actual data start
@@ -14,10 +14,16 @@ struct memref3d {
     int64_t strides[3]; // Stride of each dimension in elements (row-major order)
 };
 
+// Structure for returning multiple memrefs
+struct dual_memref_result {
+    struct memref3d negated;    // The negated tensor
+    struct memref3d unchanged;  // The unchanged input tensor copy
+};
+
 // Function pointer type matching the lowered MLIR symbol `@negate_f32`.
 // It takes nine arguments encoding one input memref descriptor
-// (two pointers + offset + sizes + strides) and returns a memref3d struct.
-typedef struct memref3d (*negate_f32_t)(
+// (two pointers + offset + sizes + strides) and returns a dual_memref_result struct.
+typedef struct dual_memref_result (*negate_f32_t)(
     float*, float*, int64_t,int64_t,int64_t,
     int64_t,int64_t,int64_t,int64_t);
 
@@ -56,30 +62,41 @@ int main() {
         .strides = {4,4,1}          // standard row-major strides
     };
 
-    // Not used by this version, kept for clarity.
-    struct memref3d out = {0};
-
-    // Invoke the MLIR function. It allocates and returns a new memref
-    // containing the negated tensor.
-    struct memref3d res = negate_f32(
+    // Invoke the MLIR function. It allocates and returns both the negated tensor
+    // and a copy of the unchanged input tensor.
+    struct dual_memref_result res = negate_f32(
         in.allocated, in.aligned, in.offset,
         in.sizes[0], in.sizes[1], in.sizes[2],
         in.strides[0], in.strides[1], in.strides[2]
     );
 
     // Print the negated output tensor from the returned memref.
-    printf("output...\n");
-    float *data = res.aligned;
+    printf("negated output...\n");
+    float *negated_data = res.negated.aligned;
     for (int i = 0; i < 3; ++i)
         for (int j = 0; j < 1; ++j) {
             for (int k = 0; k < 4; ++k)
                 // Linearized index using known contiguous layout
-                printf("%6.2f ", data[i*4 + j*4 + k]);
+                printf("%6.2f ", negated_data[i*4 + j*4 + k]);
+            printf("\n");
+        }
+
+    // Print the unchanged output tensor from the returned memref.
+    printf("unchanged output...\n");
+    float *unchanged_data = res.unchanged.aligned;
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 1; ++j) {
+            for (int k = 0; k < 4; ++k)
+                // Linearized index using known contiguous layout
+                printf("%6.2f ", unchanged_data[i*4 + j*4 + k]);
             printf("\n");
         }
 
     // Free the heap memory allocated inside the MLIR function.
-    free(res.allocated);
+    printf("freeing res.negated...\n");
+    free(res.negated.allocated);
+    printf("freeing res.unchanged...\n");
+    free(res.unchanged.allocated);
 
     // Unload the shared object and exit.
     dlclose(handle);
