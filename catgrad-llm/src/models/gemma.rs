@@ -5,7 +5,9 @@ use crate::nn::rope::rope;
 use catgrad_legacy::backend::cpu::eval::Builder;
 use catgrad_legacy::core::{NdArrayType, Shape, Var};
 
-pub struct Model;
+pub struct Model {
+    pub root: String,
+}
 
 impl ModelBuilder for Model {
     fn build(
@@ -17,7 +19,7 @@ impl ModelBuilder for Model {
         x: Var,
     ) -> Var {
         let tokens = x.label.shape.0[1];
-        let emb = Model::embeddings(builder, config, x);
+        let emb = Model::embeddings(builder, config, &self.root, x);
         let mut result = emb;
 
         let normalizer = constant(
@@ -35,12 +37,17 @@ impl ModelBuilder for Model {
                 config,
                 cache,
                 pos,
-                &format!("model.layers.{i}"),
+                &format!("{}.layers.{i}", self.root),
                 result,
             );
         }
 
-        result = Model::rmsnorm(builder, config.rms_norm_eps, "model.norm", result);
+        result = Model::rmsnorm(
+            builder,
+            config.rms_norm_eps,
+            &format!("{}.norm", self.root),
+            result,
+        );
 
         // Get the logits for the last token only
         if tokens > 1 {
@@ -52,7 +59,7 @@ impl ModelBuilder for Model {
             builder,
             config.hidden_size,
             config.vocab_size,
-            "model.embed_tokens",
+            &format!("{}.embed_tokens", self.root),
             result,
         )
     }
@@ -70,12 +77,12 @@ impl Model {
         lr * increment(builder, gamma)
     }
 
-    pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
+    pub fn embeddings(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let t = NdArrayType::new(
             Shape(vec![config.vocab_size, config.hidden_size]),
             config.dtype,
         );
-        let weights = parameter(builder, t, "model.embed_tokens.weight".to_string());
+        let weights = parameter(builder, t, format!("{name}.embed_tokens.weight"));
         embedding(builder, x, weights)
     }
 

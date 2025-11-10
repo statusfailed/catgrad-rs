@@ -56,17 +56,6 @@ impl ModelBuilder for Model {
     }
 }
 
-// Build linear layer from weight params
-fn linear_w(builder: &Builder, in_dim: usize, out_dim: usize, weight: Var, x: Var) -> Var {
-    let mut w_t = transpose(builder, 1, 2, weight);
-    if x.label.shape.0.len() == 3 {
-        let batch_size = x.label.shape.0[0];
-        w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
-    }
-
-    mat_mul(builder, x, w_t)
-}
-
 impl Model {
     pub fn embeddings(builder: &Builder, config: &Config, x: Var) -> Var {
         let t = NdArrayType::new(
@@ -267,7 +256,7 @@ impl Model {
                 let gate = gate_up[0].clone();
                 let up = gate_up[1].clone();
 
-                let gate = linear_w(
+                let gate = linear_no_bias_param(
                     builder,
                     config.hidden_size,
                     config.intermediate_size,
@@ -275,7 +264,7 @@ impl Model {
                     x.clone(),
                 );
 
-                let up = linear_w(
+                let up = linear_no_bias_param(
                     builder,
                     config.hidden_size,
                     config.intermediate_size,
@@ -284,7 +273,7 @@ impl Model {
                 );
                 let x = silu(builder, gate) * up; // SwiGLU
 
-                let x = linear_w(
+                let x = linear_no_bias_param(
                     builder,
                     config.intermediate_size,
                     config.hidden_size,
