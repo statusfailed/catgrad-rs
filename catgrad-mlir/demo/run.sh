@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+../scripts/llvm.sh main.mlir > lowered.mlir
+mlir-translate lowered.mlir --mlir-to-llvmir -o main.ll
+llc -filetype=obj main.ll -o main.o
+ld.lld -shared main.o -o main.so
