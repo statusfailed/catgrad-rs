@@ -266,7 +266,9 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "Qwen2ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
         "Qwen3MoeForCausalLM" => Ok(Box::new(QwenMoeModel {})),
-        "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {})),
+        "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {
+            root: "model".to_string(),
+        })),
         "DeepseekV3ForCausalLM" => Ok(Box::new(DeepSeekV3Model {})),
         "GraniteForCausalLM" => Ok(Box::new(GraniteModel {})),
         "GraniteMoeForCausalLM" => Ok(Box::new(GraniteModel {})),
