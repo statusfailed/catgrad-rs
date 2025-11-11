@@ -10,6 +10,7 @@ mlir-opt $1 \
   --expand-strided-metadata \
   --lower-affine \
   --finalize-memref-to-llvm \
+  --convert-math-to-llvm \
   --convert-arith-to-llvm \
   --convert-func-to-llvm \
   --convert-cf-to-llvm \
