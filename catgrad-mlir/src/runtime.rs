@@ -18,6 +18,7 @@ use std::rc::Rc;
 pub enum RuntimeError {
     LibraryLoadError(String),
     SymbolNotFound(String),
+    TypeError(String),
     InvalidPath(String),
 }
 
@@ -27,6 +28,7 @@ impl std::fmt::Display for RuntimeError {
             RuntimeError::LibraryLoadError(msg) => write!(f, "Library load error: {}", msg),
             RuntimeError::SymbolNotFound(msg) => write!(f, "Symbol not found: {}", msg),
             RuntimeError::InvalidPath(msg) => write!(f, "Invalid path: {}", msg),
+            RuntimeError::TypeError(msg) => write!(f, "Type error: {}", msg),
         }
     }
 }
@@ -40,8 +42,8 @@ pub struct LlvmRuntime {
 
 pub struct Entrypoint {
     pub func_name: CString,
-    pub source_types: Vec<()>,
-    pub target_types: Vec<()>,
+    pub source_types: Vec<MlirType>,
+    pub target_types: Vec<MlirType>,
 }
 
 impl Drop for LlvmRuntime {
@@ -127,6 +129,39 @@ impl LlvmRuntime {
             sizes,
             strides,
         })
+    }
+
+    pub fn call(
+        &self,
+        name: &CString,
+        args: Vec<MlirValue>,
+    ) -> Result<Vec<MlirValue>, RuntimeError> {
+        // Get the entrypoint and verify it exists
+        let (func_ptr, entrypoint) = self.get_entrypoint(name).ok_or_else(|| {
+            RuntimeError::SymbolNotFound(format!("Function '{}' not found", name.to_string_lossy()))
+        })?;
+
+        // Verify argument types match
+        let actual_source_types: Vec<MlirType> = args.iter().map(|a| a.to_type()).collect();
+        if !actual_source_types.iter().eq(&entrypoint.source_types) {
+            return Err(RuntimeError::TypeError(format!(
+                "Function '{}' argument type mismatch: expected {:?}, got {:?}",
+                name.to_string_lossy(),
+                entrypoint.source_types,
+                args.iter().map(|a| a.to_type()),
+            )));
+        }
+
+        // Call the internal helper function
+        let result_tensors = call(func_ptr, args, entrypoint.target_types.clone());
+
+        // Convert MlirTensor results back to MlirValue
+        let results: Vec<MlirValue> = result_tensors
+            .into_iter()
+            .map(|tensor| MlirValue::MlirTensor(tensor))
+            .collect();
+
+        Ok(results)
     }
 
     /// Get a function pointer and its signature by name
@@ -244,7 +279,7 @@ impl MlirValue {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MlirType {
     Memref(usize), // ranked memref
     I64,
@@ -288,8 +323,9 @@ impl MlirType {
 ////////////////////////////////////////////////////////////////////////////////
 // Utility to call the function pointer with specified source/target types
 
-// TODO: remove pub modifier
-pub fn call(
+// Unchecked call a raw ptr with MlirValue args and return MlirTensor results.
+// TODO: return MlirValues!
+fn call(
     ptr: CodePtr,
     source_values: Vec<MlirValue>,
     target_types: Vec<MlirType>,

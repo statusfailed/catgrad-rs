@@ -1,22 +1,16 @@
-use catgrad_mlir::runtime::{Entrypoint, LlvmRuntime, MlirTensor, MlirType, MlirValue, call};
+use catgrad_mlir::runtime::{Entrypoint, LlvmRuntime, MlirTensor, MlirType, MlirValue};
 use std::ffi::CString;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create runtime with negate_f32 entrypoint
     let entrypoint = Entrypoint {
         func_name: CString::new("negate_f32")?,
-        source_types: vec![], // TODO: integrate MlirType
-        target_types: vec![], // TODO: integrate MlirType
+        source_types: vec![MlirType::Memref(3)], // Single 3D memref input
+        target_types: vec![MlirType::Memref(3), MlirType::Memref(3)], // Two 3D memref outputs
     };
 
     // Initialize runtime for shared object file
     let runtime = LlvmRuntime::new(std::path::Path::new("./main.so"), vec![entrypoint])?;
-
-    // Get the function pointer
-    let func_name = CString::new("negate_f32")?;
-    let (func_ptr, _entrypoint) = runtime
-        .get_entrypoint(&func_name)
-        .ok_or("Function not found in loaded library")?;
 
     // Create input tensor using the runtime helper
     let input_data = vec![
@@ -31,14 +25,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_tensor_3d("input", tensor);
     }
 
-    // Call the function dynamically
-    let source_values = vec![input_tensor];
-    let target_types = vec![MlirType::Memref(3), MlirType::Memref(3)];
-    let results = call(func_ptr, source_values, target_types);
+    // Call the function using the safe runtime API
+    let func_name = CString::new("negate_f32")?;
+    let results = runtime.call(&func_name, vec![input_tensor])?;
 
     // Print each result
     for (i, result) in results.iter().enumerate() {
-        print_tensor_3d(&format!("output {}", i), result);
+        if let MlirValue::MlirTensor(tensor) = result {
+            print_tensor_3d(&format!("output {}", i), tensor);
+        }
     }
 
     Ok(())
