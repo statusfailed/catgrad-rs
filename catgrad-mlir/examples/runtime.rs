@@ -2,9 +2,11 @@ use catgrad_mlir::runtime::{Entrypoint, LlvmRuntime, MlirType};
 use std::ffi::CString;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let func_name = CString::new("negate_f32")?;
+
     // Create runtime with negate_f32 entrypoint
     let entrypoint = Entrypoint {
-        func_name: CString::new("negate_f32")?,
+        func_name: func_name.clone(),
         source_types: vec![MlirType::Memref(3)], // Single 3D memref input
         target_types: vec![MlirType::Memref(3), MlirType::Memref(3)], // Two 3D memref outputs
     };
@@ -24,7 +26,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("input: {}", input_tensor);
 
     // Call the function using the safe runtime API
-    let func_name = CString::new("negate_f32")?;
     let results = runtime.call(&func_name, vec![input_tensor])?;
 
     // Print each result using Display
