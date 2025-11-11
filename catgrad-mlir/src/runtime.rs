@@ -158,7 +158,7 @@ impl LlvmRuntime {
         // Convert MlirTensor results back to MlirValue
         let results: Vec<MlirValue> = result_tensors
             .into_iter()
-            .map(|tensor| MlirValue::MlirTensor(tensor))
+            .map(MlirValue::MlirTensor)
             .collect();
 
         Ok(results)
@@ -220,6 +220,44 @@ pub struct MlirTensor<T> {
     pub strides: Vec<i64>,
 }
 
+impl<T> std::fmt::Display for MlirTensor<T>
+where
+    T: std::fmt::Display + Copy,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MlirTensor<{}> [", std::any::type_name::<T>())?;
+
+        // Print dimensions
+        for (i, &size) in self.sizes.iter().enumerate() {
+            if i > 0 {
+                write!(f, "x")?;
+            }
+            write!(f, "{}", size)?;
+        }
+        write!(f, "] ")?;
+
+        // Print some data if it's a reasonable size
+        if self.sizes.iter().product::<i64>() <= 20 {
+            unsafe {
+                write!(f, "[")?;
+                let total_elements = self.sizes.iter().product::<i64>();
+                for i in 0..total_elements {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    let ptr = self.aligned.add((self.offset + i) as usize) as *const T;
+                    write!(f, "{}", *ptr)?;
+                }
+                write!(f, "]")?;
+            }
+        } else {
+            write!(f, "[{} elements]", self.sizes.iter().product::<i64>())?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<T> MlirTensor<T> {
     /// Construct a `libffi::middle::Arg` for each field as if of the below C struct.
     /// ```c
@@ -261,6 +299,15 @@ impl<T> MlirTensor<T> {
 pub enum MlirValue {
     MlirTensor(MlirTensor<f32>), // TODO: f32 specialisation
     I64(i64),
+}
+
+impl std::fmt::Display for MlirValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            MlirValue::MlirTensor(tensor) => write!(f, "{}", tensor),
+            MlirValue::I64(value) => write!(f, "I64({})", value),
+        }
+    }
 }
 
 impl MlirValue {
