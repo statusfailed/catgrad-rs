@@ -120,7 +120,11 @@ impl MlirType {
 // TODO: MEMORY MANAGEMENT
 // Returned `Value`s internally have ptrs to array data which needs to be freed manually.
 // FIX: take ownership when wrapping in a more accessible catgrad type.
-fn call(ptr: CodePtr, source_values: Vec<MlirValue>, target_types: Vec<MlirType>) -> Vec<Memref3d> {
+fn call(
+    ptr: CodePtr,
+    source_values: Vec<MlirValue>,
+    target_types: Vec<MlirType>,
+) -> Vec<MlirTensor<f32>> {
     // Derive source types from the source values (flat map to get individual arg types)
     let source_types: Vec<Type> = source_values
         .iter()
@@ -165,29 +169,53 @@ fn calculate_result_size(target_types: &[MlirType]) -> usize {
         .sum()
 }
 
-fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<Memref3d> {
+fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<MlirTensor<f32>> {
     unsafe {
         let mut offset = 0;
         let mut results = Vec::new();
 
         for target_type in target_types {
-            let value = match target_type {
+            let tensor = match target_type {
                 MlirType::Memref3d => {
-                    let memref: Memref3d =
-                        std::ptr::read(buffer.as_ptr().add(offset) as *const Memref3d);
-                    offset += std::mem::size_of::<Memref3d>();
-                    memref
+                    // TODO: This is hardcoded for rank-3. Need to make dynamic based on actual rank.
+                    // Parse the memref struct fields manually
+                    let allocated = std::ptr::read(buffer.as_ptr().add(offset) as *const *mut f32);
+                    offset += std::mem::size_of::<*mut f32>();
+
+                    let aligned = std::ptr::read(buffer.as_ptr().add(offset) as *const *mut f32);
+                    offset += std::mem::size_of::<*mut f32>();
+
+                    let memref_offset = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
+                    offset += std::mem::size_of::<i64>();
+
+                    // Read the 3 sizes (hardcoded for rank-3)
+                    let mut sizes = Vec::with_capacity(3);
+                    for _ in 0..3 {
+                        let size = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
+                        sizes.push(size);
+                        offset += std::mem::size_of::<i64>();
+                    }
+
+                    // Read the 3 strides (hardcoded for rank-3)
+                    let mut strides = Vec::with_capacity(3);
+                    for _ in 0..3 {
+                        let stride = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
+                        strides.push(stride);
+                        offset += std::mem::size_of::<i64>();
+                    }
+
+                    MlirTensor {
+                        aligned_ptr: aligned, // Shallow copy of pointer
+                        offset: memref_offset,
+                        sizes,
+                        strides,
+                    }
                 }
                 MlirType::I64 => {
                     panic!("I64 not handled yet")
-                    /*
-                                        let val: i64 = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
-                                        offset += std::mem::size_of::<i64>();
-                                        MlirValue::I64(val)
-                    */
                 }
             };
-            results.push(value);
+            results.push(tensor);
         }
 
         results
@@ -251,14 +279,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Print each result
         for (i, result) in results.iter().enumerate() {
-            print_memref3d(&format!("output {}", i), result);
+            print_tensor(&format!("output {}", i), result);
         }
 
-        // Free heap memory for any Memref3d results
+        // Free heap memory for any MlirTensor results
         // Only free if it's not pointing to our stack input
         for result in &results {
-            if result.allocated != input_ptr {
-                libc::free(result.allocated as *mut c_void);
+            if result.aligned_ptr != input_ptr {
+                libc::free(result.aligned_ptr as *mut c_void);
             }
         }
 
