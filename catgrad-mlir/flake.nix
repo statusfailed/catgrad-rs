@@ -18,6 +18,7 @@
             # MLIR and LLVM tools
             llvmPackages_21.mlir
             llvmPackages_21.llvm
+            clang
             lld
 
             # Rust toolchain
