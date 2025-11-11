@@ -1,7 +1,6 @@
 use libffi::middle::*;
 use libffi::raw;
 use std::ffi::{CString, c_void};
-use std::mem;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Known types
@@ -31,7 +30,7 @@ impl Value {
         }
     }
 
-    fn to_args(&self) -> Vec<Arg> {
+    fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         match self {
             Value::Memref3d(memref) => {
                 // Expand memref into individual args matching C signature
