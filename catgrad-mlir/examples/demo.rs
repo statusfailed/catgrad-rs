@@ -17,22 +17,22 @@ struct Memref3d {
 }
 
 #[derive(Debug)]
-enum Value {
+enum MlirValue {
     Memref3d(Memref3d),
     I64(i64),
 }
 
-impl Value {
-    fn to_type(&self) -> ValueType {
+impl MlirValue {
+    fn to_type(&self) -> MlirType {
         match self {
-            Value::Memref3d(_) => ValueType::Memref3d,
-            Value::I64(_) => ValueType::I64,
+            MlirValue::Memref3d(_) => MlirType::Memref3d,
+            MlirValue::I64(_) => MlirType::I64,
         }
     }
 
     fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         match self {
-            Value::Memref3d(memref) => {
+            MlirValue::Memref3d(memref) => {
                 // Expand memref into individual args matching C signature
                 vec![
                     Arg::new(&memref.allocated),
@@ -46,22 +46,22 @@ impl Value {
                     Arg::new(&memref.strides[2]),
                 ]
             }
-            Value::I64(val) => vec![Arg::new(val)],
+            MlirValue::I64(val) => vec![Arg::new(val)],
         }
     }
 }
 
 #[derive(Debug, Clone)]
-enum ValueType {
+enum MlirType {
     Memref3d,
     I64,
 }
 
-impl ValueType {
+impl MlirType {
     // Get individual field types
     fn to_fields(&self) -> Vec<Type> {
         match self {
-            ValueType::Memref3d => vec![
+            MlirType::Memref3d => vec![
                 Type::pointer(), // allocated
                 Type::pointer(), // aligned
                 Type::i64(),     // offset
@@ -72,7 +72,7 @@ impl ValueType {
                 Type::i64(),     // strides[1]
                 Type::i64(),     // strides[2]
             ],
-            ValueType::I64 => vec![Type::i64()],
+            MlirType::I64 => vec![Type::i64()],
         }
     }
 
@@ -93,7 +93,11 @@ impl ValueType {
 // TODO: MEMORY MANAGEMENT
 // Returned `Value`s internally have ptrs to array data which needs to be freed manually.
 // FIX: take ownership when wrapping in a more accessible catgrad type.
-fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -> Vec<Value> {
+fn call(
+    ptr: CodePtr,
+    source_values: Vec<MlirValue>,
+    target_types: Vec<MlirType>,
+) -> Vec<MlirValue> {
     // Derive source types from the source values (flat map to get individual arg types)
     let source_types: Vec<Type> = source_values
         .iter()
@@ -108,6 +112,7 @@ fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -
     let return_type = Type::structure(result_fields);
 
     unsafe {
+        // Make Cif from source/return types
         let cif = Cif::new(source_types, return_type);
 
         // Calculate result buffer size dynamically
@@ -127,33 +132,33 @@ fn call(ptr: CodePtr, source_values: Vec<Value>, target_types: Vec<ValueType>) -
     }
 }
 
-fn calculate_result_size(target_types: &[ValueType]) -> usize {
+fn calculate_result_size(target_types: &[MlirType]) -> usize {
     target_types
         .iter()
         .map(|vt| match vt {
-            ValueType::Memref3d => std::mem::size_of::<Memref3d>(),
-            ValueType::I64 => std::mem::size_of::<i64>(),
+            MlirType::Memref3d => std::mem::size_of::<Memref3d>(),
+            MlirType::I64 => std::mem::size_of::<i64>(),
         })
         .sum()
 }
 
-fn parse_results_from_buffer(buffer: &[u8], target_types: &[ValueType]) -> Vec<Value> {
+fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<MlirValue> {
     unsafe {
         let mut offset = 0;
         let mut results = Vec::new();
 
         for target_type in target_types {
             let value = match target_type {
-                ValueType::Memref3d => {
+                MlirType::Memref3d => {
                     let memref: Memref3d =
                         std::ptr::read(buffer.as_ptr().add(offset) as *const Memref3d);
                     offset += std::mem::size_of::<Memref3d>();
-                    Value::Memref3d(memref)
+                    MlirValue::Memref3d(memref)
                 }
-                ValueType::I64 => {
+                MlirType::I64 => {
                     let val: i64 = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
                     offset += std::mem::size_of::<i64>();
-                    Value::I64(val)
+                    MlirValue::I64(val)
                 }
             };
             results.push(value);
@@ -215,17 +220,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         print_memref3d("input", &input_memref);
 
         // Call the function dynamically
-        let source_values = vec![Value::Memref3d(input_memref)];
-        let target_types = vec![ValueType::Memref3d, ValueType::Memref3d];
+        let source_values = vec![MlirValue::Memref3d(input_memref)];
+        let target_types = vec![MlirType::Memref3d, MlirType::Memref3d];
         let results = call(CodePtr(func_ptr), source_values, target_types);
 
         // Print each result
         for (i, result) in results.iter().enumerate() {
             match result {
-                Value::Memref3d(memref) => {
+                MlirValue::Memref3d(memref) => {
                     print_memref3d(&format!("output {}", i), memref);
                 }
-                Value::I64(val) => {
+                MlirValue::I64(val) => {
                     println!("output {}: {}", i, val);
                 }
             }
@@ -234,7 +239,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Free heap memory for any Memref3d results
         // Only free if it's not pointing to our stack input
         for result in &results {
-            if let Value::Memref3d(memref) = result {
+            if let MlirValue::Memref3d(memref) = result {
                 if memref.allocated != input_ptr {
                     libc::free(memref.allocated as *mut c_void);
                 }
