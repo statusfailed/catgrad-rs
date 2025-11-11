@@ -5,30 +5,18 @@ use std::ffi::{CString, c_void};
 ////////////////////////////////////////////////////////////////////////////////
 // Known types
 
-// included temporarily so we can handle dynamic args before dynamic returns.
-#[repr(C)]
+/// Helper struct to marshal bytes into the Memref format expected by LLVM
 #[derive(Debug)]
-struct Memref3d {
-    allocated: *mut f32,
-    aligned: *mut f32,
-    offset: i64,
-    sizes: [i64; 3],
-    strides: [i64; 3],
-}
-
-/// NOTE: this is *NOT* the memref
-#[derive(Debug)]
-struct MlirTensor<T> {
-    aligned_ptr: *mut T,
+pub struct MlirTensor<T> {
+    allocated: *mut T,
+    aligned: *mut T,
     offset: i64, // offset into ptr
     sizes: Vec<i64>,
     strides: Vec<i64>,
 }
 
-/// Struct format for a Memref3d given to and returned from the .so's entrypoint
 impl<T> MlirTensor<T> {
-    /// Construct Args for each of the fields, as if for the below C struct.
-    /// Assumes allocated == aligned.
+    /// Construct a `libffi::middle::Arg` for each field as if of the below C struct.
     /// ```c
     /// #[repr(C)]
     /// struct Memref {
@@ -39,12 +27,10 @@ impl<T> MlirTensor<T> {
     ///     strides: [i64; N],
     /// }
     /// ```
-    //
-    // TODO: fix the below- this isn't pushing args, but ptrs
     fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         let mut result = Vec::with_capacity(3 + 2 * self.sizes.len());
-        result.push(Arg::new(&self.aligned_ptr)); // assume allocated == aligned
-        result.push(Arg::new(&self.aligned_ptr));
+        result.push(Arg::new(&self.allocated));
+        result.push(Arg::new(&self.aligned));
         result.push(Arg::new(&self.offset));
         for size in &self.sizes {
             result.push(Arg::new(size));
@@ -57,7 +43,7 @@ impl<T> MlirTensor<T> {
 }
 
 #[derive(Debug)]
-enum MlirValue {
+pub enum MlirValue {
     MlirTensor(MlirTensor<f32>), // TODO: f32 specialisation
     I64(i64),
 }
@@ -65,7 +51,7 @@ enum MlirValue {
 impl MlirValue {
     fn to_type(&self) -> MlirType {
         match self {
-            MlirValue::MlirTensor(_) => MlirType::Memref3d,
+            MlirValue::MlirTensor(tensor) => MlirType::Memref(tensor.sizes.len()),
             MlirValue::I64(_) => MlirType::I64,
         }
     }
@@ -80,7 +66,7 @@ impl MlirValue {
 
 #[derive(Debug, Clone)]
 enum MlirType {
-    Memref3d,
+    Memref(usize), // ranked memref
     I64,
 }
 
@@ -88,17 +74,22 @@ impl MlirType {
     // Get individual field types
     fn to_fields(&self) -> Vec<Type> {
         match self {
-            MlirType::Memref3d => vec![
-                Type::pointer(), // allocated
-                Type::pointer(), // aligned
-                Type::i64(),     // offset
-                Type::i64(),     // sizes[0]
-                Type::i64(),     // sizes[1]
-                Type::i64(),     // sizes[2]
-                Type::i64(),     // strides[0]
-                Type::i64(),     // strides[1]
-                Type::i64(),     // strides[2]
-            ],
+            MlirType::Memref(rank) => {
+                let mut fields = vec![
+                    Type::pointer(), // allocated
+                    Type::pointer(), // aligned
+                    Type::i64(),     // offset
+                ];
+                // Add rank number of sizes
+                for _ in 0..*rank {
+                    fields.push(Type::i64());
+                }
+                // Add rank number of strides
+                for _ in 0..*rank {
+                    fields.push(Type::i64());
+                }
+                fields
+            }
             MlirType::I64 => vec![Type::i64()],
         }
     }
@@ -160,10 +151,16 @@ fn call(
 }
 
 fn calculate_result_size(target_types: &[MlirType]) -> usize {
+    // TODO: this probably makes some non-portable assumptions about the memref struct layout
     target_types
         .iter()
         .map(|vt| match vt {
-            MlirType::Memref3d => std::mem::size_of::<Memref3d>(),
+            MlirType::Memref(rank) => {
+                // Size = 2 pointers + 1 i64 offset + rank sizes + rank strides
+                2 * std::mem::size_of::<*mut f32>()
+                    + std::mem::size_of::<i64>()
+                    + 2 * rank * std::mem::size_of::<i64>()
+            }
             MlirType::I64 => std::mem::size_of::<i64>(),
         })
         .sum()
@@ -176,9 +173,8 @@ fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<Ml
 
         for target_type in target_types {
             let tensor = match target_type {
-                MlirType::Memref3d => {
-                    // TODO: This is hardcoded for rank-3. Need to make dynamic based on actual rank.
-                    // Parse the memref struct fields manually
+                MlirType::Memref(rank) => {
+                    // Parse the memref struct fields manually using actual rank
                     let allocated = std::ptr::read(buffer.as_ptr().add(offset) as *const *mut f32);
                     offset += std::mem::size_of::<*mut f32>();
 
@@ -188,24 +184,25 @@ fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<Ml
                     let memref_offset = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
                     offset += std::mem::size_of::<i64>();
 
-                    // Read the 3 sizes (hardcoded for rank-3)
-                    let mut sizes = Vec::with_capacity(3);
-                    for _ in 0..3 {
+                    // Read the rank number of sizes
+                    let mut sizes = Vec::with_capacity(*rank);
+                    for _ in 0..*rank {
                         let size = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
                         sizes.push(size);
                         offset += std::mem::size_of::<i64>();
                     }
 
-                    // Read the 3 strides (hardcoded for rank-3)
-                    let mut strides = Vec::with_capacity(3);
-                    for _ in 0..3 {
+                    // Read the rank number of strides
+                    let mut strides = Vec::with_capacity(*rank);
+                    for _ in 0..*rank {
                         let stride = std::ptr::read(buffer.as_ptr().add(offset) as *const i64);
                         strides.push(stride);
                         offset += std::mem::size_of::<i64>();
                     }
 
                     MlirTensor {
-                        aligned_ptr: aligned, // Shallow copy of pointer
+                        allocated, // Shallow copy of pointer
+                        aligned,   // Shallow copy of pointer
                         offset: memref_offset,
                         sizes,
                         strides,
@@ -263,30 +260,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Create input tensor
         let input_ptr = input.as_mut_ptr() as *mut f32;
         let input_tensor = MlirTensor {
-            aligned_ptr: input_ptr,
+            allocated: input_ptr, // On creation, set allocated == aligned
+            aligned: input_ptr,
             offset: 0,
             sizes: vec![3, 1, 4],
             strides: vec![4, 4, 1],
         };
 
         // Print the input tensor
-        print_tensor("input", &input_tensor);
+        print_tensor_3d("input", &input_tensor);
 
         // Call the function dynamically
         let source_values = vec![MlirValue::MlirTensor(input_tensor)];
-        let target_types = vec![MlirType::Memref3d, MlirType::Memref3d];
+        let target_types = vec![MlirType::Memref(3), MlirType::Memref(3)];
         let results = call(CodePtr(func_ptr), source_values, target_types);
 
         // Print each result
         for (i, result) in results.iter().enumerate() {
-            print_tensor(&format!("output {}", i), result);
+            print_tensor_3d(&format!("output {}", i), result);
         }
 
         // Free heap memory for any MlirTensor results
         // Only free if it's not pointing to our stack input
         for result in &results {
-            if result.aligned_ptr != input_ptr {
-                libc::free(result.aligned_ptr as *mut c_void);
+            if result.allocated != input_ptr {
+                libc::free(result.allocated as *mut c_void);
             }
         }
 
@@ -300,22 +298,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ////////////////////////////////////////////////////////////////////////////////
 // Utility functions
 
-fn print_memref3d(name: &str, memref: &Memref3d) {
-    unsafe {
-        println!("{}...", name);
-        for i in 0..3 {
-            for j in 0..1 {
-                for k in 0..4 {
-                    let idx = i * 4 + j * 4 + k;
-                    print!("{:6.2} ", *memref.aligned.add(idx as usize));
-                }
-                println!();
-            }
-        }
-    }
-}
-
-fn print_tensor<T>(name: &str, tensor: &MlirTensor<T>)
+fn print_tensor_3d<T>(name: &str, tensor: &MlirTensor<T>)
 where
     T: std::fmt::Display + Copy,
 {
@@ -331,7 +314,7 @@ where
                             i * tensor.strides[0] + j * tensor.strides[1] + k * tensor.strides[2];
                         print!(
                             "{:6.2} ",
-                            *tensor.aligned_ptr.add((tensor.offset + idx) as usize)
+                            *tensor.aligned.add((tensor.offset + idx) as usize)
                         );
                     }
                     println!();
