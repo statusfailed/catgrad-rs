@@ -3,12 +3,13 @@
 //! Provides safe RAII wrappers around:
 //!
 //! - dlopen/dlclose and function symbol resolution (TODO: and calling).
-//! - TODO: Simplified MLIR type creation/destruction
+//! - Simplified MLIR type creation/destruction
 use libffi::middle::CodePtr;
 use libffi::raw;
 use std::collections::HashMap;
 use std::ffi::{CString, c_void};
 use std::path::Path;
+use std::rc::Rc;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Runtime
@@ -110,27 +111,22 @@ impl LlvmRuntime {
         }
     }
 
-    /// Create a tensor from an f32 buffer and a layout (extents and strides)
+    /// Create a tensor from an f32 buffer with separate extents and strides
     ///
-    /// The layout parameter contains tuples of (size, stride) for each dimension.
-    ///
-    /// WARNING: This creates a tensor that borrows from the input data.
-    /// The caller must ensure the data lives as long as the tensor.
-    pub fn tensor(data: &mut [f32], layout: Vec<(usize, usize)>) -> MlirTensor<f32> {
-        let data_ptr = data.as_mut_ptr();
+    /// This takes ownership of the data vector and manages it safely.
+    pub fn tensor(data: Vec<f32>, extents: Vec<usize>, strides: Vec<usize>) -> MlirValue {
+        let (data_ptr, len, capacity) = into_raw_parts(data);
 
-        // Extract sizes and strides from layout
-        let (sizes, strides): (Vec<_>, Vec<_>) = layout.into_iter().unzip();
-        let sizes: Vec<i64> = sizes.into_iter().map(|s| s as i64).collect();
+        let sizes: Vec<i64> = extents.into_iter().map(|s| s as i64).collect();
         let strides: Vec<i64> = strides.into_iter().map(|s| s as i64).collect();
 
-        MlirTensor {
-            allocated: data_ptr,
+        MlirValue::MlirTensor(MlirTensor {
+            allocated: MlirBuffer::Rust(Rc::new(data_ptr), len, capacity),
             aligned: data_ptr, // For user-created tensors, allocated == aligned
             offset: 0,
             sizes,
             strides,
-        }
+        })
     }
 
     /// Get a function pointer and its signature by name
@@ -147,11 +143,42 @@ impl LlvmRuntime {
 ////////////////////////////////////////////////////////////////////////////////
 use libffi::middle::*;
 
+/// Memory management for tensor buffers with shared ownership
+#[derive(Debug, Clone)]
+pub enum MlirBuffer<T> {
+    Rust(Rc<*mut T>, usize, usize), // Shared Rust pointer + separate len/capacity
+    Malloc(Rc<*mut T>),             // Shared malloc'd pointer
+}
+
+impl<T> Drop for MlirBuffer<T> {
+    fn drop(&mut self) {
+        match self {
+            MlirBuffer::Rust(ptr_rc, len, capacity) => {
+                // Only reconstruct and drop the Vec if this is the last reference
+                if Rc::strong_count(ptr_rc) == 1 {
+                    unsafe {
+                        let _vec = Vec::from_raw_parts(**ptr_rc, *len, *capacity);
+                        // Vec drop handles cleanup
+                    }
+                }
+            }
+            MlirBuffer::Malloc(ptr_rc) => {
+                // Only free if this is the last reference
+                if Rc::strong_count(ptr_rc) == 1 {
+                    unsafe {
+                        libc::free(**ptr_rc as *mut c_void);
+                    }
+                }
+            }
+        }
+    }
+}
+
 /// Helper struct to marshal bytes into the Memref format expected by LLVM
 /// TODO: remove pub fields!
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MlirTensor<T> {
-    pub allocated: *mut T,
+    pub allocated: MlirBuffer<T>,
     pub aligned: *mut T,
     pub offset: i64, // offset into ptr
     pub sizes: Vec<i64>,
@@ -172,7 +199,17 @@ impl<T> MlirTensor<T> {
     /// ```
     pub fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         let mut result = Vec::with_capacity(3 + 2 * self.sizes.len());
-        result.push(Arg::new(&self.allocated));
+
+        // Get reference to the raw pointer from the buffer
+        match &self.allocated {
+            MlirBuffer::Rust(ptr_rc, _, _) => {
+                result.push(Arg::new(ptr_rc.as_ref()));
+            }
+            MlirBuffer::Malloc(ptr_rc) => {
+                result.push(Arg::new(ptr_rc.as_ref()));
+            }
+        }
+
         result.push(Arg::new(&self.aligned));
         result.push(Arg::new(&self.offset));
         for size in &self.sizes {
@@ -251,9 +288,6 @@ impl MlirType {
 ////////////////////////////////////////////////////////////////////////////////
 // Utility to call the function pointer with specified source/target types
 
-// TODO: MEMORY MANAGEMENT
-// Returned `Value`s internally have ptrs to array data which needs to be freed manually.
-// FIX: take ownership when wrapping in a more accessible catgrad type.
 // TODO: remove pub modifier
 pub fn call(
     ptr: CodePtr,
@@ -289,8 +323,20 @@ pub fn call(
             args.as_ptr() as *mut *mut c_void,
         );
 
+        // Collect input buffers to detect aliasing with outputs
+        let input_buffers: std::collections::HashMap<*mut f32, MlirBuffer<f32>> = source_values
+            .iter()
+            .filter_map(|val| match val {
+                MlirValue::MlirTensor(tensor) => match &tensor.allocated {
+                    MlirBuffer::Rust(ptr_rc, _, _) => Some((**ptr_rc, tensor.allocated.clone())),
+                    MlirBuffer::Malloc(ptr_rc) => Some((**ptr_rc, tensor.allocated.clone())),
+                },
+                _ => None,
+            })
+            .collect();
+
         // Parse results dynamically from the buffer
-        parse_results_from_buffer(&result, &target_types)
+        parse_results_from_buffer(&result, &target_types, input_buffers)
     }
 }
 
@@ -310,10 +356,16 @@ fn calculate_result_size(target_types: &[MlirType]) -> usize {
         .sum()
 }
 
-fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<MlirTensor<f32>> {
+fn parse_results_from_buffer(
+    buffer: &[u8],
+    target_types: &[MlirType],
+    input_buffers: std::collections::HashMap<*mut f32, MlirBuffer<f32>>,
+) -> Vec<MlirTensor<f32>> {
     unsafe {
         let mut offset = 0;
         let mut results = Vec::new();
+        // Start with input buffers, then add malloc'd ones as we encounter them
+        let mut all_buffers: HashMap<*mut f32, MlirBuffer<f32>> = input_buffers;
 
         for target_type in target_types {
             let tensor = match target_type {
@@ -344,9 +396,21 @@ fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<Ml
                         offset += std::mem::size_of::<i64>();
                     }
 
+                    // Get or create buffer for this pointer
+                    let allocated_buffer =
+                        if let Some(existing_buffer) = all_buffers.get(&allocated) {
+                            // Reuse existing buffer (input or already seen malloc)
+                            existing_buffer.clone()
+                        } else {
+                            // New malloc'd pointer
+                            let new_buffer = MlirBuffer::Malloc(Rc::new(allocated));
+                            all_buffers.insert(allocated, new_buffer.clone());
+                            new_buffer
+                        };
+
                     MlirTensor {
-                        allocated, // Shallow copy of pointer
-                        aligned,   // Shallow copy of pointer
+                        allocated: allocated_buffer,
+                        aligned,
                         offset: memref_offset,
                         sizes,
                         strides,
@@ -361,4 +425,15 @@ fn parse_results_from_buffer(buffer: &[u8], target_types: &[MlirType]) -> Vec<Ml
 
         results
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Unsafe util functions
+
+// TODO: remove this when `Vec::into_raw_parts` is
+// [merged](https://github.com/rust-lang/rust/issues/65816)
+pub fn into_raw_parts<T>(vec: Vec<T>) -> (*mut T, usize, usize) {
+    use std::mem::ManuallyDrop;
+    let mut me = ManuallyDrop::new(vec);
+    (me.as_mut_ptr(), me.len(), me.capacity())
 }
