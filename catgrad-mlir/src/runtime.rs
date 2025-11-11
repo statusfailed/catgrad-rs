@@ -1,7 +1,9 @@
 //! # MLIR LLVM Runtime
 //!
-//! Provides safe RAII wrapper around dlopen/dlclose and function symbol resolution.
+//! Provides safe RAII wrappers around:
 //!
+//! - dlopen/dlclose and function symbol resolution (TODO: and calling).
+//! - TODO: Simplified MLIR type creation/destruction
 use catgrad::prelude::Type;
 use libffi::middle::CodePtr;
 use std::collections::HashMap;
