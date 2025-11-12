@@ -16,7 +16,7 @@ impl LlamaModel {
             &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
         );
         let dim = 0.to_nat(builder);
-        let te = index(builder, wte, dim, x);
+        let te = index(builder, dim, x, wte);
 
         unsqueeze::<2, 3>(builder, 0, te)
     }

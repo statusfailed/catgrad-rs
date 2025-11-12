@@ -167,7 +167,7 @@ pub fn transpose(builder: &Builder, dim0: Var, dim1: Var, x: Var) -> Var {
     )
 }
 
-pub fn index(builder: &Builder, x: Var, dim: Var, idx: Var) -> Var {
+pub fn index(builder: &Builder, dim: Var, idx: Var, x: Var) -> Var {
     var::fn_operation(
         builder,
         &[x, dim, idx],
