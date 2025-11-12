@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Convert model to MLIR
-    let mlir = lang_to_mlir(&env, &parameters, typed_term);
+    let mlir = lang_to_mlir(&env, &parameters, typed_term, &model.path().to_string());
 
     // print MLIR
     println!("{}", mlir[0]);
