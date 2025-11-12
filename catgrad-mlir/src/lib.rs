@@ -12,3 +12,6 @@ pub mod functor;
 pub mod inline;
 
 pub mod runtime;
+
+/// Transform MLIR text into a .so
+pub mod codegen;

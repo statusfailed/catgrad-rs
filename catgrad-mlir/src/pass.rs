@@ -20,6 +20,7 @@ pub fn lang_to_mlir(
     env: &Environment,
     params: &typecheck::Parameters,
     mut typed_term: TypedTerm,
+    name: &str,
 ) -> Vec<grammar::Func> {
     let term = typed_term.term;
 
@@ -57,7 +58,7 @@ pub fn lang_to_mlir(
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
     // Convert term to MLIR
-    let mlir = lower::term_to_func("term", checked_term);
+    let mlir = lower::term_to_func(name, checked_term);
 
     // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
     // let _definitions = todo!(); // list of MLIR strings / structs
