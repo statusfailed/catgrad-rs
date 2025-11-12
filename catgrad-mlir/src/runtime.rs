@@ -295,6 +295,7 @@ impl<T> MlirTensor<T> {
     }
 }
 
+/// Runtime representations of catgrad types which can be used with the LLVM Runtime
 #[derive(Debug)]
 pub enum MlirValue {
     MlirTensor(MlirTensor<f32>), // TODO: f32 specialisation
