@@ -15,8 +15,10 @@ use tokenizers::tokenizer::Tokenizer;
 
 mod gemma3;
 mod gpt2;
+mod granite;
 mod helpers;
 mod llama;
+mod qwen3;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -73,6 +75,14 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
         "Gemma3ForCausalLM" => Box::new(gemma3::Gemma3Model {
+            config: config.clone(),
+            max_sequence_length: args.seq_len + token_ids.len(),
+        }),
+        "Qwen3ForCausalLM" => Box::new(qwen3::Qwen3Model {
+            config: config.clone(),
+            max_sequence_length: args.seq_len + token_ids.len(),
+        }),
+        "GraniteForCausalLM" => Box::new(granite::GraniteModel {
             config: config.clone(),
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
