@@ -14,14 +14,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get stdlib environment and extend with parameter declarations
     let mut env = stdlib();
+    env.definitions.extend(vec![(model.path(), typed_term)]);
     env.declarations
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Convert model to MLIR
-    let mlir = lang_to_mlir(&env, &parameters, typed_term, &model.path().to_string());
+    let mlir = lang_to_mlir(&env, &parameters, model.path());
 
     // print MLIR
-    println!("{}", mlir[0]);
+    println!("{}", mlir);
 
     Ok(())
 }

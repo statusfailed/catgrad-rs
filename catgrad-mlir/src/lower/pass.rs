@@ -3,26 +3,17 @@ use catgrad::prelude::*;
 use super::grammar;
 use super::lower_term;
 
-/// Ensure the boundaries of the entry point term do not have free Dtype vars
-fn is_dtype_monomorphic(ty: &Type) -> bool {
-    match &ty {
-        Type::Dtype(d) => match d {
-            typecheck::DtypeExpr::Constant(_) => true,
-            // Non-constant dtypes not permitted
-            _ => false,
-        },
-        _ => true,
-    }
-}
-
-// Render a TypedTerm and its associated environment of definitions to MLIR
+// TODO: PERFORMANCE: this is inefficient when called multiple times: inlining should be done "bottom-up" in
+// topological dependency order so we don't repeat work.
+// FIX: pass a *vec* of names, then inline the whole environment bottom-up, and emit MLIR for each
+// of the passed names.
+/// Render a TypedTerm and its associated environment of definitions to MLIR
 pub fn lang_to_mlir(
     env: &Environment,
     params: &typecheck::Parameters,
-    mut typed_term: TypedTerm,
-    name: &str,
-) -> Vec<grammar::Func> {
-    let term = typed_term.term;
+    path: Path,
+) -> grammar::Func {
+    let mut typed_term = env.definitions.get(&path).unwrap().clone();
 
     // Inline all operations
     // TODO: use catgrad's inline; refactor lang to use Def?
@@ -31,11 +22,12 @@ pub fn lang_to_mlir(
         .iter()
         .map(|(path, typed_term)| (path.clone(), typed_term.term.clone()))
         .collect();
-    let term = super::inline::inline(defs, term);
+    let term = super::inline::inline(defs, typed_term.term);
 
     // Forget extraneous Copy operations
     typed_term.term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
 
+    // TODO: fix use of unwrap()
     // Typecheck `term` and get an open hypergraph annotated with *normalized* types
     let node_annotations: Vec<_> = typecheck::check(env, params, typed_term.clone())
         .unwrap()
@@ -58,7 +50,7 @@ pub fn lang_to_mlir(
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
     // Convert term to MLIR
-    let mlir = lower_term::term_to_func(name, checked_term);
+    let mlir = lower_term::term_to_func(&path.to_string(), checked_term);
 
     // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
     // let _definitions = todo!(); // list of MLIR strings / structs
@@ -68,5 +60,17 @@ pub fn lang_to_mlir(
     //  - each used dependency
     //let result = todo!("concat _entry_fragment and _definitions");
 
-    vec![mlir]
+    mlir
+}
+
+/// Ensure the boundaries of the entry point term do not have free Dtype vars
+fn is_dtype_monomorphic(ty: &Type) -> bool {
+    match &ty {
+        Type::Dtype(d) => match d {
+            typecheck::DtypeExpr::Constant(_) => true,
+            // Non-constant dtypes not permitted
+            _ => false,
+        },
+        _ => true,
+    }
 }
