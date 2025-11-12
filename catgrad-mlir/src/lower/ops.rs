@@ -7,20 +7,6 @@ use catgrad::{
 use super::grammar;
 use super::util::*;
 
-pub fn copy(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
-    // typechecked ssa should never break this invariant
-    assert!(ssa.sources.len() == 1, "copy ssa had more than 1 source");
-    let source_id = grammar::Identifier(ssa.sources[0].0.0);
-
-    ssa.targets
-        .iter()
-        .map(|(target_node, _)| grammar::Assignment {
-            result: vec![grammar::Identifier(target_node.0)],
-            expr: grammar::Expr::Identifier(source_id.clone()),
-        })
-        .collect()
-}
-
 // NOTE: this just usese arith.constant false to return a bool.
 // We don't actually put shape information into mlir
 pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {

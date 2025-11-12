@@ -1,7 +1,7 @@
 use catgrad::prelude::*;
 
 use super::grammar;
-use super::lower;
+use super::lower_term;
 
 /// Ensure the boundaries of the entry point term do not have free Dtype vars
 fn is_dtype_monomorphic(ty: &Type) -> bool {
@@ -31,7 +31,7 @@ pub fn lang_to_mlir(
         .iter()
         .map(|(path, typed_term)| (path.clone(), typed_term.term.clone()))
         .collect();
-    let term = crate::inline::inline(defs, term);
+    let term = super::inline::inline(defs, term);
 
     // Forget extraneous Copy operations
     typed_term.term = open_hypergraphs::lax::var::forget::forget_monogamous(&term);
@@ -52,13 +52,13 @@ pub fn lang_to_mlir(
     let checked_term = typed_term.term.with_nodes(|_| node_annotations).unwrap();
 
     // Map type-level ops to identities at runtime
-    let checked_term = crate::functor::forget_identity_casts(&checked_term);
+    let checked_term = super::functor::forget_identity_casts(&checked_term);
 
     // Forget all copy ops for MLIR (it's harder to deal with)
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
     // Convert term to MLIR
-    let mlir = lower::term_to_func(name, checked_term);
+    let mlir = lower_term::term_to_func(name, checked_term);
 
     // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
     // let _definitions = todo!(); // list of MLIR strings / structs

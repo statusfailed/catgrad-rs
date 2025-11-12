@@ -5,8 +5,8 @@ use catgrad::ssa::{SSA, ssa};
 
 use open_hypergraphs::lax::OpenHypergraph;
 
-use crate::grammar;
-use crate::util::*;
+use super::grammar;
+use super::util::*;
 
 pub type Term = OpenHypergraph<typecheck::Type, lang::Operation>;
 
