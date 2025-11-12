@@ -3,7 +3,7 @@ use crate::{Cache, llm_type};
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::models::utils::Config;
-use nn::{linear_no_bias, rmsnorm, unsqueeze};
+use nn::{causal_mask, linear_no_bias, rmsnorm, silu, softmax, unsqueeze};
 pub struct LlamaModel {
     pub config: Config,
     pub max_sequence_length: usize,
@@ -36,7 +36,7 @@ impl LlamaModel {
             p.extend(["up_proj"]).unwrap(),
             x,
         );
-        let x = nn::silu(builder, gate) * up;
+        let x = silu(builder, gate) * up;
         linear_no_bias(
             builder,
             self.config.intermediate_size,
@@ -112,11 +112,11 @@ impl LlamaModel {
         let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
         let mut attn = attn / denom;
 
-        let mask = nn::causal_mask(builder, s.clone());
+        let mask = causal_mask(builder, s.clone());
         let mask = broadcast(builder, mask, sh);
         attn = attn + mask;
 
-        let attn = nn::softmax(builder, attn);
+        let attn = softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
         let attn = transpose(builder, 1, 2, attn);
