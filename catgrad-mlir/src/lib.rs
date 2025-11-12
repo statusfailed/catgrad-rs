@@ -1,5 +1,7 @@
 //! # Catgrad MLIR backend
 
+pub mod compile;
+
 pub mod lower;
 
 /// Transform MLIR text into a shared object file

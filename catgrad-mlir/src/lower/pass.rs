@@ -50,7 +50,7 @@ pub fn lang_to_mlir(
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
     // Convert term to MLIR
-    let mlir = lower_term::term_to_func(&path.to_string(), checked_term);
+    lower_term::term_to_func(&path.to_string(), checked_term)
 
     // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
     // let _definitions = todo!(); // list of MLIR strings / structs
@@ -59,8 +59,6 @@ pub fn lang_to_mlir(
     //  - top level term (entrypoint?)
     //  - each used dependency
     //let result = todo!("concat _entry_fragment and _definitions");
-
-    mlir
 }
 
 /// Ensure the boundaries of the entry point term do not have free Dtype vars
