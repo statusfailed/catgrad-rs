@@ -209,27 +209,6 @@ fn vision_embeddings(builder: &Builder, config: &VisionConfig, name: &str, x: Va
     patch_embeddings + pe
 }
 
-// Build linear layer from weight and bias parameters
-fn linear_wb(
-    builder: &Builder,
-    in_dim: usize,
-    out_dim: usize,
-    weight: Var,
-    bias: Var,
-    x: Var,
-) -> Var {
-    let mut w_t = transpose(builder, 0, 1, weight);
-
-    if x.label.shape.0.len() == 3 {
-        let batch_size = x.label.shape.0[0];
-        w_t = expand(builder, Shape(vec![batch_size, in_dim, out_dim]), w_t);
-    }
-
-    let m = mat_mul(builder, x, w_t);
-    let bias = expand(builder, m.label.shape.clone(), bias);
-    m + bias
-}
-
 fn vision_head_attention(
     builder: &Builder,
     config: &TransformerConfig,
@@ -251,9 +230,9 @@ fn vision_head_attention(
     let ws = chunk(builder, 0, 3, weight);
     let bs = chunk(builder, 0, 3, bias);
 
-    let q = linear_wb(builder, dim, dim, ws[0].clone(), bs[0].clone(), probe);
-    let k = linear_wb(builder, dim, dim, ws[1].clone(), bs[1].clone(), x.clone());
-    let v = linear_wb(builder, dim, dim, ws[2].clone(), bs[2].clone(), x);
+    let q = linear_param(builder, dim, dim, ws[0].clone(), bs[0].clone(), probe);
+    let k = linear_param(builder, dim, dim, ws[1].clone(), bs[1].clone(), x.clone());
+    let v = linear_param(builder, dim, dim, ws[2].clone(), bs[2].clone(), x);
 
     let q = reshape(builder, Shape(vec![b, 1, num_heads, head_dim]), q);
     let k = reshape(builder, Shape(vec![b, s, num_heads, head_dim]), k);
