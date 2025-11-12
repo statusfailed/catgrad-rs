@@ -1,6 +1,6 @@
 use catgrad::prelude::*;
 use catgrad::typecheck::*;
-use catgrad_mlir::pass::lang_to_mlir;
+use catgrad_mlir::lower::lang_to_mlir;
 
 /// Construct, shapecheck, and lower an `Exp` function to MLIR
 fn main() -> Result<(), Box<dyn std::error::Error>> {

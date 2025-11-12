@@ -1,7 +1,7 @@
 use catgrad::prelude::*;
 use catgrad::typecheck::*;
 use catgrad_mlir::codegen::codegen;
-use catgrad_mlir::pass::lang_to_mlir;
+use catgrad_mlir::lower::lang_to_mlir;
 use catgrad_mlir::runtime::{Entrypoint, LlvmRuntime, MlirType};
 use std::env;
 use std::ffi::CString;
