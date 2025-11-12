@@ -30,15 +30,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get stdlib environment and extend with parameter declarations
     let mut env = stdlib();
+    env.definitions.extend([(model.path(), typed_term)]);
     env.declarations
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Convert model to MLIR
-    let mlir = lang_to_mlir(&env, &parameters, typed_term, &model.path().to_string());
+    let mlir = lang_to_mlir(&env, &parameters, model.path());
 
     // Step 2: Codegen MLIR to shared library
     println!("\nCompiling to shared library {}...", &output_so.display());
-    codegen(&mlir[0].to_string(), &output_so).unwrap();
+    codegen(&mlir.to_string(), &output_so).unwrap();
 
     // Step 3: Run using runtime
     println!("\nExecuting with runtime...");
