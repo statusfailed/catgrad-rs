@@ -1,6 +1,6 @@
-//! # Lowering to MLIR
+//! # Lowering to MLIR text
 //!
-//! This module provides a single function: [`lang_to_mlir`], which lowers a catgrad TypedTerm to
+//! This module provides a single function: [`lang_to_mlir`], which lowers a [`catgrad::prelude::TypedTerm`] to
 //! MLIR text, returning a [`Func`]
 
 /// Simplified MLIR grammar for rendering

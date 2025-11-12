@@ -25,8 +25,8 @@ impl From<std::string::FromUtf8Error> for CodegenError {
 
 /// Transform MLIR text into a shared library (.so)
 ///
-/// 1. Lower MLIR through the LLVM pipeline
-/// 2. Translate to LLVM IR (mlir-translate)
+/// 1. Lower MLIR through the LLVM pipeline (`mlir-opt`)
+/// 2. Translate to LLVM IR (`mlir-translate`)
 /// 3. Compile to object file (llc)
 /// 4. Link to shared library (clang)
 pub fn codegen<P: AsRef<Path>>(mlir_text: &str, output_so: P) -> Result<(), CodegenError> {
