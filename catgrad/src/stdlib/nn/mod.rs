@@ -211,7 +211,7 @@ pub fn linear_b_param(
     let w_t = transpose(builder, dim0, dim1, weight);
 
     let sh = shape(builder, x.clone());
-    let [batch_size] = unpack::<1>(builder, sh);
+    let [batch_size, _, _] = unpack::<3>(builder, sh);
     let in_dim = in_dim.to_nat(builder);
     let out_dim = out_dim.to_nat(builder);
     let sh = pack::<3>(builder, [batch_size, in_dim, out_dim]);

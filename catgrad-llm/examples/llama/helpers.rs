@@ -66,7 +66,7 @@ pub fn apply_rope_embedding(
     x: Var,
 ) -> Var {
     let sh = shape(builder, x.clone());
-    let [_, _, seq_len] = unpack::<3>(builder, sh.clone());
+    let [_, _, seq_len, _] = unpack::<4>(builder, sh.clone());
     let pos = pos.to_nat(builder);
     let cos = slice(builder, 0, pos.clone(), seq_len.clone(), cos);
     let sin = slice(builder, 0, pos, seq_len, sin);
