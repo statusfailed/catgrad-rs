@@ -59,7 +59,7 @@ fn rotate_half(builder: &Builder, head_dim: usize, x: Var) -> Var {
 /// Apply RoPE (Rotary Positional Embedding) to the input tensor by reusing calculated tables
 pub fn apply_rope_embedding(
     builder: &Builder,
-    pos: Var,
+    pos: impl IntoNatVar,
     head_dim: usize,
     cos: Var,
     sin: Var,
@@ -67,6 +67,7 @@ pub fn apply_rope_embedding(
 ) -> Var {
     let sh = shape(builder, x.clone());
     let [_, _, seq_len] = unpack::<3>(builder, sh.clone());
+    let pos = pos.to_nat(builder);
     let cos = slice(builder, 0, pos.clone(), seq_len.clone(), cos);
     let sin = slice(builder, 0, pos, seq_len, sin);
     let cos = broadcast(builder, cos, sh.clone());

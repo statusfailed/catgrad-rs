@@ -161,7 +161,7 @@ impl Qwen3Model {
 
         let q = apply_rope_embedding(
             builder,
-            pos.to_nat(builder),
+            pos,
             head_dim,
             cache.cos.clone(),
             cache.sin.clone(),
@@ -169,7 +169,7 @@ impl Qwen3Model {
         );
         let k = apply_rope_embedding(
             builder,
-            pos.to_nat(builder),
+            pos,
             head_dim,
             cache.cos.clone(),
             cache.sin.clone(),

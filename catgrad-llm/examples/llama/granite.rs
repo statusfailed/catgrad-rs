@@ -90,7 +90,7 @@ impl GraniteModel {
 
         let q = apply_rope_embedding(
             builder,
-            pos.to_nat(builder),
+            pos,
             head_dim,
             cache.cos.clone(),
             cache.sin.clone(),
@@ -98,7 +98,7 @@ impl GraniteModel {
         );
         let k = apply_rope_embedding(
             builder,
-            pos.to_nat(builder),
+            pos,
             head_dim,
             cache.cos.clone(),
             cache.sin.clone(),
