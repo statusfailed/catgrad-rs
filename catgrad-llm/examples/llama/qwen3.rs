@@ -3,13 +3,13 @@ use crate::{Cache, llm_type};
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::models::utils::Config;
-use nn::{causal_mask, linear_no_bias, rmsnorm, silu, softmax, unsqueeze};
-pub struct LlamaModel {
+use nn::{causal_mask, linear_no_bias, silu, softmax, sqrt, unsqueeze};
+pub struct Qwen3Model {
     pub config: Config,
     pub max_sequence_length: usize,
 }
 
-impl LlamaModel {
+impl Qwen3Model {
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(
             builder,
@@ -35,7 +35,7 @@ impl LlamaModel {
             p.extend(["up_proj"]).unwrap(),
             x,
         );
-        let x = silu(builder, gate) * up;
+        let x = silu(builder, gate) * up; // SwiGLU
         linear_no_bias(
             builder,
             self.config.intermediate_size,
@@ -43,6 +43,33 @@ impl LlamaModel {
             p.extend(["down_proj"]).unwrap(),
             x,
         )
+    }
+
+    pub fn rmsnorm_raw<const N: usize>(&self, builder: &Builder, eps: f32, x: Var) -> Var {
+        let x_shape = shape(builder, x.clone());
+        let u = unpack::<N>(builder, x_shape.clone());
+        let n = u[N - 1].clone();
+        let s = sum(builder, x.clone() * x.clone());
+
+        let constn = nat_to_u32(builder, n);
+        let constn = cast(builder, constn, dtype(builder, x.clone()));
+        let sh = shape(builder, s.clone());
+        let constn = broadcast(builder, constn, sh);
+
+        let mean = s / constn;
+
+        let epsilon = constant(builder, eps, &shape(builder, mean.clone()));
+        let rms = sqrt(builder, mean + epsilon);
+        let denom = broadcast(builder, rms, x_shape);
+        x / denom
+    }
+
+    fn rmsnorm<const N: usize>(&self, builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
+        let gamma = param(builder, &p.extend(["weight"]).unwrap());
+        let lr = self.rmsnorm_raw::<N>(builder, eps, x);
+        let lr_shape = shape(builder, lr.clone());
+        let gamma = broadcast(builder, gamma, lr_shape);
+        lr * gamma
     }
 
     fn attention(
@@ -56,34 +83,78 @@ impl LlamaModel {
     ) -> Var {
         let dim = self.config.hidden_size;
         let num_heads = self.config.num_attention_heads;
-        let head_dim = self.config.hidden_size / num_heads;
         let num_kv_heads = self.config.num_key_value_heads;
         let rep = num_heads / num_kv_heads;
+        let head_dim = self.config.head_dim;
 
         let [b, s, _] = unpack::<3>(builder, shape(builder, x.clone()));
 
-        let q = linear_no_bias(builder, dim, dim, p.extend(["q_proj"]).unwrap(), x.clone());
+        let q = linear_no_bias(
+            builder,
+            dim,
+            num_heads * head_dim,
+            p.extend(["q_proj"]).unwrap(),
+            x.clone(),
+        );
 
         let k = linear_no_bias(
             builder,
             dim,
-            dim / rep,
+            num_kv_heads * head_dim,
             p.extend(["k_proj"]).unwrap(),
             x.clone(),
         );
 
-        let v = linear_no_bias(builder, dim, dim / rep, p.extend(["v_proj"]).unwrap(), x);
+        let v = linear_no_bias(
+            builder,
+            dim,
+            num_kv_heads * head_dim,
+            p.extend(["v_proj"]).unwrap(),
+            x,
+        );
+
+        let sh = shape!(builder, b, s, num_heads, head_dim);
+        let q = reshape(builder, sh, q);
 
         let sh = shape!(builder, b, s, num_kv_heads, head_dim);
         let k = reshape(builder, sh.clone(), k);
-
         let v = reshape(builder, sh, v);
-        let sh = shape!(builder, b, s, num_heads, head_dim);
-        let q = reshape(builder, sh, q);
 
         let q = transpose(builder, 1, 2, q);
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
+
+        // Norm
+        let sh = shape!(
+            builder,
+            b.clone() * s.clone() * num_heads.to_nat(builder),
+            head_dim
+        );
+        let q = reshape(builder, sh, q);
+        let sh = shape!(
+            builder,
+            b.clone() * s.clone() * num_kv_heads.to_nat(builder),
+            head_dim
+        );
+        let k = reshape(builder, sh, k);
+
+        let q = self.rmsnorm::<2>(
+            builder,
+            self.config.rms_norm_eps,
+            p.extend(["q_norm"]).unwrap(),
+            q,
+        );
+        let k = self.rmsnorm::<2>(
+            builder,
+            self.config.rms_norm_eps,
+            p.extend(["k_norm"]).unwrap(),
+            k,
+        );
+
+        let sh = shape!(builder, b, num_heads, s, head_dim);
+        let q = reshape(builder, sh, q);
+        let sh = shape!(builder, b, num_kv_heads, s, head_dim);
+        let k = reshape(builder, sh, k);
 
         let k = repeat_kv(builder, rep, k);
         let v = repeat_kv(builder, rep, v);
@@ -119,10 +190,16 @@ impl LlamaModel {
         let attn = matmul(builder, attn, v);
 
         let attn = transpose(builder, 1, 2, attn);
-        let sh = shape!(builder, b, s, dim);
+        let sh = shape!(builder, b, s, num_heads * head_dim);
         let attn = reshape(builder, sh, attn);
 
-        linear_no_bias(builder, dim, dim, p.extend(["o_proj"]).unwrap(), attn)
+        linear_no_bias(
+            builder,
+            num_heads * head_dim,
+            dim,
+            p.extend(["o_proj"]).unwrap(),
+            attn,
+        )
     }
 
     fn layer(
@@ -135,7 +212,7 @@ impl LlamaModel {
         x: Var,
     ) -> Var {
         let res = x.clone();
-        let x = rmsnorm(
+        let x = self.rmsnorm::<3>(
             builder,
             self.config.rms_norm_eps,
             p.extend(["input_layernorm"]).unwrap(),
@@ -151,7 +228,7 @@ impl LlamaModel {
         );
         let x = res + x;
         let res = x.clone();
-        let x = rmsnorm(
+        let x = self.rmsnorm::<3>(
             builder,
             self.config.rms_norm_eps,
             p.extend(["post_attention_layernorm"]).unwrap(),
@@ -162,9 +239,9 @@ impl LlamaModel {
     }
 }
 
-impl Module<1, 1> for LlamaModel {
+impl Module<1, 1> for Qwen3Model {
     fn path(&self) -> Path {
-        path(vec!["llama"]).expect("invalid model path")
+        path(vec!["qwen3"]).expect("invalid model path")
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
@@ -185,7 +262,7 @@ impl Module<1, 1> for LlamaModel {
             );
         }
 
-        x = rmsnorm(
+        x = self.rmsnorm::<3>(
             builder,
             self.config.rms_norm_eps,
             root.extend(["model", "norm"]).unwrap(),

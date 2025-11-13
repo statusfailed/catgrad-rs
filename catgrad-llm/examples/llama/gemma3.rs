@@ -3,7 +3,7 @@ use crate::{Cache, llm_type};
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::models::utils::Config;
-use nn::{linear_no_bias, sqrt, unsqueeze};
+use nn::{causal_mask, gelu, linear_no_bias, softmax, sqrt, unsqueeze};
 pub struct Gemma3Model {
     pub config: Config,
     pub max_sequence_length: usize,
@@ -15,8 +15,7 @@ impl Gemma3Model {
             builder,
             &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
         );
-        let dim = 0.to_nat(builder);
-        let te = index(builder, wte, dim, x);
+        let te = index(builder, 0, x, wte);
 
         unsqueeze::<2, 3>(builder, 0, te)
     }
@@ -36,7 +35,7 @@ impl Gemma3Model {
             p.extend(["up_proj"]).unwrap(),
             x,
         );
-        let x = nn::gelu(builder, gate) * up;
+        let x = gelu(builder, gate) * up;
         linear_no_bias(
             builder,
             self.config.intermediate_size,
@@ -180,11 +179,11 @@ impl Gemma3Model {
         let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
         let mut attn = attn / denom;
 
-        let mask = nn::causal_mask(builder, s.clone());
+        let mask = causal_mask(builder, s.clone());
         let mask = broadcast(builder, mask, sh);
         attn = attn + mask;
 
-        let attn = nn::softmax(builder, attn);
+        let attn = softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
         let attn = transpose(builder, 1, 2, attn);

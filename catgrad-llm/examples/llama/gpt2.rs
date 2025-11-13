@@ -2,6 +2,7 @@ use crate::llm_type;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::models::utils::Config;
+use nn::{Gelu, causal_mask, chunk, layernorm, linear_no_bias, softmax, unsqueeze};
 pub struct GPT2Model {
     pub config: Config,
 }
@@ -9,8 +10,7 @@ pub struct GPT2Model {
 impl GPT2Model {
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
-        let dim = 0.to_nat(builder);
-        let te = index(builder, wte, dim.clone(), x);
+        let te = index(builder, 0, x, wte);
 
         // add back batch size dim
         let sh = shape(builder, te.clone());
@@ -21,7 +21,7 @@ impl GPT2Model {
 
         let wpe = param(builder, &p.extend(["wpe", "weight"]).unwrap());
         let r = arange(builder, seq_len);
-        let pe = index(builder, wpe, dim, r);
+        let pe = index(builder, 0, r, wpe);
         let pe = reshape(builder, sh, pe);
         te + pe
     }
@@ -40,7 +40,7 @@ impl GPT2Model {
         // w is already transposed in GPT-2 checkpoints
         let w_t = w;
 
-        let w_t = nn::unsqueeze::<2, 3>(builder, 0, w_t);
+        let w_t = unsqueeze::<2, 3>(builder, 0, w_t);
         let m = matmul(builder, x, w_t);
         let sh = shape(builder, m.clone());
         let bb = broadcast(builder, b, sh);
@@ -49,8 +49,8 @@ impl GPT2Model {
 
     fn mlp(&self, builder: &Builder, dim: usize, p: Path, x: Var) -> Var {
         let x = self.gpt_linear(builder, dim, dim * 4, p.extend(["c_fc"]).unwrap(), x);
-        // let x = nn::gelu(builder, x);
-        let x = nn::Gelu.call(builder, [x]);
+        // let x = gelu(builder, x);
+        let x = Gelu.call(builder, [x]);
         self.gpt_linear(builder, dim * 4, dim, p.extend(["c_proj"]).unwrap(), x)
     }
 
@@ -63,7 +63,7 @@ impl GPT2Model {
 
         let c_attn = self.gpt_linear(builder, dim, 3 * dim, p.extend(["c_attn"]).unwrap(), x);
 
-        let a = nn::chunk(builder, 2, 3, self.config.hidden_size, c_attn);
+        let a = chunk(builder, 2, 3, self.config.hidden_size, c_attn);
         let q = a[0].clone();
         let k = a[1].clone();
         let v = a[2].clone();
@@ -85,12 +85,12 @@ impl GPT2Model {
 
         // TODO: check for seqlen > 1
         // if s > 1 {
-        let mask = nn::causal_mask(builder, s.clone());
+        let mask = causal_mask(builder, s.clone());
         let mask = broadcast(builder, mask, sh);
         attn = attn + mask;
         // }
 
-        let attn = nn::softmax(builder, attn);
+        let attn = softmax(builder, attn);
         let attn = matmul(builder, attn, v);
 
         let attn = transpose(builder, 1, 2, attn);
@@ -109,12 +109,12 @@ impl GPT2Model {
 
         // layers
         let res = x.clone();
-        let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_1, x);
+        let x = layernorm(builder, self.config.layer_norm_epsilon, ln_1, x);
         let x = self.attention(builder, layer_id, attn, x);
         let x = res + x;
 
         let res = x.clone();
-        let x = nn::layernorm(builder, self.config.layer_norm_epsilon, ln_2, x);
+        let x = layernorm(builder, self.config.layer_norm_epsilon, ln_2, x);
         let x = self.mlp(builder, self.config.hidden_size, mlp, x);
         x + res
     }
@@ -137,7 +137,7 @@ impl Module<1, 1> for GPT2Model {
             x = self.layer(builder, i, root.extend(["h", &i.to_string()]).unwrap(), x);
         }
 
-        x = nn::layernorm(
+        x = layernorm(
             builder,
             self.config.layer_norm_epsilon,
             root.extend(["ln_f"]).unwrap(),
@@ -145,7 +145,7 @@ impl Module<1, 1> for GPT2Model {
         );
 
         // weight tied lm_head
-        x = nn::linear_no_bias(
+        x = linear_no_bias(
             builder,
             self.config.hidden_size,
             self.config.vocab_size,

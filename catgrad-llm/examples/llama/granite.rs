@@ -4,12 +4,12 @@ use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::models::utils::Config;
 use nn::{causal_mask, linear_no_bias, rmsnorm, silu, softmax, unsqueeze};
-pub struct LlamaModel {
+pub struct GraniteModel {
     pub config: Config,
     pub max_sequence_length: usize,
 }
 
-impl LlamaModel {
+impl GraniteModel {
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(
             builder,
@@ -17,7 +17,10 @@ impl LlamaModel {
         );
         let te = index(builder, 0, x, wte);
 
-        unsqueeze::<2, 3>(builder, 0, te)
+        let emb = unsqueeze::<2, 3>(builder, 0, te);
+        let sh = shape(builder, emb.clone());
+        let mul = constant(builder, self.config.embedding_multiplier, &sh);
+        mul * emb
     }
 
     fn mlp(&self, builder: &Builder, p: Path, x: Var) -> Var {
@@ -85,9 +88,6 @@ impl LlamaModel {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let k = repeat_kv(builder, rep, k);
-        let v = repeat_kv(builder, rep, v);
-
         let q = apply_rope_embedding(
             builder,
             pos,
@@ -105,11 +105,14 @@ impl LlamaModel {
             k,
         );
 
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
+
         let tk = transpose(builder, 2, 3, k);
         let attn = matmul(builder, q, tk);
         let sh = shape(builder, attn.clone());
-        let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
-        let mut attn = attn / denom;
+        let mul = constant(builder, self.config.attention_multiplier, &sh);
+        let mut attn = attn * mul;
 
         let mask = causal_mask(builder, s.clone());
         let mask = broadcast(builder, mask, sh);
@@ -149,7 +152,11 @@ impl LlamaModel {
             p.extend(["self_attn"]).unwrap(),
             x,
         );
-        let x = res + x;
+
+        let sh = shape(builder, x.clone());
+        let mul = constant(builder, self.config.residual_multiplier, &sh);
+
+        let x = res + x * mul.clone();
         let res = x.clone();
         let x = rmsnorm(
             builder,
@@ -158,13 +165,13 @@ impl LlamaModel {
             x,
         );
         let x = self.mlp(builder, p.extend(["mlp"]).unwrap(), x);
-        x + res
+        x * mul + res
     }
 }
 
-impl Module<1, 1> for LlamaModel {
+impl Module<1, 1> for GraniteModel {
     fn path(&self) -> Path {
-        path(vec!["llama"]).expect("invalid model path")
+        path(vec!["granite"]).expect("invalid model path")
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
@@ -192,17 +199,11 @@ impl Module<1, 1> for LlamaModel {
             x,
         );
 
-        let lm_head_weights = if self.config.tie_word_embeddings {
-            vec!["model", "embed_tokens"]
-        } else {
-            vec!["lm_head"]
-        };
-
         x = linear_no_bias(
             builder,
             self.config.hidden_size,
             self.config.vocab_size,
-            root.extend(lm_head_weights).unwrap(),
+            root.extend(["model", "embed_tokens"]).unwrap(),
             x,
         );
 
