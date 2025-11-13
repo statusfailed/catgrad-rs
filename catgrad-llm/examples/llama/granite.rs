@@ -15,8 +15,7 @@ impl GraniteModel {
             builder,
             &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
         );
-        let dim = 0.to_nat(builder);
-        let te = index(builder, dim, x, wte);
+        let te = index(builder, 0, x, wte);
 
         let emb = unsqueeze::<2, 3>(builder, 0, te);
         let sh = shape(builder, emb.clone());

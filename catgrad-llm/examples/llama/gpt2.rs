@@ -10,8 +10,7 @@ pub struct GPT2Model {
 impl GPT2Model {
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
-        let dim = 0.to_nat(builder);
-        let te = index(builder, dim.clone(), x, wte);
+        let te = index(builder, 0, x, wte);
 
         // add back batch size dim
         let sh = shape(builder, te.clone());
@@ -22,7 +21,7 @@ impl GPT2Model {
 
         let wpe = param(builder, &p.extend(["wpe", "weight"]).unwrap());
         let r = arange(builder, seq_len);
-        let pe = index(builder, dim, r, wpe);
+        let pe = index(builder, 0, r, wpe);
         let pe = reshape(builder, sh, pe);
         te + pe
     }
