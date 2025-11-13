@@ -337,6 +337,7 @@ pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
 
 /// Remove a dimension of extent 1 to a tensor
 pub fn squeeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    assert_eq!(N, M + 1);
     let x_shape = shape(builder, x.clone());
     let mut s = unpack::<N>(builder, x_shape).to_vec();
     s.remove(dim);
@@ -346,6 +347,7 @@ pub fn squeeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x:
 
 /// Add an additional dimension of extent 1 to a tensor
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    assert_eq!(N + 1, M);
     let x_shape = shape(builder, x.clone());
     let mut s = unpack::<N>(builder, x_shape).to_vec();
     s.insert(dim, 1.to_nat(builder));
