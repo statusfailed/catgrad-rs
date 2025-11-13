@@ -1,3 +1,9 @@
+//! Standard library of definitions and APIs for neural networks and LLMs
+//! These are still in flux and driven by model code using them.
+//! The APIs may change and parts are likely to be moved elsewhere.
+//! Some are lower level components like linear layers and activations, others are
+//! higher level LLM building blocks or APIs.
+
 use crate::prelude::{ops::*, *};
 use std::f32::consts::{E, PI};
 
@@ -197,22 +203,81 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     mask * ninf
 }
 
-pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
-    let w = param(builder, &p.extend(["weight"]).unwrap());
-
+/// Generic linear layer with optional bias with already loaded parameters given as vars
+pub fn linear_b_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Option<Var>,
+    x: Var,
+) -> Var {
     let dim0 = 0.to_nat(builder);
     let dim1 = 1.to_nat(builder);
-    let w_t = transpose(builder, dim0, dim1, w);
+    let w_t = transpose(builder, dim0, dim1, weight);
 
     let sh = shape(builder, x.clone());
-    let [batch_size] = unpack::<1>(builder, sh);
+    let [batch_size, _, _] = unpack::<3>(builder, sh);
     let in_dim = in_dim.to_nat(builder);
     let out_dim = out_dim.to_nat(builder);
     let sh = pack::<3>(builder, [batch_size, in_dim, out_dim]);
 
     let w_t = reshape(builder, sh, w_t);
 
-    matmul(builder, x, w_t)
+    let m = matmul(builder, x, w_t);
+    if let Some(b) = bias {
+        let sh = shape(builder, m.clone());
+        let bb = broadcast(builder, b, sh);
+        return m + bb;
+    }
+    m
+}
+
+pub fn linear_no_bias_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, None, x)
+}
+
+pub fn linear_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, Some(bias), x)
+}
+
+/// Generic linear layer with optional bias with given parameter names
+pub fn linear_b(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    bias: bool,
+    p: Path,
+    x: Var,
+) -> Var {
+    let weight = param(builder, &p.extend(["weight"]).unwrap());
+    let bias = if bias {
+        Some(param(builder, &p.extend(["bias"]).unwrap()))
+    } else {
+        None
+    };
+    linear_b_param(builder, in_dim, out_dim, weight, bias, x)
+}
+
+pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
+    linear_b(builder, in_dim, out_dim, false, p, x)
+}
+
+pub fn linear(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
+    linear_b(builder, in_dim, out_dim, true, p, x)
 }
 
 pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
@@ -276,8 +341,19 @@ pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     lr * gamma
 }
 
+/// Remove a dimension of extent 1 to a tensor
+pub fn squeeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    assert_eq!(N, M + 1);
+    let x_shape = shape(builder, x.clone());
+    let mut s = unpack::<N>(builder, x_shape).to_vec();
+    s.remove(dim);
+    let new_shape = pack::<M>(builder, s.try_into().unwrap());
+    reshape(builder, new_shape, x)
+}
+
 /// Add an additional dimension of extent 1 to a tensor
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    assert_eq!(N + 1, M);
     let x_shape = shape(builder, x.clone());
     let mut s = unpack::<N>(builder, x_shape).to_vec();
     s.insert(dim, 1.to_nat(builder));
