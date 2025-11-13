@@ -333,6 +333,15 @@ pub fn rmsnorm(builder: &Builder, eps: f32, p: Path, x: Var) -> Var {
     lr * gamma
 }
 
+/// Remove a dimension of extent 1 to a tensor
+pub fn squeeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
+    let x_shape = shape(builder, x.clone());
+    let mut s = unpack::<N>(builder, x_shape).to_vec();
+    s.remove(dim);
+    let new_shape = pack::<M>(builder, s.try_into().unwrap());
+    reshape(builder, new_shape, x)
+}
+
 /// Add an additional dimension of extent 1 to a tensor
 pub fn unsqueeze<const N: usize, const M: usize>(builder: &Builder, dim: usize, x: Var) -> Var {
     let x_shape = shape(builder, x.clone());
