@@ -197,12 +197,17 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     mask * ninf
 }
 
-pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
-    let w = param(builder, &p.extend(["weight"]).unwrap());
-
+pub fn linear_b_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Option<Var>,
+    x: Var,
+) -> Var {
     let dim0 = 0.to_nat(builder);
     let dim1 = 1.to_nat(builder);
-    let w_t = transpose(builder, dim0, dim1, w);
+    let w_t = transpose(builder, dim0, dim1, weight);
 
     let sh = shape(builder, x.clone());
     let [batch_size] = unpack::<1>(builder, sh);
@@ -212,7 +217,59 @@ pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path,
 
     let w_t = reshape(builder, sh, w_t);
 
-    matmul(builder, x, w_t)
+    let m = matmul(builder, x, w_t);
+    if let Some(b) = bias {
+        let sh = shape(builder, m.clone());
+        let bb = broadcast(builder, b, sh);
+        return m + bb;
+    }
+    m
+}
+
+pub fn linear_no_bias_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, None, x)
+}
+
+pub fn linear_param(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    weight: Var,
+    bias: Var,
+    x: Var,
+) -> Var {
+    linear_b_param(builder, in_dim, out_dim, weight, Some(bias), x)
+}
+
+pub fn linear_b(
+    builder: &Builder,
+    in_dim: usize,
+    out_dim: usize,
+    bias: bool,
+    p: Path,
+    x: Var,
+) -> Var {
+    let weight = param(builder, &p.extend(["weight"]).unwrap());
+    let bias = if bias {
+        Some(param(builder, &p.extend(["bias"]).unwrap()))
+    } else {
+        None
+    };
+    linear_b_param(builder, in_dim, out_dim, weight, bias, x)
+}
+
+pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
+    linear_b(builder, in_dim, out_dim, false, p, x)
+}
+
+pub fn linear(builder: &Builder, in_dim: usize, out_dim: usize, p: Path, x: Var) -> Var {
+    linear_b(builder, in_dim, out_dim, true, p, x)
 }
 
 pub fn layernorm_raw(builder: &Builder, eps: f32, x: Var) -> Var {
