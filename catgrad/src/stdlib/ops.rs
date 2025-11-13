@@ -4,8 +4,8 @@ use crate::prelude::{Builder, Var};
 
 // re-export lang ops
 pub use ops::{
-    argmax, broadcast, cos, dtype, dtype_constant, index, lt, matmul, max, nat_to_u32, pack, param,
-    pow, reshape, shape, sin, sum, unpack,
+    argmax, broadcast, cos, dtype, dtype_constant, lt, matmul, max, nat_to_u32, pack, param, pow,
+    reshape, shape, sin, sum, unpack,
 };
 
 pub fn cast(builder: &Builder, x: Var, d: impl IntoDtypeVar) -> Var {
@@ -18,6 +18,10 @@ pub fn arange(builder: &Builder, end: impl IntoNatVar) -> Var {
 
 pub fn concat(builder: &Builder, dim: impl IntoNatVar, x: Var, y: Var) -> Var {
     ops::concat(builder, dim.to_nat(builder), x, y)
+}
+
+pub fn index(builder: &Builder, dim: impl IntoNatVar, idx: Var, x: Var) -> Var {
+    ops::index(builder, dim.to_nat(builder), idx, x)
 }
 
 pub fn slice(
@@ -34,6 +38,10 @@ pub fn slice(
         len.to_nat(builder),
         x,
     )
+}
+
+pub fn get(builder: &Builder, dim: impl IntoNatVar, start: impl IntoNatVar, x: Var) -> Var {
+    slice(builder, dim, start, 1, x)
 }
 
 /// Language literals
