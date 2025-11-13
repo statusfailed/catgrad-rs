@@ -197,6 +197,7 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
     mask * ninf
 }
 
+/// Generic linear layer with optional bias with already loaded parameters given as vars
 pub fn linear_b_param(
     builder: &Builder,
     in_dim: usize,
@@ -247,6 +248,7 @@ pub fn linear_param(
     linear_b_param(builder, in_dim, out_dim, weight, Some(bias), x)
 }
 
+/// Generic linear layer with optional bias with given parameter names
 pub fn linear_b(
     builder: &Builder,
     in_dim: usize,
