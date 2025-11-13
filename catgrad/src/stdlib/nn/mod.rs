@@ -1,3 +1,9 @@
+//! Standard library of definitions and APIs for neural networks and LLMs
+//! These are still in flux and driven by model code using them.
+//! The APIs may change and parts are likely to be moved elsewhere.
+//! Some are lower level components like linear layers and activations, others are
+//! higher level LLM building blocks or APIs.
+
 use crate::prelude::{ops::*, *};
 use std::f32::consts::{E, PI};
 
