@@ -17,9 +17,15 @@ mod util;
 /// Forget operations which amount to identities (like identity casts)
 mod functor;
 
+/// Factorise models into parameters & compute
+mod factor;
+#[cfg(test)]
+mod test_factor;
+
 // TODO: replace with catgrad::definition::inline
 // Inline all definitions within a top-level term
 mod inline;
 
+pub use factor::factor;
 pub use grammar::Func;
 pub use pass::lang_to_mlir;
