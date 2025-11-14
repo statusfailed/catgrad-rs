@@ -1,18 +1,17 @@
+use catgrad::category::lang;
 use catgrad::prelude::*;
-
-use super::grammar;
-use super::lower_term;
+use open_hypergraphs::lax::OpenHypergraph;
 
 // TODO: PERFORMANCE: this is inefficient when called multiple times: inlining should be done "bottom-up" in
 // topological dependency order so we don't repeat work.
 // FIX: pass a *vec* of names, then inline the whole environment bottom-up, and emit MLIR for each
 // of the passed names.
 /// Render a TypedTerm and its associated environment of definitions to MLIR
-pub fn lang_to_mlir(
+pub fn preprocess(
     env: &Environment,
     params: &typecheck::Parameters,
     path: Path,
-) -> grammar::Func {
+) -> (Vec<Path>, OpenHypergraph<Type, lang::Operation>) {
     let mut typed_term = env.definitions.get(&path).unwrap().clone();
 
     // Inline all operations
@@ -49,16 +48,27 @@ pub fn lang_to_mlir(
     // Forget all copy ops for MLIR (it's harder to deal with)
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
-    // Convert term to MLIR
-    lower_term::term_to_func(&path.to_string(), checked_term)
+    // Factor out parameters
+    let (params, checked_term) = super::factor(&checked_term, |op| match op {
+        lang::Operation::Declaration(path) => params.0.contains_key(path),
+        _ => false,
+    });
 
-    // TODO: Produce MLIR for each used dependency: a list of MLIR fragments
-    // let _definitions = todo!(); // list of MLIR strings / structs
+    // Panics below should never happen; factor above only pulls declarations.
+    let param_paths = params.hypergraph.edges.into_iter().map(|e| match e {
+        lang::Operation::Declaration(path) => path,
+        lang::Operation::Definition(_path) => panic!("impossible definition found in params!"),
+        lang::Operation::Literal(_literal) => panic!("impossible literal found in params!"),
+    });
 
-    // TODO: Return fully-rendered MLIR, including:
-    //  - top level term (entrypoint?)
-    //  - each used dependency
-    //let result = todo!("concat _entry_fragment and _definitions");
+    // Return all param paths in order of use
+    (param_paths.collect(), checked_term)
+
+    // TODO: Instead of inlining, produce MLIR for independent functions in the environment.
+    // This requires:
+    //
+    //  - Monomorphization (generate variants for each dtype argument)
+    //  - Deparametrization (modify each term in env. to explicitly pass params)
 }
 
 /// Ensure the boundaries of the entry point term do not have free Dtype vars

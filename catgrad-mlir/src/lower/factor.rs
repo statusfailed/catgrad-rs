@@ -76,7 +76,7 @@ where
     let mut e = strict::OpenHypergraph::tensor_operations(selected_ops);
     e = strict::OpenHypergraph {
         s: FiniteFunction::initial(e.h.w.len()),
-        t: (&e.s | &e.t),
+        t: (&e.s + &e.t).unwrap(),
         h: e.h,
     };
 
@@ -85,7 +85,7 @@ where
     let k_inv = p.compose(&FiniteFunction::twist(1, 1)).unwrap();
     let mut d = filter_operations(c, &k_inv);
     d = strict::OpenHypergraph {
-        s: (&(&e_s.values | &e_t.values) | &d.s),
+        s: (&(&e_s.values + &e_t.values).unwrap() + &d.s).unwrap(),
         t: d.t.clone(),
         h: d.h,
     };

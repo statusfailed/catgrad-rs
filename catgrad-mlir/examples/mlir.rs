@@ -1,6 +1,6 @@
 use catgrad::prelude::*;
 use catgrad::typecheck::*;
-use catgrad_mlir::lower::lang_to_mlir;
+use catgrad_mlir::lower;
 
 /// Construct, shapecheck, and lower an `Exp` function to MLIR
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .extend(to_load_ops(model.path(), parameters.keys()));
 
     // Convert model to MLIR
-    let mlir = lang_to_mlir(&env, &parameters, model.path());
+    let (_, term) = lower::preprocess(&env, &parameters, model.path());
+    let mlir = lower::term_to_func(&model.path().to_string(), term);
 
     // print MLIR
     println!("{}", mlir);

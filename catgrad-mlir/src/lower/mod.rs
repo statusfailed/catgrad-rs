@@ -6,11 +6,12 @@
 /// Simplified MLIR grammar for rendering
 mod grammar;
 
-// Top-level interface to the compiler pass
-mod pass;
+// Preprocess
+mod preprocess;
 
 // Rendering of ops to MLIR fragments
-mod lower_term;
+mod emit_mlir;
+
 mod ops;
 mod util;
 
@@ -26,6 +27,7 @@ mod test_factor;
 // Inline all definitions within a top-level term
 mod inline;
 
+pub use emit_mlir::term_to_func;
 pub use factor::factor;
 pub use grammar::Func;
-pub use pass::lang_to_mlir;
+pub use preprocess::preprocess;

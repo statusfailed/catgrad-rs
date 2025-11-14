@@ -1,4 +1,5 @@
 use catgrad::prelude::*;
+use open_hypergraphs::category::Arrow;
 use std::ffi::CString;
 use std::path::PathBuf;
 
@@ -12,8 +13,22 @@ pub fn compile(
     symbol: Path, // catgrad path
     output_so: PathBuf,
 ) -> LlvmRuntime {
-    // Render the function using lang_to_mlir
-    let func = lower::lang_to_mlir(env, params, symbol.clone());
+    // Preprocess the term
+    let (_param_paths, term) = lower::preprocess(env, params, symbol.clone());
+
+    let source_types = term
+        .source()
+        .iter()
+        .map(|t| catgrad_to_mlir_type(t.clone()))
+        .collect();
+    let target_types = term
+        .target()
+        .iter()
+        .map(|t| catgrad_to_mlir_type(t.clone()))
+        .collect();
+
+    // Render the function using term_to_func
+    let func = lower::term_to_func(&symbol.to_string(), term);
     let mlir_text = func.to_string();
 
     // Compile MLIR to shared library
@@ -21,22 +36,6 @@ pub fn compile(
 
     // Create entrypoint for the symbol
     let func_name = CString::new(symbol.to_string()).expect("Invalid function name");
-
-    // Get types from the typed term in the environment
-    let typed_term = env
-        .definitions
-        .get(&symbol)
-        .expect("Symbol not found in environment");
-    let source_types = typed_term
-        .source_type
-        .iter()
-        .map(|t| catgrad_to_mlir_type(t.clone()))
-        .collect();
-    let target_types = typed_term
-        .target_type
-        .iter()
-        .map(|t| catgrad_to_mlir_type(t.clone()))
-        .collect();
 
     let entrypoint = Entrypoint {
         func_name,
