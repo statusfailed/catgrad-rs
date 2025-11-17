@@ -503,7 +503,7 @@ impl NdArrayBackend {
 
         for lane in x.lanes(Axis(last_idx)) {
             let mut idxs: Vec<usize> = (0..lane.len()).collect();
-            idxs.select_nth_unstable_by(k, |&i, &j| lane[j].total_cmp(&lane[i]));
+            idxs.sort_by(|&i, &j| lane[j].total_cmp(&lane[i]));
             idxs.truncate(k);
 
             for i in idxs {

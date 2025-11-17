@@ -502,14 +502,10 @@ impl CandleBackend {
     }
 
     fn topk_f32(tensor: Tensor, k: usize) -> (Tensor, Tensor) {
-        let sorted_indices = tensor.arg_sort_last_dim(false).unwrap();
-        let topk_indices = sorted_indices
-            .narrow(D::Minus1, 0, k)
-            .unwrap()
-            .contiguous()
-            .unwrap();
-        let values = tensor.gather(&topk_indices, D::Minus1).unwrap();
-        (values, topk_indices)
+        let (values, indices) = tensor.sort_last_dim(false).unwrap();
+        let topk_indices = indices.narrow(D::Minus1, 0, k).unwrap();
+        let topk_values = values.narrow(D::Minus1, 0, k).unwrap();
+        (topk_values, topk_indices)
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {
