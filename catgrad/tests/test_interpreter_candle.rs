@@ -876,7 +876,7 @@ use catgrad::stdlib::*;
 use catgrad::{typecheck, typecheck::*};
 
 pub mod test_models;
-use test_models::{Add, BatchMatMul};
+use test_models::{Add, BatchMatMul, TopK};
 
 fn run_candle_test_with_inputs<F>(
     TypedTerm {
@@ -1015,4 +1015,43 @@ fn test_candle_interpreter_exp() {
         ),
         "actual should be close to expected!"
     );
+}
+
+#[test]
+fn test_candle_interpreter_topk() {
+    let data: Vec<f32> = vec![
+        0.1, 5.0, 3.0, 10.0, 5.0, //
+        8.0, 9.0, 7.0, 6.0, 8.0,
+    ];
+    let result = run_candle_test_with_inputs(TopK.term().unwrap(), |backend| {
+        vec![tensor(backend, Shape(vec![2, 5]), &data).unwrap()]
+    });
+
+    assert_eq!(result.len(), 2);
+
+    let backend = CandleBackend::new();
+    let expected_values_data = vec![10.0f32, 5.0, 9.0, 8.0];
+    let expected_indices_data = vec![3u32, 1, 1, 0];
+    let expected_values = tensor(&backend, Shape(vec![2, 2]), &expected_values_data).unwrap();
+    let expected_indices = tensor(&backend, Shape(vec![2, 2]), &expected_indices_data).unwrap();
+
+    match (&result[0], &expected_values) {
+        (Value::Tensor(TaggedTensor::F32([actual])), Value::Tensor(TaggedTensor::F32([exp]))) => {
+            assert!(
+                backend.compare(TaggedTensorTuple::F32([actual.clone(), exp.clone()])),
+                "topk values should match expected output"
+            );
+        }
+        _ => panic!("Expected F32 tensor for topk values"),
+    }
+
+    match (&result[1], &expected_indices) {
+        (Value::Tensor(TaggedTensor::U32([actual])), Value::Tensor(TaggedTensor::U32([exp]))) => {
+            assert!(
+                backend.compare(TaggedTensorTuple::U32([actual.clone(), exp.clone()])),
+                "topk indices should match expected output"
+            );
+        }
+        _ => panic!("Expected U32 tensor for topk indices"),
+    }
 }

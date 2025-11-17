@@ -104,3 +104,33 @@ impl Module<2, 1> for BatchMatMul {
         [matmul(builder, x, y)]
     }
 }
+
+pub struct TopK;
+impl Module<1, 2> for TopK {
+    fn ty(&self) -> ([Type; 1], [Type; 2]) {
+        let input = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Constant(2), NatExpr::Constant(4)]),
+        }));
+        let values = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Constant(2), NatExpr::Constant(2)]),
+        }));
+        let indices = Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::U32),
+            shape: ShapeExpr::Shape(vec![NatExpr::Constant(2), NatExpr::Constant(2)]),
+        }));
+
+        ([input], [values, indices])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["test", "topk"]).unwrap()
+    }
+
+    fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 2] {
+        let k = lit(builder, Literal::Nat(2));
+        let (values, indices) = topk(builder, k, x);
+        [values, indices]
+    }
+}
