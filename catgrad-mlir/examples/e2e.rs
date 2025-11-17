@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Input tensor: {}", input_tensor);
 
     // Call the function using the CompiledModel API
-    let results = compiled_model.call(model.path(), vec![input_tensor]);
+    let results = compiled_model.call(model.path(), vec![input_tensor])?;
 
     // Print each result using Display
     for (i, result) in results.iter().enumerate() {

@@ -5,9 +5,36 @@ use std::path::PathBuf;
 
 use crate::codegen::codegen;
 use crate::lower;
-use crate::runtime::{Entrypoint, LlvmRuntime, MlirType, MlirValue};
+use crate::runtime::{Entrypoint, LlvmRuntime, MlirType, MlirValue, RuntimeError};
 
 use std::collections::HashMap;
+
+#[derive(Debug)]
+pub enum CompileError {
+    Runtime(RuntimeError),
+    FunctionNotFound(Path),
+    ParameterNotFound(Path),
+    InvalidFunctionName(String),
+}
+
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompileError::Runtime(err) => write!(f, "Runtime error: {}", err),
+            CompileError::FunctionNotFound(path) => write!(f, "Function not found: {}", path),
+            CompileError::ParameterNotFound(path) => write!(f, "Parameter not found: {}", path),
+            CompileError::InvalidFunctionName(name) => write!(f, "Invalid function name: {}", name),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
+impl From<RuntimeError> for CompileError {
+    fn from(err: RuntimeError) -> Self {
+        CompileError::Runtime(err)
+    }
+}
 
 pub struct CompiledModel {
     pub runtime: LlvmRuntime,
@@ -48,16 +75,28 @@ impl CompiledModel {
     }
 
     /// Call a function from the Environment by name
-    pub fn call(&self, fn_name: Path, args: Vec<MlirValue>) -> Vec<MlirValue> {
+    pub fn call(
+        &self,
+        fn_name: Path,
+        args: Vec<MlirValue>,
+    ) -> Result<Vec<MlirValue>, CompileError> {
         // Collect parameter arguments
-        let paths = self.fn_param_args.get(&fn_name).unwrap(); // TODO ERRORS
+        let paths = self
+            .fn_param_args
+            .get(&fn_name)
+            .ok_or_else(|| CompileError::FunctionNotFound(fn_name.clone()))?;
 
         // Clone MlirValue params; this is not a performance problem since each has an Rc ptr
         // to data.
         let params: Vec<MlirValue> = paths
             .iter()
-            .map(|k| self.parameter_values.get(k).cloned().unwrap()) // TODO ERRORS
-            .collect();
+            .map(|k| {
+                self.parameter_values
+                    .get(k)
+                    .cloned()
+                    .ok_or_else(|| CompileError::ParameterNotFound(k.clone()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         // TODO: check param values match the actual term type!
 
@@ -65,9 +104,10 @@ impl CompiledModel {
         all_args.extend(args);
 
         // Convert function name to CString
-        let func_name = CString::new(fn_name.to_string()).expect("Invalid function name");
+        let func_name = CString::new(fn_name.to_string())
+            .map_err(|_| CompileError::InvalidFunctionName(fn_name.to_string()))?;
 
-        self.runtime.call(&func_name, all_args).unwrap()
+        Ok(self.runtime.call(&func_name, all_args)?)
     }
 }
 
