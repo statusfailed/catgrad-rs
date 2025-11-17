@@ -21,4 +21,6 @@ candle-core = { version = "0.9", optional = true }
 default = []
 ndarray-backend = ["dep:ndarray"]
 candle-backend = ["dep:candle-core"]
+cuda = ["candle-core/cuda"]
+metal = ["candle-core/metal"]
 svg = ["dep:graphviz-rust", "dep:open-hypergraphs-dot"]
