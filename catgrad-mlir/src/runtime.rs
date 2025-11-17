@@ -35,6 +35,8 @@ impl std::fmt::Display for RuntimeError {
 
 impl std::error::Error for RuntimeError {}
 
+/// A loaded .so file which was compiled from a catgrad model lowered through MLIR.
+/// Abstractly, one can think of this as a dictionary of functions which can be called.
 pub struct LlvmRuntime {
     lib_handle: *mut c_void,
     entrypoints: HashMap<CString, (CodePtr, Entrypoint)>,
@@ -270,7 +272,7 @@ impl<T> MlirTensor<T> {
     ///     strides: [i64; N],
     /// }
     /// ```
-    pub fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
+    fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         let mut result = Vec::with_capacity(3 + 2 * self.sizes.len());
 
         // Get reference to the raw pointer from the buffer
@@ -296,7 +298,7 @@ impl<T> MlirTensor<T> {
 }
 
 /// Runtime representations of catgrad types which can be used with the LLVM Runtime
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MlirValue {
     MlirTensor(MlirTensor<f32>), // TODO: f32 specialisation
     I64(i64),

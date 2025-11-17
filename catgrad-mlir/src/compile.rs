@@ -5,16 +5,80 @@ use std::path::PathBuf;
 
 use crate::codegen::codegen;
 use crate::lower;
-use crate::runtime::{Entrypoint, LlvmRuntime, MlirType};
+use crate::runtime::{Entrypoint, LlvmRuntime, MlirType, MlirValue};
 
-pub fn compile(
+use std::collections::HashMap;
+
+pub struct CompiledModel {
+    pub runtime: LlvmRuntime,
+    pub fn_param_args: HashMap<Path, Vec<Path>>,
+    pub parameter_values: HashMap<Path, MlirValue>,
+}
+
+/// A safe wrapper around Runtime to compile and call models
+///
+/// # Parameters
+///
+/// - `env`: the set of definitions to compile to functions (may be inlined)
+/// - `params`: types of additional constants added to the signature as nullary operations
+/// - `entrypoint`: Entrypoint (currently just one, in future a Vec of potential entrypoints)
+/// - `output_so`: Path to save generated shared object code.
+impl CompiledModel {
+    pub fn new(
+        env: &Environment,
+        params: &typecheck::Parameters,
+        entrypoint: Path,
+        output_so: PathBuf,
+    ) -> Self {
+        let (runtime, param_paths) = compile(env, params, entrypoint.clone(), output_so);
+        let fn_param_args = HashMap::from([(entrypoint, param_paths)]);
+
+        Self {
+            runtime,
+            fn_param_args,
+            parameter_values: HashMap::new(),
+        }
+    }
+
+    /// Set a parameter by name
+    pub fn set_param(&mut self, name: Path, value: MlirValue) {
+        // TODO: check that the type of `value` lines up with what's in `params.get(name)`.
+        // override set in the hashmap
+        self.parameter_values.insert(name, value);
+    }
+
+    /// Call a function from the Environment by name
+    pub fn call(&self, fn_name: Path, args: Vec<MlirValue>) -> Vec<MlirValue> {
+        // Collect parameter arguments
+        let paths = self.fn_param_args.get(&fn_name).unwrap(); // TODO ERRORS
+
+        // Clone MlirValue params; this is not a performance problem since each has an Rc ptr
+        // to data.
+        let params: Vec<MlirValue> = paths
+            .iter()
+            .map(|k| self.parameter_values.get(k).cloned().unwrap()) // TODO ERRORS
+            .collect();
+
+        // TODO: check param values match the actual term type!
+
+        let mut all_args = params;
+        all_args.extend(args);
+
+        // Convert function name to CString
+        let func_name = CString::new(fn_name.to_string()).expect("Invalid function name");
+
+        self.runtime.call(&func_name, all_args).unwrap()
+    }
+}
+
+fn compile(
     env: &Environment,
     params: &typecheck::Parameters,
     symbol: Path, // catgrad path
     output_so: PathBuf,
-) -> LlvmRuntime {
+) -> (LlvmRuntime, Vec<Path>) {
     // Preprocess the term
-    let (_param_paths, term) = lower::preprocess(env, params, symbol.clone());
+    let (param_paths, term) = lower::preprocess(env, params, symbol.clone());
 
     let source_types = term
         .source()
@@ -43,7 +107,9 @@ pub fn compile(
         target_types,
     };
 
-    LlvmRuntime::new(&output_so, vec![entrypoint]).expect("Failed to create runtime")
+    let runtime = LlvmRuntime::new(&output_so, vec![entrypoint]).expect("Failed to create runtime");
+
+    (runtime, param_paths)
 }
 
 fn catgrad_to_mlir_type(catgrad_type: Type) -> MlirType {

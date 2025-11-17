@@ -1,6 +1,6 @@
 use catgrad::prelude::*;
 use catgrad::typecheck::*;
-use catgrad_mlir::{compile::compile, runtime::LlvmRuntime};
+use catgrad_mlir::{compile::CompiledModel, runtime::LlvmRuntime};
 use std::env;
 
 /// Construct, shapecheck, and lower an `Exp` function to MLIR, then codegen and run.
@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // Compile and set up runtime with compiled code
     println!("Compiling {} to {}...", model.path(), output_so.display());
-    let runtime = compile(&env, &parameters, model.path(), output_so);
+    let compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
 
     ////////////////////////////////////////
     // Execute with example data
@@ -44,10 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let input_tensor = LlvmRuntime::tensor(input_data, vec![3, 1, 4], vec![4, 4, 1]);
     println!("Input tensor: {}", input_tensor);
 
-    // Call the function using the safe runtime API
-    // TODO: wrap runtime in another struct e.g. CompiledModel and handle path conversion?
-    let func_name = std::ffi::CString::new(model.path().to_string())?;
-    let results = runtime.call(&func_name, vec![input_tensor])?;
+    // Call the function using the CompiledModel API
+    let results = compiled_model.call(model.path(), vec![input_tensor]);
 
     // Print each result using Display
     for (i, result) in results.iter().enumerate() {
