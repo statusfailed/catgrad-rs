@@ -171,12 +171,9 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
 }
 
 pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
-    let d = chunk_size.to_nat(builder);
-    let ddim = (dim as u32).to_nat(builder);
     let mut outputs = vec![];
     for i in 0..chunks {
-        let id = i.to_nat(builder) * d.clone();
-        let s = slice(builder, ddim.clone(), id, d.clone(), x.clone());
+        let s = slice(builder, dim as u32, i * chunk_size, chunk_size, x.clone());
         outputs.push(s);
     }
 
@@ -192,9 +189,7 @@ pub fn linear_b_param(
     bias: Option<Var>,
     x: Var,
 ) -> Var {
-    let dim0 = 0.to_nat(builder);
-    let dim1 = 1.to_nat(builder);
-    let w_t = transpose(builder, dim0, dim1, weight);
+    let w_t = transpose(builder, 0, 1, weight);
 
     let sh = shape(builder, x.clone());
     let [batch_size, _, _] = unpack::<3>(builder, sh);
