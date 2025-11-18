@@ -20,10 +20,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     ////////////////////////////////////////
     // Setup model and environment
-    let model = ConcreteSigmoid;
+    let model = ConcreteSigmoidPlusConst;
     let typed_term = model.term().expect("Failed to create typed term");
-    let parameters = typecheck::Parameters::from([]);
 
+    // Create parameters map with the constant parameter
+    let param_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::F32),
+        shape: ShapeExpr::Shape(vec![].into_iter().map(NatExpr::Constant).collect()), // scalar
+    }));
+    let param_name = path(vec!["offset"]).unwrap();
+    let parameters = typecheck::Parameters::from([(param_name.clone(), param_type)]);
+
+    // TODO: this is a lot of work for the user...?
     let mut env = stdlib();
     env.definitions.extend([(model.path(), typed_term)]);
     env.declarations
@@ -32,7 +40,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // Compile and set up runtime with compiled code
     println!("Compiling {} to {}...", model.path(), output_so.display());
-    let compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
+    let mut compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
+
+    // Set the scalar parameter (value 1.0)
+    let scalar_data = vec![1.0f32];
+    let param_tensor = LlvmRuntime::tensor(scalar_data, vec![], vec![]); // scalar tensor
+    compiled_model.set_param(model.path().concat(&param_name), param_tensor);
 
     ////////////////////////////////////////
     // Execute with example data
@@ -57,10 +70,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 pub struct ConcreteSigmoid;
 
-// Redo the sigmoid example with a concrete type
+// Basic sigmoid example with a concrete type
 impl Module<1, 1> for ConcreteSigmoid {
     fn ty(&self) -> ([Type; 1], [Type; 1]) {
-        // TODO: try replacing shape with ShapeExpr::Var(0)
         let ty = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
             dtype: DtypeExpr::Constant(Dtype::F32),
             shape: ShapeExpr::Shape(vec![3, 1, 4].into_iter().map(NatExpr::Constant).collect()),
@@ -78,5 +90,38 @@ impl Module<1, 1> for ConcreteSigmoid {
         let one = ops::cast(builder, one, ops::dtype(builder, x.clone()));
 
         [one.clone() / (one + nn::Exp.call(builder, [-x]))]
+    }
+}
+
+pub struct ConcreteSigmoidPlusConst;
+
+// Sigmoid plus constant parameter example
+impl Module<1, 1> for ConcreteSigmoidPlusConst {
+    fn ty(&self) -> ([Type; 1], [Type; 1]) {
+        let ty = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+            dtype: DtypeExpr::Constant(Dtype::F32),
+            shape: ShapeExpr::Shape(vec![3, 1, 4].into_iter().map(NatExpr::Constant).collect()),
+        }));
+        ([ty.clone()], [ty])
+    }
+
+    fn path(&self) -> Path {
+        path(vec!["test", "sigmoid_plus_const"]).unwrap()
+    }
+
+    fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
+        let sh = ops::shape(builder, x.clone());
+        let one = ops::constant(builder, 1.0, &sh);
+        let one = ops::cast(builder, one, ops::dtype(builder, x.clone()));
+
+        // Compute sigmoid
+        let sigmoid = one.clone() / (one + nn::Exp.call(builder, [-x]));
+
+        // Get the scalar parameter and broadcast it to match input shape
+        let offset = ops::param(builder, &self.path().extend(["offset"]).unwrap());
+        let offset_broadcasted = ops::broadcast(builder, offset, sh);
+
+        // Add the broadcasted constant to sigmoid
+        [sigmoid + offset_broadcasted]
     }
 }

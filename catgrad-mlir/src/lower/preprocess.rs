@@ -49,8 +49,11 @@ pub fn preprocess(
     let checked_term = open_hypergraphs::lax::var::forget::forget(&checked_term);
 
     // Factor out parameters
+    let param_ops: std::collections::HashMap<Path, ()> =
+        params.keys().map(|k| (path.concat(k), ())).collect();
+
     let (params, checked_term) = super::factor(&checked_term, |op| match op {
-        lang::Operation::Declaration(path) => params.0.contains_key(path),
+        lang::Operation::Declaration(dec_path) => param_ops.contains_key(dec_path),
         _ => false,
     });
 
