@@ -1,6 +1,7 @@
 use catgrad::prelude::*;
 use catgrad::typecheck::*;
 use catgrad_mlir::{compile::CompiledModel, runtime::LlvmRuntime};
+use std::collections::HashMap;
 use std::env;
 
 /// Construct, shapecheck, and lower an `Exp` function to MLIR, then codegen and run.
@@ -40,12 +41,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // Compile and set up runtime with compiled code
     println!("Compiling {} to {}...", model.path(), output_so.display());
-    let mut compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
+    let compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
 
     // Set the scalar parameter (value 1.0)
     let scalar_data = vec![1.0f32];
     let param_tensor = LlvmRuntime::tensor(scalar_data, vec![], vec![]); // scalar tensor
-    compiled_model.set_param(model.path().concat(&param_name), param_tensor);
+    let param_values = HashMap::from([(model.path().concat(&param_name), param_tensor)]);
 
     ////////////////////////////////////////
     // Execute with example data
@@ -58,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Input tensor: {}", input_tensor);
 
     // Call the function using the CompiledModel API
-    let results = compiled_model.call(model.path(), vec![input_tensor])?;
+    let results = compiled_model.call(model.path(), &param_values, vec![input_tensor])?;
 
     // Print each result using Display
     for (i, result) in results.iter().enumerate() {

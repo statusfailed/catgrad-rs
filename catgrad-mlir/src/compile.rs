@@ -39,7 +39,6 @@ impl From<RuntimeError> for CompileError {
 pub struct CompiledModel {
     pub runtime: LlvmRuntime,
     pub fn_param_args: HashMap<Path, Vec<Path>>,
-    pub parameter_values: HashMap<Path, MlirValue>,
 }
 
 /// A safe wrapper around Runtime to compile and call models
@@ -63,21 +62,14 @@ impl CompiledModel {
         Self {
             runtime,
             fn_param_args,
-            parameter_values: HashMap::new(),
         }
-    }
-
-    /// Set a parameter by name
-    pub fn set_param(&mut self, name: Path, value: MlirValue) {
-        // TODO: check that the type of `value` lines up with what's in `params.get(name)`.
-        // override set in the hashmap
-        self.parameter_values.insert(name, value);
     }
 
     /// Call a function from the Environment by name
     pub fn call(
         &self,
         fn_name: Path,
+        parameter_values: &HashMap<Path, MlirValue>,
         args: Vec<MlirValue>,
     ) -> Result<Vec<MlirValue>, CompileError> {
         // Collect parameter arguments
@@ -91,7 +83,7 @@ impl CompiledModel {
         let params: Vec<MlirValue> = paths
             .iter()
             .map(|k| {
-                self.parameter_values
+                parameter_values
                     .get(k)
                     .cloned()
                     .ok_or_else(|| CompileError::ParameterNotFound(k.clone()))
