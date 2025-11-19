@@ -41,6 +41,9 @@ struct Args {
     /// Backend to use
     #[arg(short = 'b', long, value_enum, default_value_t = BackendChoice::Ndarray)]
     backend: BackendChoice,
+    /// Enable Candle backend acceleration
+    #[arg(short = 'a', long)]
+    accel: bool,
 }
 
 #[derive(Copy, Clone, Debug, ValueEnum)]
@@ -55,7 +58,7 @@ fn main() -> Result<()> {
     let args = Args::parse();
     match args.backend {
         BackendChoice::Ndarray => run_with_backend(&args, NdArrayBackend),
-        BackendChoice::Candle => run_with_backend(&args, CandleBackend::new()),
+        BackendChoice::Candle => run_with_backend(&args, CandleBackend::new_accel(args.accel)),
     }
 }
 

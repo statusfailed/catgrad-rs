@@ -1,7 +1,10 @@
 use super::super::types::*;
 use crate::category::core::{Dtype, Shape};
 use crate::interpreter::backend::{Backend, BackendError, BackendTensorOps};
-use candle_core::{D, DType, Device, Tensor};
+use candle_core::{
+    D, DType, Device, Tensor,
+    utils::{cuda_is_available, metal_is_available},
+};
 
 // ============================================================================
 // CANDLE BACKEND ARCHITECTURE EXPLANATION
@@ -41,6 +44,19 @@ impl CandleBackend {
         Self {
             device: Device::Cpu,
         }
+    }
+
+    pub fn new_accel(accel: bool) -> Self {
+        let device = if !accel {
+            Device::Cpu
+        } else if cuda_is_available() {
+            Device::new_cuda(0).unwrap()
+        } else if metal_is_available() {
+            Device::new_metal(0).unwrap()
+        } else {
+            Device::Cpu
+        };
+        Self { device }
     }
 
     pub fn with_device(device: Device) -> Self {
