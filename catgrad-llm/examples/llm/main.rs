@@ -288,7 +288,8 @@ pub fn main() -> Result<()> {
         ("granitemoe", "ibm-granite/granite-3.1-1b-a400m-instruct"),
         ("granite", "ibm-granite/granite-3.3-2b-instruct"),
         ("granite4", "ibm-granite/granite-4.0-micro"),
-        ("olmo", "allenai/OLMo-2-0425-1B-Instruct"),
+        ("olmo2", "allenai/OLMo-2-0425-1B-Instruct"),
+        ("olmo3", "allenai/Olmo-3-7B-Instruct"),
         ("phi", "microsoft/Phi-4-mini-instruct"),
         ("modernbert", "jhu-clsp/ettin-decoder-17m"),
     ]);

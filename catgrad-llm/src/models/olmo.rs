@@ -72,6 +72,7 @@ impl Model {
         let dim = config.hidden_size;
         let num_heads = config.num_attention_heads;
         let num_kv_heads = config.num_key_value_heads;
+        let rep = num_heads / num_kv_heads;
         let head_dim = config.hidden_size / num_heads;
         let b = x.label.shape.0[0];
         let s = x.label.shape.0[1];
@@ -107,6 +108,9 @@ impl Model {
         let k = apply_rope_embedding(builder, pos, cache.cos.clone(), cache.sin.clone(), k);
 
         let (k, v) = cache.update_kv_cache(builder, layer_id, k, v);
+
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
 
         let tk = transpose(builder, 2, 3, k);
         let attn = mat_mul(builder, q, tk);
