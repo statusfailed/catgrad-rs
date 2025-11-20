@@ -243,6 +243,17 @@ impl Backend for CandleBackend {
         }
     }
 
+    fn topk(&self, x: TaggedTensor<Self>, k: usize) -> (TaggedTensor<Self>, TaggedTensor<Self>) {
+        use TaggedTensorTuple::*;
+        match x {
+            F32([arr]) => {
+                let (values, indices) = Self::topk_f32(arr.0, k);
+                (F32([CandleTensor(values)]), U32([CandleTensor(indices)]))
+            }
+            _ => panic!("Unsupported type for topk"),
+        }
+    }
+
     fn broadcast(&self, x: TaggedTensor<Self>, shape: Shape) -> TaggedTensor<Self> {
         use TaggedTensorTuple::*;
         match x {
@@ -488,6 +499,13 @@ impl CandleBackend {
 
     fn argmax(x: CandleTensor) -> CandleTensor {
         CandleTensor(x.0.argmax_keepdim(D::Minus1).unwrap())
+    }
+
+    fn topk_f32(tensor: Tensor, k: usize) -> (Tensor, Tensor) {
+        let (values, indices) = tensor.sort_last_dim(false).unwrap();
+        let topk_indices = indices.narrow(D::Minus1, 0, k).unwrap();
+        let topk_values = values.narrow(D::Minus1, 0, k).unwrap();
+        (topk_values, topk_indices)
     }
 
     fn matmul_generic(lhs: Tensor, rhs: Tensor) -> Tensor {

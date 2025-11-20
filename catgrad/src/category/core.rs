@@ -170,6 +170,11 @@ pub enum TensorOp {
     /// `Argmax : Tensor → Tensor`
     Argmax,
 
+    /// Return the top-k values and their indices along the last dimension
+    /// In case of ties the values are returned in the order they appear
+    /// `TopK : Tensor × Nat → Tensor × Tensor`
+    TopK,
+
     // broadcast a Tensor to a given shape
     Broadcast,
 
