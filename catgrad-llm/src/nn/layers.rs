@@ -506,6 +506,9 @@ pub fn linear_no_bias(builder: &Builder, in_dim: usize, out_dim: usize, name: &s
 }
 
 pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
+    if rep == 1 {
+        return x;
+    }
     let shape = x.label.shape.0.clone();
     let b = shape[0];
     let num_kv_heads = shape[1];
