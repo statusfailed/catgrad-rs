@@ -124,7 +124,7 @@ impl LlvmRuntime {
         let sizes: Vec<i64> = extents.into_iter().map(|s| s as i64).collect();
         let strides: Vec<i64> = strides.into_iter().map(|s| s as i64).collect();
 
-        MlirValue::MlirTensor(MlirTensor {
+        MlirValue::MlirTensorF32(MlirTensor {
             allocated: MlirBuffer::Rust(Rc::new(data_ptr), len, capacity),
             aligned: data_ptr, // For user-created tensors, allocated == aligned
             offset: 0,
@@ -160,7 +160,7 @@ impl LlvmRuntime {
         // Convert MlirTensor results back to MlirValue
         let results: Vec<MlirValue> = result_tensors
             .into_iter()
-            .map(MlirValue::MlirTensor)
+            .map(MlirValue::MlirTensorF32)
             .collect();
 
         Ok(results)
@@ -300,14 +300,14 @@ impl<T> MlirTensor<T> {
 /// Runtime representations of catgrad types which can be used with the LLVM Runtime
 #[derive(Debug, Clone)]
 pub enum MlirValue {
-    MlirTensor(MlirTensor<f32>), // TODO: f32 specialisation
+    MlirTensorF32(MlirTensor<f32>), // TODO: f32 specialisation
     I64(i64),
 }
 
 impl std::fmt::Display for MlirValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MlirValue::MlirTensor(tensor) => write!(f, "{}", tensor),
+            MlirValue::MlirTensorF32(tensor) => write!(f, "{}", tensor),
             MlirValue::I64(value) => write!(f, "I64({})", value),
         }
     }
@@ -316,14 +316,14 @@ impl std::fmt::Display for MlirValue {
 impl MlirValue {
     pub fn to_type(&self) -> MlirType {
         match self {
-            MlirValue::MlirTensor(tensor) => MlirType::Memref(tensor.sizes.len()),
+            MlirValue::MlirTensorF32(tensor) => MlirType::Memref(tensor.sizes.len()),
             MlirValue::I64(_) => MlirType::I64,
         }
     }
 
     pub fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         match self {
-            MlirValue::MlirTensor(tensor) => tensor.to_args(),
+            MlirValue::MlirTensorF32(tensor) => tensor.to_args(),
             MlirValue::I64(val) => vec![Arg::new(val)],
         }
     }
@@ -413,7 +413,7 @@ fn call(
         let input_buffers: std::collections::HashMap<*mut f32, MlirBuffer<f32>> = source_values
             .iter()
             .filter_map(|val| match val {
-                MlirValue::MlirTensor(tensor) => match &tensor.allocated {
+                MlirValue::MlirTensorF32(tensor) => match &tensor.allocated {
                     MlirBuffer::Rust(ptr_rc, _, _) => Some((**ptr_rc, tensor.allocated.clone())),
                     MlirBuffer::Malloc(ptr_rc) => Some((**ptr_rc, tensor.allocated.clone())),
                 },
