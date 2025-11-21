@@ -162,6 +162,118 @@ impl Model {
         )
     }
 
+    pub fn expert(builder: &Builder, config: &Config, name: &str, n: Var, x: Var) -> Var {
+        let gate_up_type = NdArrayType::new(
+            Shape(vec![config.moe_intermediate_size, config.hidden_size]),
+            x.label.dtype,
+        );
+
+        let gate_p = parameter_dynamic(
+            builder,
+            gate_up_type.clone(),
+            n.clone(),
+            format!("{name}.gate_proj.weight"),
+        );
+        let gate = linear_no_bias_param(
+            builder,
+            config.hidden_size,
+            config.moe_intermediate_size,
+            gate_p,
+            x.clone(),
+        );
+
+        let up_p = parameter_dynamic(
+            builder,
+            gate_up_type,
+            n.clone(),
+            format!("{name}.up_proj.weight"),
+        );
+        let up = linear_no_bias_param(
+            builder,
+            config.hidden_size,
+            config.moe_intermediate_size,
+            up_p,
+            x,
+        );
+        let x = silu(builder, gate) * up; // SwiGLU
+
+        let down_type = NdArrayType::new(
+            Shape(vec![config.hidden_size, config.moe_intermediate_size]),
+            x.label.dtype,
+        );
+
+        let down_p = parameter_dynamic(builder, down_type, n, format!("{name}.down_proj.weight"));
+        linear_no_bias_param(
+            builder,
+            config.moe_intermediate_size,
+            config.hidden_size,
+            down_p,
+            x,
+        )
+    }
+
+    pub fn moe(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
+        let seq_len = x.label.shape.0[1];
+
+        let routed = linear_no_bias(
+            builder,
+            config.hidden_size,
+            config.num_local_experts,
+            &format!("{name}.gate"),
+            x.clone(),
+        );
+        let routed = softmax(builder, routed);
+
+        let vi = topk(builder, config.num_experts_per_tok, routed);
+        let values = vi[0].clone();
+        let indices = vi[1].clone();
+
+        let indices = reshape(
+            builder,
+            Shape(vec![seq_len, config.num_experts_per_tok]),
+            indices,
+        );
+
+        let mut values = reshape(
+            builder,
+            Shape(vec![seq_len, config.num_experts_per_tok]),
+            values,
+        );
+
+        if config.norm_topk_prob {
+            let sv = sum(builder, values.clone());
+            let sv = expand(builder, values.label.shape.clone(), sv);
+            values = values / sv;
+        }
+
+        let mut xs = x.label.shape.0.clone();
+        xs[1] = 0;
+        let sumk_type = NdArrayType::new(Shape(xs), x.label.dtype);
+        let mut sumk_all = Var::new(builder.clone(), sumk_type);
+        let fullx = x;
+        for s in 0..seq_len {
+            let x = get(builder, 1, s, fullx.clone());
+            let idx = get(builder, 0, s, indices.clone());
+            let val = get(builder, 0, s, values.clone());
+            let mut sumk = constant(builder, x.label.clone(), 0.0);
+            for i in 0..config.num_experts_per_tok {
+                let n = select(builder, 1, i, idx.clone());
+                let x = Model::expert(
+                    builder,
+                    config,
+                    &format!("{name}.experts.{{}}"),
+                    n,
+                    x.clone(),
+                );
+                let v = select(builder, 1, i, val.clone());
+                let v = expand(builder, x.label.shape.clone(), v);
+                sumk = sumk + x * v;
+            }
+            sumk_all = concat(builder, 1, sumk_all, sumk);
+        }
+        sumk_all
+    }
+
     pub fn mlp(builder: &Builder, config: &Config, name: &str, x: Var) -> Var {
         let gated = linear_no_bias(
             builder,
@@ -221,7 +333,14 @@ impl Model {
             &format!("{name}.post_attention_layernorm"),
             x,
         );
-        let x = Model::mlp(builder, config, &format!("{name}.mlp"), x);
+
+        let moe_layer = config.num_local_experts > 1
+            && (layer_id + 1).is_multiple_of(config.decoder_sparse_step);
+        let x = if moe_layer {
+            Model::moe(builder, config, &format!("{name}.mlp"), x)
+        } else {
+            Model::mlp(builder, config, &format!("{name}.mlp"), x)
+        };
         x + res
     }
 }
