@@ -300,7 +300,8 @@ impl<T> MlirTensor<T> {
 /// Runtime representations of catgrad types which can be used with the LLVM Runtime
 #[derive(Debug, Clone)]
 pub enum MlirValue {
-    MlirTensorF32(MlirTensor<f32>), // TODO: f32 specialisation
+    MlirTensorF32(MlirTensor<f32>), // f32 tensors
+    MlirTensorU32(MlirTensor<u32>), // u32 tensors
     I64(i64),
 }
 
@@ -308,6 +309,7 @@ impl std::fmt::Display for MlirValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MlirValue::MlirTensorF32(tensor) => write!(f, "{}", tensor),
+            MlirValue::MlirTensorU32(tensor) => write!(f, "{}", tensor),
             MlirValue::I64(value) => write!(f, "I64({})", value),
         }
     }
@@ -317,6 +319,7 @@ impl MlirValue {
     pub fn to_type(&self) -> MlirType {
         match self {
             MlirValue::MlirTensorF32(tensor) => MlirType::Memref(tensor.sizes.len()),
+            MlirValue::MlirTensorU32(tensor) => MlirType::Memref(tensor.sizes.len()),
             MlirValue::I64(_) => MlirType::I64,
         }
     }
@@ -324,6 +327,7 @@ impl MlirValue {
     pub fn to_args<'a>(&'a self) -> Vec<Arg<'a>> {
         match self {
             MlirValue::MlirTensorF32(tensor) => tensor.to_args(),
+            MlirValue::MlirTensorU32(tensor) => tensor.to_args(),
             MlirValue::I64(val) => vec![Arg::new(val)],
         }
     }
