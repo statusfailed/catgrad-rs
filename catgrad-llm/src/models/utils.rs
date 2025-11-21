@@ -255,7 +255,6 @@ use super::modernbert::Model as ModernBertDecoderModel;
 use super::olmo::Model as OlmoModel;
 use super::phi::Model as PhiModel;
 use super::qwen::Model as QwenModel;
-use super::qwen_moe::Model as QwenMoeModel;
 use super::smollm3::Model as SmolLM3Model;
 
 pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
@@ -264,8 +263,7 @@ pub fn get_model(arch: &str) -> crate::Result<Box<dyn ModelBuilder>> {
         "MistralForCausalLM" => Ok(Box::new(LlamaModel {})),
         "Olmo2ForCausalLM" | "Olmo3ForCausalLM" => Ok(Box::new(OlmoModel {})),
         "Qwen2ForCausalLM" => Ok(Box::new(QwenModel {})),
-        "Qwen3ForCausalLM" => Ok(Box::new(QwenModel {})),
-        "Qwen3MoeForCausalLM" => Ok(Box::new(QwenMoeModel {})),
+        "Qwen3ForCausalLM" | "Qwen3MoeForCausalLM" => Ok(Box::new(QwenModel {})),
         "Gemma3ForCausalLM" => Ok(Box::new(GemmaModel {
             root: "model".to_string(),
         })),
