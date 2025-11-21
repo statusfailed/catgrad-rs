@@ -34,12 +34,11 @@ impl Functor<Type, Operation, Type, Operation> for ForgetIdentityCasts {
         target: &[Type],
     ) -> OpenHypergraph<Type, Operation> {
         let cast = Path::new(vec!["tensor", "cast"]).unwrap();
-
-        if Operation::Declaration(cast) != *a {
+        if (Operation::Declaration(cast) == *a) && (source[0] == target[0]) {
+            proj0(&source[0], &source[1])
+        } else {
             return OpenHypergraph::singleton(a.clone(), source.to_vec(), target.to_vec());
         }
-
-        proj0(&source[0], &source[1])
     }
 
     fn map_arrow(&self, f: &OpenHypergraph<Type, Operation>) -> OpenHypergraph<Type, Operation> {
