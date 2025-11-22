@@ -149,12 +149,8 @@ fn catgrad_to_mlir_type(catgrad_type: Type) -> MlirType {
         // TODO: better errors when this doesn't match!
         Type::Tensor(typecheck::TypeExpr::NdArrayType(typecheck::NdArrayType {
             shape: typecheck::ShapeExpr::Shape(shape),
-            dtype,
-        })) => {
-            // TODO: handle other dtypes
-            assert_eq!(dtype, typecheck::DtypeExpr::Constant(Dtype::F32));
-            MlirType::Memref(shape.len())
-        }
+            dtype: _,
+        })) => MlirType::Memref(shape.len()),
         _ => todo!("Unsupported catgrad type"),
         //Type::Nat(_) => todo!("unsupported"),
         //Type::Dtype(_) => todo!("unsupported"),

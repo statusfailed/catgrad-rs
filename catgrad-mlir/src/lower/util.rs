@@ -1,5 +1,6 @@
 use super::grammar;
-use catgrad::typecheck::{NdArrayType, Type, TypeExpr};
+use catgrad::prelude::Dtype;
+use catgrad::typecheck::{DtypeExpr, NdArrayType, Type, TypeExpr};
 
 /// Convert a [`typechecker::Type`] into an MLIR representation.
 /// This maps everything except Nat to `Tensor`,
@@ -33,7 +34,15 @@ fn type_expr_to_tensor_type(t: &TypeExpr) -> grammar::TensorType {
                 // NOTE: this is invalid!
                 catgrad::typecheck::ShapeExpr::OfType(_) => todo!(),
             };
-            let dtype = dtype.to_string();
+
+            let dtype = match dtype {
+                DtypeExpr::Var(_) => todo!(),
+                DtypeExpr::OfType(_) => todo!(),
+                DtypeExpr::Constant(dtype) => match dtype {
+                    Dtype::F32 => "f32".to_string(),
+                    Dtype::U32 => "ui32".to_string(),
+                },
+            };
             grammar::TensorType { shape, dtype }
         }
         TypeExpr::Var(_) => todo!(),
