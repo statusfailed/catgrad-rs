@@ -37,7 +37,7 @@ impl Functor<Type, Operation, Type, Operation> for ForgetIdentityCasts {
         if (Operation::Declaration(cast) == *a) && (source[0] == target[0]) {
             proj0(&source[0], &source[1])
         } else {
-            return OpenHypergraph::singleton(a.clone(), source.to_vec(), target.to_vec());
+            OpenHypergraph::singleton(a.clone(), source.to_vec(), target.to_vec())
         }
     }
 

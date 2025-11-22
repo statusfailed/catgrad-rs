@@ -126,7 +126,7 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
 
     // Get source *shape*
     let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: source_shape,
+        shape: _source_shape,
         dtype: DtypeExpr::Constant(source_dtype),
     })) = &ssa.sources[0].1
     else {
