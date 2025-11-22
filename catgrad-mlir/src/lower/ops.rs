@@ -133,10 +133,7 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
         panic!("cast source must be a tensor");
     };
 
-    let target_type = TypeExpr::NdArrayType(NdArrayType {
-        shape: source_shape.clone(),
-        dtype: DtypeExpr::Constant(target_dtype.clone()),
-    });
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
     let op_name = match (source_dtype, target_dtype) {
         (lang::Dtype::F32, lang::Dtype::F32) => panic!("Invalid cast F32 → F32"),
