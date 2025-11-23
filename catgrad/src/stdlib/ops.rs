@@ -9,7 +9,7 @@ pub use ops::{
 };
 
 pub fn cast(builder: &Builder, x: Var, d: impl IntoDtypeVar) -> Var {
-    ops::cast(builder, x, d.to_nat(builder))
+    ops::cast(builder, x, d.to_dtype(builder))
 }
 
 pub fn arange(builder: &Builder, end: impl IntoNatVar) -> Var {
@@ -112,17 +112,17 @@ impl IntoNatVar for usize {
 // Types convertible to a Var representing a Dtype
 
 pub trait IntoDtypeVar {
-    fn to_nat(&self, builder: &Builder) -> Var;
+    fn to_dtype(&self, builder: &Builder) -> Var;
 }
 
 impl IntoDtypeVar for crate::category::core::Dtype {
-    fn to_nat(&self, builder: &Builder) -> Var {
+    fn to_dtype(&self, builder: &Builder) -> Var {
         dtype_constant(builder, crate::category::core::Dtype::F32)
     }
 }
 
 impl IntoDtypeVar for Var {
-    fn to_nat(&self, _builder: &Builder) -> Var {
+    fn to_dtype(&self, _builder: &Builder) -> Var {
         self.clone()
     }
 }
