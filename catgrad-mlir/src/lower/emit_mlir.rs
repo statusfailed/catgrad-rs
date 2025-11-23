@@ -123,7 +123,7 @@ fn literal_to_statements(
             "f32".to_string(),
         ),
         lang::Literal::U32(x) => {
-            make_scalar_tensor_statements(result[0].clone(), x.to_string(), "ui32".to_string())
+            make_scalar_tensor_statements(result[0].clone(), x.to_string(), "i32".to_string())
         }
         lang::Literal::Nat(x) => {
             let expr = grammar::Expr::Constant(grammar::Constant {

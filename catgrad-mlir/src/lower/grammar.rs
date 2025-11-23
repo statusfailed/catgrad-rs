@@ -193,7 +193,7 @@ impl fmt::Display for Type {
             Type::Index => write!(f, "index"),
             Type::Bool => write!(f, "bool"),
             Type::TensorType(tensor_type) => tensor_type.fmt(f),
-            Type::U32 => write!(f, "ui32"), // NOTE: mlir dtype is `ui32` not `u32`
+            Type::U32 => write!(f, "i32"), // NOTE: mlir dtype is `i32` not `u32`
             Type::F32 => write!(f, "f32"),
             Type::Tuple(types) => {
                 write!(f, "(")?;

@@ -9,6 +9,7 @@ pub enum CodegenError {
     IoError(std::io::Error),
     ProcessError(String),
     Utf8Error(std::string::FromUtf8Error),
+    MlirOptError(std::io::Error),
 }
 
 impl From<std::io::Error> for CodegenError {
@@ -55,7 +56,8 @@ fn lower_mlir(mlir_text: &str) -> Result<String, CodegenError> {
         .arg("--reconcile-unrealized-casts")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
-        .spawn()?;
+        .spawn()
+        .map_err(CodegenError::MlirOptError)?;
 
     if let Some(mut stdin) = opt_cmd.stdin.take() {
         stdin.write_all(mlir_text.as_bytes())?;

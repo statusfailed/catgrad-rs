@@ -138,7 +138,7 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     let op_name = match (source_dtype, target_dtype) {
         (lang::Dtype::F32, lang::Dtype::F32) => panic!("Invalid cast F32 → F32"),
         (lang::Dtype::F32, lang::Dtype::U32) => todo!("Cast F32 → U32"),
-        (lang::Dtype::U32, lang::Dtype::F32) => "arith.sitofp",
+        (lang::Dtype::U32, lang::Dtype::F32) => "arith.uitofp",
         (lang::Dtype::U32, lang::Dtype::U32) => panic!("Invalid cast U32 → U32"),
     };
 

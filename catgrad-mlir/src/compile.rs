@@ -151,7 +151,7 @@ fn catgrad_to_mlir_type(catgrad_type: Type) -> MlirType {
             shape: typecheck::ShapeExpr::Shape(shape),
             dtype: _,
         })) => MlirType::Memref(shape.len()),
-        _ => todo!("Unsupported catgrad type"),
+        _ => todo!("Unsupported catgrad type: {:?}", catgrad_type),
         //Type::Nat(_) => todo!("unsupported"),
         //Type::Dtype(_) => todo!("unsupported"),
         //Type::Shape(_) => todo!("unsupported"),
