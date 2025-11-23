@@ -40,7 +40,7 @@ fn type_expr_to_tensor_type(t: &TypeExpr) -> grammar::TensorType {
                 DtypeExpr::OfType(_) => todo!(),
                 DtypeExpr::Constant(dtype) => match dtype {
                     Dtype::F32 => "f32".to_string(),
-                    Dtype::U32 => "ui32".to_string(),
+                    Dtype::U32 => "i32".to_string(),
                 },
             };
             grammar::TensorType { shape, dtype }
