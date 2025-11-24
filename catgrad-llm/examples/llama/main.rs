@@ -81,7 +81,7 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
             config: config.clone(),
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
-        "Qwen3ForCausalLM" => Box::new(qwen3::Qwen3Model {
+        "Qwen3ForCausalLM" | "Qwen3MoeForCausalLM" => Box::new(qwen3::Qwen3Model {
             config: config.clone(),
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
