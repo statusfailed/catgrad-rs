@@ -69,6 +69,28 @@ fn test_shape_pack() {
     );
 }
 
+#[test]
+fn test_tensor_index() {
+    let input_shape = vec![4, 3]; // 4x3 tensor
+    let indices_shape = vec![2]; // 2 indices
+    let output_shape = vec![2, 3]; // result: 2x3 tensor (indexed along dim 0)
+
+    run_test(
+        build_typed_term(
+            [
+                tensor_type(&input_shape, Dtype::F32),
+                tensor_type(&indices_shape, Dtype::U32),
+            ],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor, indices_tensor]| {
+                let dim = 0.to_nat(builder); // Index along dimension 0
+                vec![ops::index(builder, dim, indices_tensor, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

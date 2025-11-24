@@ -158,6 +158,54 @@ pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
     ]
 }
 
+// Index tensors.
+// generates code like this:
+// ```
+// %source  = ... : tensor<3x4x5xf32>
+// %indices = ... : tensor<10x1xindex>  // TODO: reshape rank-1 indices tensor<Nxindex> into tensor<Nx1xindex>
+// %out = tensor.gather %source[%indices] gather_dims([0]) :
+//   (tensor<3x4x5xf32>, tensor<10x1xindex>) -> tensor<10x4x5xf32>
+// ```
+pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 3);
+    assert!(ssa.targets.len() == 1);
+
+    // Verify that dim is statically known to be 0
+    let Type::Nat(NatExpr::Constant(0)) = &ssa.sources[1].1 else {
+        panic!("tensor.index currently only supports dimension 0")
+    };
+
+    let input_tensor_id = grammar::Identifier(ssa.sources[0].0.0);
+    let indices_id = grammar::Identifier(ssa.sources[2].0.0);
+
+    let input_type = core_type_to_mlir(&ssa.sources[0].1);
+    let indices_type = core_type_to_mlir(&ssa.sources[2].1);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    let mut assignments = Vec::new();
+
+    // Step 1: Reshape rank-1 indices tensor<Nxi32> into tensor<Nx1xi32>
+    let reshaped_indices_id = ssa.targets[0].0.0 + 1000;
+    assignments.push(grammar::Assignment {
+        result: vec![grammar::Identifier(reshaped_indices_id)],
+        expr: grammar::Expr::Custom(format!(
+            "tensor.expand_shape {} [[0, 1]] output_shape [2, 1] : {} into tensor<2x1xi32>",
+            indices_id, indices_type
+        )),
+    });
+
+    // Step 2: Use tensor.gather with properly shaped indices
+    assignments.push(grammar::Assignment {
+        result: vec![grammar::Identifier(ssa.targets[0].0.0)],
+        expr: grammar::Expr::Custom(format!(
+            "tensor.gather {}[%v{}] gather_dims([0]) : ({}, tensor<2x1xi32>) -> {}",
+            input_tensor_id, reshaped_indices_id, input_type, target_type
+        )),
+    });
+
+    assignments
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 
