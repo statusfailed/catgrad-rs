@@ -63,7 +63,7 @@ fn main() -> Result<()> {
 }
 
 fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<()> {
-    let (interpreter_params, parameters, config, tokenizer) =
+    let (parameter_values, parameter_types, config, tokenizer) =
         load_model(&args.model_name, &backend)?;
 
     let encoding = tokenizer
@@ -101,17 +101,17 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
     // Get stdlib environment and extend with parameter declarations
     let mut env = stdlib();
     env.declarations
-        .extend(to_load_ops(model.path(), parameters.keys()));
+        .extend(to_load_ops(model.path(), parameter_types.keys()));
 
     // Shapecheck the model
     if args.typecheck {
-        typecheck::check(&env, &parameters, typed_term.clone())
+        typecheck::check(&env, &parameter_types, typed_term.clone())
             .map_err(|err| anyhow::anyhow!("check error {:?}", err))?;
     }
 
     print!("{}", args.prompt);
     let start_gen = std::time::Instant::now();
-    let interpreter = interpreter::Interpreter::new(backend, env, interpreter_params);
+    let interpreter = interpreter::Interpreter::new(backend, env, parameter_values);
     // Run interpreter
     for _ in 0..args.seq_len {
         let next_token_id = run_interpreter(&typed_term, &interpreter, &token_ids)?;
