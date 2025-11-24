@@ -249,13 +249,13 @@ impl Model {
         let routed = linear_no_bias(
             builder,
             config.hidden_size,
-            config.n_routed_experts,
+            config.num_local_experts,
             name,
             x.clone(),
         );
         let routed = sigmoid(builder, routed);
 
-        let bias_type = NdArrayType::new(Shape(vec![config.n_routed_experts]), x.label.dtype);
+        let bias_type = NdArrayType::new(Shape(vec![config.num_local_experts]), x.label.dtype);
         let bias = parameter(
             builder,
             bias_type,
@@ -269,7 +269,7 @@ impl Model {
             &[
                 -1,
                 config.n_group as isize,
-                (config.n_routed_experts / config.n_group) as isize,
+                (config.num_local_experts / config.n_group) as isize,
             ],
             scores_for_choice.clone(),
         );
@@ -286,7 +286,7 @@ impl Model {
         let cols = unsqueeze(builder, 0, cols);
         let mask_shape = Shape(vec![
             seq_len,
-            config.n_routed_experts / config.n_group,
+            config.num_local_experts / config.n_group,
             config.n_group,
         ]);
         let cols = expand(builder, mask_shape.clone(), cols);
@@ -301,7 +301,7 @@ impl Model {
             Shape(vec![
                 seq_len,
                 config.n_group,
-                config.n_routed_experts / config.n_group,
+                config.num_local_experts / config.n_group,
             ]),
             mask,
         );
