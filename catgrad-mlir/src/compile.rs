@@ -39,6 +39,7 @@ impl From<RuntimeError> for CompileError {
 pub struct CompiledModel {
     pub runtime: LlvmRuntime,
     pub fn_param_args: HashMap<Path, Vec<Path>>,
+    _so_file: Option<tempfile::NamedTempFile>, // Keep temp file alive
 }
 
 /// A safe wrapper around Runtime to compile and call models
@@ -50,18 +51,19 @@ pub struct CompiledModel {
 /// - `entrypoint`: Entrypoint (currently just one, in future a Vec of potential entrypoints)
 /// - `output_so`: Path to save generated shared object code.
 impl CompiledModel {
-    pub fn new(
-        env: &Environment,
-        params: &typecheck::Parameters,
-        entrypoint: Path,
-        output_so: PathBuf,
-    ) -> Self {
+    pub fn new(env: &Environment, params: &typecheck::Parameters, entrypoint: Path) -> Self {
+        // Create secure temporary file for the shared library
+        let temp_file =
+            tempfile::NamedTempFile::with_suffix(".so").expect("Failed to create temporary file");
+        let output_so = temp_file.path().to_path_buf();
+
         let (runtime, param_paths) = compile(env, params, entrypoint.clone(), output_so);
         let fn_param_args = HashMap::from([(entrypoint, param_paths)]);
 
         Self {
             runtime,
             fn_param_args,
+            _so_file: Some(temp_file),
         }
     }
 

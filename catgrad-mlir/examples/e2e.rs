@@ -15,10 +15,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    let output_so = std::path::Path::new(&args[1])
-        .canonicalize()
-        .unwrap_or_else(|_| std::env::current_dir().unwrap().join(&args[1]));
-
     ////////////////////////////////////////
     // Setup model and environment
     let model = ConcreteSigmoidPlusConst;
@@ -40,8 +36,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     ////////////////////////////////////////
     // Compile and set up runtime with compiled code
-    println!("Compiling {} to {}...", model.path(), output_so.display());
-    let compiled_model = CompiledModel::new(&env, &parameters, model.path(), output_so);
+    println!("Compiling {}...", model.path());
+    let compiled_model = CompiledModel::new(&env, &parameters, model.path());
 
     // Set the scalar parameter (value 1.0)
     let scalar_data = vec![1.0f32];

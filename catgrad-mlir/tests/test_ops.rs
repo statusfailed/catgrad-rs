@@ -17,10 +17,6 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 fn run_test(term: TypedTerm) {
-    // TODO: don't actually write the .so if we can avoid it!
-    // Might need to split `compile` implementation into two procedures
-    let output_so = "./test.so".into();
-
     let symbol = path(vec!["test", "term"]).unwrap();
 
     // Make environment
@@ -30,7 +26,7 @@ fn run_test(term: TypedTerm) {
     let params = typecheck::Parameters::from([]);
 
     // TODO: CompiledModel::new crashes on failure- fix!
-    let _ = CompiledModel::new(&env, &params, symbol, output_so);
+    let _ = CompiledModel::new(&env, &params, symbol);
 }
 
 #[test]
