@@ -64,7 +64,7 @@ pub struct Config {
     pub head_dim: usize,
     pub decoder_sparse_step: usize,
     pub num_experts_per_tok: usize,
-    #[serde(alias = "num_experts")]
+    #[serde(alias = "num_experts", alias = "n_routed_experts")]
     pub num_local_experts: usize,
     pub moe_intermediate_size: usize,
     pub first_k_dense_replace: usize,
@@ -76,7 +76,6 @@ pub struct Config {
     pub routed_scaling_factor: f32,
     pub n_group: usize,
     pub topk_group: usize,
-    pub n_routed_experts: usize,
     pub n_shared_experts: usize,
     pub v_head_dim: usize,
     pub norm_topk_prob: bool,
