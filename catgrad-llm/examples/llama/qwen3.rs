@@ -72,6 +72,77 @@ impl Qwen3Model {
         lr * gamma
     }
 
+    fn moe(&self, builder: &Builder, p: Path, x: Var) -> Var {
+        let [_, seq_len, _] = unpack::<3>(builder, shape(builder, x.clone()));
+
+        let gate_all = param(
+            builder,
+            &p.extend(vec!["experts", "gate_proj", "weight"]).unwrap(),
+        );
+        let up_all = param(
+            builder,
+            &p.extend(vec!["experts", "up_proj", "weight"]).unwrap(),
+        );
+        let down_all = param(
+            builder,
+            &p.extend(vec!["experts", "down_proj", "weight"]).unwrap(),
+        );
+
+        let routed = linear_no_bias(
+            builder,
+            self.config.hidden_size,
+            self.config.num_local_experts,
+            p.extend(["gate"]).unwrap(),
+            x.clone(),
+        );
+
+        let routed = softmax(builder, routed);
+
+        let vi = topk(builder, self.config.num_experts_per_tok, routed);
+        let values = vi.0;
+        let indices = vi.1;
+
+        let sh = shape!(builder, seq_len, self.config.num_experts_per_tok);
+
+        let indices = reshape(builder, sh.clone(), indices);
+
+        let mut values = reshape(builder, sh.clone(), values);
+
+        if self.config.norm_topk_prob {
+            let sv = sum(builder, values.clone());
+            let sv = broadcast(builder, sv, sh);
+            values = values / sv;
+        }
+
+        let fullx = transpose(builder, 0, 1, x);
+        let mut sumk = constant(builder, 0., &shape(builder, fullx.clone()));
+
+        for i in 0..self.config.num_experts_per_tok {
+            let idx = get(builder, 1, i, indices.clone());
+            let val = get(builder, 1, i, values.clone());
+
+            let gate = index(builder, 0, idx.clone(), gate_all.clone());
+            let up = index(builder, 0, idx.clone(), up_all.clone());
+            let down = index(builder, 0, idx.clone(), down_all.clone());
+
+            let gate = transpose(builder, 1, 2, gate);
+            let up = transpose(builder, 1, 2, up);
+            let down = transpose(builder, 1, 2, down);
+
+            let gate = matmul(builder, fullx.clone(), gate);
+            let up = matmul(builder, fullx.clone(), up);
+            let x = silu(builder, gate) * up; // SwiGLU
+
+            let x = matmul(builder, x, down);
+
+            let v = unsqueeze::<2, 3>(builder, 2, val);
+            let v = broadcast(builder, v, shape(builder, x.clone()));
+            sumk = sumk + x * v;
+        }
+
+        transpose(builder, 0, 1, sumk)
+    }
+
     fn attention(
         &self,
         builder: &Builder,
@@ -234,7 +305,13 @@ impl Qwen3Model {
             p.extend(["post_attention_layernorm"]).unwrap(),
             x,
         );
-        let x = self.mlp(builder, p.extend(["mlp"]).unwrap(), x);
+        let moe_layer = self.config.num_local_experts > 1
+            && (layer_id + 1).is_multiple_of(self.config.decoder_sparse_step);
+        let x = if moe_layer {
+            self.moe(builder, p.extend(["mlp"]).unwrap(), x)
+        } else {
+            self.mlp(builder, p.extend(["mlp"]).unwrap(), x)
+        };
         x + res
     }
 }
