@@ -205,6 +205,114 @@ impl Cache {
     }
 }
 
+// Concatenates MoE expert weights from separate tensors into single tensors per layer
+// to avoid the need for dynamic parameter names
+fn concat_moe_experts<B: interpreter::Backend>(
+    config: &Config,
+    backend: &B,
+    parameter_values: &mut interpreter::Parameters<B>,
+    parameter_types: &mut typecheck::Parameters,
+) -> Result<()> {
+    use catgrad::typecheck::*;
+
+    let proj_names = ["down_proj", "gate_proj", "up_proj"];
+
+    for layer_idx in 0..config.num_hidden_layers {
+        for proj_name in &proj_names {
+            // Collect all expert tensors for this layer and projection
+            let mut expert_tensors = Vec::new();
+            let mut expert_keys = Vec::new();
+
+            for expert_idx in 0..config.num_local_experts {
+                let key_str = format!(
+                    "model.layers.{}.mlp.experts.{}.{}.weight",
+                    layer_idx, expert_idx, proj_name
+                );
+                let key = path(key_str.split(".").collect()).expect("invalid param path");
+
+                // Check if this expert exists in the parameter maps
+                if let Some(interpreter::Value::Tensor(tensor)) = parameter_values.0.get(&key) {
+                    expert_tensors.push(tensor.clone());
+                    expert_keys.push(key);
+                }
+            }
+
+            if expert_tensors.is_empty() {
+                continue;
+            }
+
+            if expert_tensors.len() != config.num_local_experts {
+                return Err(anyhow::anyhow!(
+                    "Expected {} experts for layer {} {}, found {}",
+                    config.num_local_experts,
+                    layer_idx,
+                    proj_name,
+                    expert_tensors.len()
+                ));
+            }
+
+            let original_shape = expert_tensors[0].shape();
+            let original_dims = original_shape.0.clone();
+
+            let mut new_shape_dims = vec![config.num_local_experts];
+            new_shape_dims.extend(original_dims.clone());
+
+            let mut reshaped_tensors = Vec::new();
+            for tensor in expert_tensors {
+                let mut reshape_dims = vec![1];
+                reshape_dims.extend(original_dims.clone());
+                let reshaped = backend.reshape(tensor, Shape(reshape_dims));
+                reshaped_tensors.push(reshaped);
+            }
+
+            // Concatenate all reshaped tensors along dimension 0
+            // TODO: this is naive and slow. Either preallocate or fuse this with the safetensors loading code.
+            let mut concatenated = reshaped_tensors[0].clone();
+            for tensor in &reshaped_tensors[1..] {
+                concatenated = backend.concat(concatenated, tensor.clone(), 0);
+            }
+
+            let new_key_str = format!(
+                "model.layers.{}.mlp.experts.{}.weight",
+                layer_idx, proj_name
+            );
+            let new_key = path(new_key_str.split(".").collect()).expect("invalid param path");
+
+            parameter_values
+                .0
+                .insert(new_key.clone(), interpreter::Value::Tensor(concatenated));
+
+            let vne: Vec<NatExpr> = new_shape_dims.into_iter().map(NatExpr::Constant).collect();
+            let tensor_type = typecheck::Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+                dtype: DtypeExpr::Constant(Dtype::F32),
+                shape: ShapeExpr::Shape(vne),
+            }));
+            parameter_types.0.insert(new_key, tensor_type);
+
+            // Remove original experts
+            for key in expert_keys {
+                parameter_values.0.remove(&key);
+                parameter_types.0.remove(&key);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn post_process_weights<B: interpreter::Backend>(
+    config: &Config,
+    backend: &B,
+    parameter_values: &mut interpreter::Parameters<B>,
+    parameter_types: &mut typecheck::Parameters,
+) -> Result<()> {
+    if config.num_local_experts == 0 {
+        return Ok(());
+    }
+
+    concat_moe_experts(config, backend, parameter_values, parameter_types)
+}
+
 fn load_model<B: interpreter::Backend>(
     model_name: &str,
     backend: &B,
@@ -262,10 +370,15 @@ fn load_model<B: interpreter::Backend>(
         }
     }
 
-    Ok((
-        interpreter::Parameters::from(data_map),
-        typecheck::Parameters::from(type_map),
-        config,
-        tokenizer,
-    ))
+    let mut parameter_values = interpreter::Parameters::from(data_map);
+    let mut parameter_types = typecheck::Parameters::from(type_map);
+
+    post_process_weights(
+        &config,
+        backend,
+        &mut parameter_values,
+        &mut parameter_types,
+    )?;
+
+    Ok((parameter_values, parameter_types, config, tokenizer))
 }
