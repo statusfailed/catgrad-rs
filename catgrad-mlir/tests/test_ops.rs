@@ -76,9 +76,9 @@ fn test_shape_pack() {
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 
-fn tensor_type(shape: &Vec<usize>, dtype: Dtype) -> Type {
+fn tensor_type(shape: &[usize], dtype: Dtype) -> Type {
     Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: shape.clone().into(),
+        shape: shape.to_owned().into(),
         dtype: dtype.into(),
     }))
 }

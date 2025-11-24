@@ -1,6 +1,6 @@
 use super::grammar;
 use catgrad::prelude::Dtype;
-use catgrad::typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, Type, TypeExpr};
+use catgrad::typecheck::{DtypeExpr, NdArrayType, ShapeExpr, Type, TypeExpr};
 
 /// Convert a [`typechecker::Type`] into an MLIR representation.
 /// This maps everything except Nat to `Tensor`,

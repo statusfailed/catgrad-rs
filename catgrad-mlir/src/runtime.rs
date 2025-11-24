@@ -406,6 +406,7 @@ fn call(
         let mut result = vec![0u8; result_size];
 
         // Call using raw ffi_call directly
+        // TODO: sandbox this by running in its own process in case of segfault?
         raw::ffi_call(
             cif.as_raw_ptr(),
             Some(*ptr.as_safe_fun()),
