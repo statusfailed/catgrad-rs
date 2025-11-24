@@ -62,19 +62,11 @@ impl GraniteModel {
             x.clone(),
         );
 
-        let vi = topk(
-            builder,
-            self.config.num_experts_per_tok.to_nat(builder),
-            routed,
-        );
+        let vi = topk(builder, self.config.num_experts_per_tok, routed);
         let values = vi.0;
         let indices = vi.1;
 
-        let sh = shape!(
-            builder,
-            seq_len,
-            self.config.num_experts_per_tok.to_nat(builder)
-        );
+        let sh = shape!(builder, seq_len, self.config.num_experts_per_tok);
 
         let indices = reshape(builder, sh.clone(), indices);
 
