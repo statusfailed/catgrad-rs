@@ -158,15 +158,49 @@ pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
     ]
 }
 
-// Index tensors.
-// generates code like this:
+// Index : Sources × Dim × Indexes → Values
+//
+// Lowers to something like this (in this example, dim = 0)
 // ```
-// %source  = ... : tensor<3x4x5xf32>
-// %indices = ... : tensor<10x1xindex>  // TODO: reshape rank-1 indices tensor<Nxindex> into tensor<Nx1xindex>
-// %out = tensor.gather %source[%indices] gather_dims([0]) :
-//   (tensor<3x4x5xf32>, tensor<10x1xindex>) -> tensor<10x4x5xf32>
+// func.func @example(
+//   %src: tensor<?x?x?xf32>,
+//   %idx: tensor<?xindex>
+// ) -> tensor<?x?x?xf32> {
+//   // Constants for each dimension
+//   %c0 = arith.constant 0 : index
+//   %c1 = arith.constant 1 : index
+//   %c2 = arith.constant 2 : index
+//
+//   // Size of indexes tensor
+//   %n = tensor.dim %idx, %c0 : tensor<?xindex>
+//
+//   // Dims of input tensor
+//   %d1 = tensor.dim %src, %c1 : tensor<?x?x?xf32>
+//   %d2 = tensor.dim %src, %c2 : tensor<?x?x?xf32>
+//
+//   // Result tensor
+//   %empty = tensor.empty(%n, %d1, %d2) : tensor<?x?x?xf32>
+//
+//   %res = linalg.generic
+//     {
+//       indexing_maps = [
+//         affine_map<(d0, d1, d2) -> (d0)>,
+//         affine_map<(d0, d1, d2) -> (d0, d1, d2)>
+//       ],
+//       iterator_types = ["parallel", "parallel", "parallel"]
+//     }
+//     ins(%idx : tensor<?xindex>)
+//     outs(%empty : tensor<?x?x?xf32>) {
+//       ^bb0(%idx_elem: index, %out_elem: f32):
+//         %idx_1 = linalg.index 1 : index
+//         %idx_2 = linalg.index 2 : index
+//         %val = tensor.extract %src[%idx_elem, %idx_1, %idx_2] : tensor<?x?x?xf32>
+//         linalg.yield %val : f32
+//     } -> tensor<?x?x?xf32>
+//   return %res : tensor<?x?x?xf32>
+// }
 // ```
-pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 3);
     assert!(ssa.targets.len() == 1);
 
@@ -175,35 +209,126 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment
         panic!("tensor.index currently only supports dimension 0")
     };
 
-    let input_tensor_id = grammar::Identifier(ssa.sources[0].0.0);
-    let indices_id = grammar::Identifier(ssa.sources[2].0.0);
-
-    let input_type = core_type_to_mlir(&ssa.sources[0].1);
-    let indices_type = core_type_to_mlir(&ssa.sources[2].1);
+    let source_type = core_type_to_mlir(&ssa.sources[0].1);
+    let index_type = core_type_to_mlir(&ssa.sources[2].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
+    // Extract target shape to determine which dimensions are statically known
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(target_shape_dims),
+        ..
+    })) = &ssa.targets[0].1
+    else {
+        panic!("target must be a tensor")
+    };
 
-    let mut assignments = Vec::new();
+    let is_known_rank: Vec<bool> = target_shape_dims
+        .iter()
+        .map(|dim| matches!(dim, NatExpr::Constant(_)))
+        .collect();
 
-    // Step 1: Reshape rank-1 indices tensor<Nxi32> into tensor<Nx1xi32>
-    let reshaped_indices_id = ssa.targets[0].0.0 + 1000;
-    assignments.push(grammar::Assignment {
-        result: vec![grammar::Identifier(reshaped_indices_id)],
-        expr: grammar::Expr::Custom(format!(
-            "tensor.expand_shape {} [[0, 1]] output_shape [2, 1] : {} into tensor<2x1xi32>",
-            indices_id, indices_type
-        )),
-    });
+    let mut statements = vec![];
 
-    // Step 2: Use tensor.gather with properly shaped indices
-    assignments.push(grammar::Assignment {
-        result: vec![grammar::Identifier(ssa.targets[0].0.0)],
-        expr: grammar::Expr::Custom(format!(
-            "tensor.gather {}[%v{}] gather_dims([0]) : ({}, tensor<2x1xi32>) -> {}",
-            input_tensor_id, reshaped_indices_id, input_type, target_type
-        )),
-    });
+    // Extract the rank from the source tensor type
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(shape_dims),
+        ..
+    })) = &ssa.sources[0].1
+    else {
+        panic!("tensor_index operation requires tensor input")
+    };
 
-    assignments
+    let rank = shape_dims.len();
+
+    // Base name prefix used for intermediate variables that don't appear in the original hypergraph
+    let source_ssa = grammar::Identifier(ssa.sources[0].0.0);
+    let base = source_ssa.clone();
+    let index_ssa = grammar::Identifier(ssa.sources[2].0.0);
+
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let parallel_stmts = (0..rank)
+        .map(|_| "\"parallel\"")
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Generate constant statements for each dimension
+    //  %c0 = arith.constant 0 : index
+    for i in 0..rank {
+        statements.push(grammar::Statement::Custom(format!(
+            "  {base}_c{i} = arith.constant {i} : index"
+        )));
+    }
+
+    // Generate size of indexes tensor
+    //  %n = tensor.dim %idx, %c0 : tensor<?xindex>
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_n = tensor.dim {index_ssa}, {base}_c0 : {index_type}",
+    )));
+
+    // Generate dimension extraction statements for dims 1..rank
+    //  %d1 = tensor.dim %src, %c1 : tensor<?x?x?xf32>
+    let src_id = grammar::Identifier(ssa.sources[0].0.0);
+    for i in 1..rank {
+        statements.push(grammar::Statement::Custom(format!(
+            "  {base}_d{i} = tensor.dim {source_ssa}, {base}_c{i} : {source_type}",
+        )));
+    }
+
+    // Generate empty result tensor - only include dynamic dimensions
+    let mut dim_args = vec![];
+    if !is_known_rank[0] {
+        dim_args.push(format!("{base}_n"));
+    }
+    for i in 1..rank {
+        if !is_known_rank[i] {
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
+
+    // Generate affine map inputs: d0, d1, ..., d_{rank-1}
+    let affine_map_inputs = (0..rank)
+        .map(|i| format!("d{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Generate index variables: %idx_elem, %idx_1, %idx_2, ...
+    let mut index_vars = vec!["%idx_elem_index".to_string()];
+    for i in 1..rank {
+        index_vars.push(format!("%idx_{i}"));
+    }
+    let index_vars_str = index_vars.join(", ");
+
+    // Generate index assignment statements for dimensions 1..rank
+    //  %idx_1 = linalg.index 1 : index
+    let index_assignments = (1..rank)
+        .map(|i| format!("              %idx_{i} = linalg.index {i} : index"))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let linalg_generic = grammar::Statement::Custom(format!(
+        r#"
+        {base}_empty = {empty_expr}
+        {target_id} = linalg.generic
+          {{
+            indexing_maps = [
+              affine_map<({affine_map_inputs}) -> (d0)>,                    // idx
+              affine_map<({affine_map_inputs}) -> ({affine_map_inputs})>    // output
+            ],
+            iterator_types = [{parallel_stmts}]
+          }}
+          ins({index_ssa} : {index_type})
+          outs({base}_empty : {target_type}) {{
+            ^bb0(%idx_elem: i32, %out_elem: f32):
+              %idx_elem_index = arith.index_cast %idx_elem : i32 to index
+              {index_assignments}
+              %val = tensor.extract {src_id}[{index_vars_str}] : {source_type}
+              linalg.yield %val : f32
+          }} -> {target_type}
+    "#
+    ));
+
+    statements.push(linalg_generic);
+    statements
 }
 
 ////////////////////////////////////////////////////////////////////////////////
