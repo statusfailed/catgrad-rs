@@ -60,6 +60,19 @@ fn test_arange() {
     );
 }
 
+#[test]
+fn test_shape_pack() {
+    run_test(
+        build_typed_term([], [shape_type(3)], |builder, []| {
+            let n1 = 2.to_nat(builder);
+            let n2 = 3.to_nat(builder);
+            let n3 = 4.to_nat(builder);
+            vec![ops::pack(builder, [n1, n2, n3])]
+        })
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 
@@ -68,6 +81,11 @@ fn tensor_type(shape: &Vec<usize>, dtype: Dtype) -> Type {
         shape: shape.clone().into(),
         dtype: dtype.into(),
     }))
+}
+
+fn shape_type(rank: usize) -> Type {
+    use catgrad::typecheck::{NatExpr, ShapeExpr};
+    Type::Shape(ShapeExpr::Shape(vec![NatExpr::Constant(rank)]))
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -124,6 +124,7 @@ fn compile_to_shared_lib<P: AsRef<Path>>(llvm_ir: &str, output_so: P) -> Result<
     // Compile to object file
     let llc_output = Command::new("llc")
         .arg("-filetype=obj")
+        .arg("-relocation-model=pic")
         .arg(&temp_ll)
         .arg("-o")
         .arg(&temp_obj)
@@ -139,6 +140,7 @@ fn compile_to_shared_lib<P: AsRef<Path>>(llvm_ir: &str, output_so: P) -> Result<
     // Link to shared library
     let clang_output = Command::new("clang")
         .arg("-shared")
+        .arg("-fPIC")
         .arg(&temp_obj)
         .arg("-o")
         .arg(output_so)

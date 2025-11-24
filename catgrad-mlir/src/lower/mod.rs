@@ -2,6 +2,19 @@
 //!
 //! This module provides a single function: [`lang_to_mlir`], which lowers a [`catgrad::prelude::TypedTerm`] to
 //! MLIR text, returning a [`Func`]
+//!
+//! # Details
+//!
+//! Catgrad types are lowered to MLIR types as follows:
+//!
+//! - `Nat` -> `index`
+//! - `Dtype` -> `bool` (erased)
+//! - `Shape` -> `Tensor` (NOTE: this needs to change; we need a real Shape runtime rep.)
+//! - `Tensor` -> `tensor`
+//! - `NdArrayType` -> error (no runtime rep - TODO: remove case!)
+//!
+//! Here, `bool` is used as a dummy ('erased') type; Dtype has no runtime representation in the
+//! MLIR backend.
 
 /// Simplified MLIR grammar for rendering
 mod grammar;

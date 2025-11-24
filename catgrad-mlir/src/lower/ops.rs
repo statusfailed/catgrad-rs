@@ -7,20 +7,47 @@ use catgrad::{
 use super::grammar;
 use super::util::*;
 
-// NOTE: this just usese arith.constant false to return a bool.
-// We don't actually put shape information into mlir
+// Represent a `Shape` as MLIR `tensor<rank x index>`.
+//
+// Generates assignments like
+// ```
+//  %shape_dim0 = tensor.dim %input, %c0 : tensor<?x?x?xf32>
+//  %shape_dim1 = tensor.dim %input, %c1 : tensor<?x?x?xf32>
+//  %shape_dim2 = tensor.dim %input, %c2 : tensor<?x?x?xf32>
+//  %shape = tensor.from_elements %id_dim0, %id_dim1, %id_dim2 : tensor<3 x index>
+// ```
+//
+// Where `shape` is the SSA node id of the result.
 pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
-    // typechecked ssa should never break this invariant
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
-    let _target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    // Extract the shape from the input tensor type
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(shape_dims),
+        ..
+    })) = &ssa.sources[0].1
+    else {
+        panic!("shape operation requires tensor input")
+    };
+
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    // For static shapes, create tensor.from_elements with constants
+    let dim_values: Vec<String> = shape_dims
+        .iter()
+        .map(|dim| match dim {
+            NatExpr::Constant(n) => format!("arith.constant {} : index", n),
+            _ => panic!("shape operation requires constant dimensions for now"),
+        })
+        .collect();
 
     vec![
-        grammar::Expr::Constant(grammar::Constant {
-            name: "arith.constant".to_string(),
-            value: Some("false".to_string()),
-            ty: None,
-        })
+        grammar::Expr::Custom(format!(
+            "tensor.from_elements {} : {}",
+            dim_values.join(", "),
+            target_type
+        ))
         .into_assignment(ssa),
     ]
 }
@@ -105,6 +132,30 @@ fn make_affine_map(dims: Vec<Option<usize>>, out_rank: usize) -> String {
         params.join(", "),
         outputs.join(", ")
     )
+}
+
+pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    // Pack k Nats into a shape: Nat^k → Type
+    // Creates a tensor<k x index> from k natural number inputs
+    assert!(ssa.targets.len() == 1);
+
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    // Get the input identifiers (natural numbers)
+    let input_ids: Vec<String> = ssa
+        .sources
+        .iter()
+        .map(|(source_node, _)| format!("%v{}", source_node.0))
+        .collect();
+
+    vec![
+        grammar::Expr::Custom(format!(
+            "tensor.from_elements {} : {}",
+            input_ids.join(", "),
+            target_type
+        ))
+        .into_assignment(ssa),
+    ]
 }
 
 ////////////////////////////////////////////////////////////////////////////////
