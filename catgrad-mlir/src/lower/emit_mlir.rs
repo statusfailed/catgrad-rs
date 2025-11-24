@@ -174,6 +174,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.add" => ops::add(ssa).into_iter().map(Into::into).collect(),
         "tensor.pow" => ops::pow(ssa).into_iter().map(Into::into).collect(),
         "tensor.div" => ops::div(ssa).into_iter().map(Into::into).collect(),
-        _ => vec![],
+        "tensor.arange" => ops::arange(ssa).into_iter().map(Into::into).collect(),
+        op => todo!("unknown op {op:?}"),
     }
 }

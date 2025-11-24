@@ -49,6 +49,17 @@ fn test_cast_u32_f32() {
     );
 }
 
+#[test]
+fn test_arange() {
+    let s = vec![10];
+    run_test(
+        build_typed_term([], [tensor_type(&s, Dtype::U32)], |builder, []| {
+            vec![ops::arange(builder, 10)]
+        })
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

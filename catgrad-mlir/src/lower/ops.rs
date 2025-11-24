@@ -196,3 +196,18 @@ pub fn div(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.targets.len() == 1);
     elementwise("arith.divf", ssa)
 }
+
+pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![
+        grammar::Expr::Custom(format!(
+            "tensor.generate {{\n^bb0(%i0: index):\n  %idx = arith.index_cast %i0 : index to i32\n  tensor.yield %idx : i32\n}} : {}",
+            target_type
+        ))
+        .into_assignment(ssa),
+    ]
+}
