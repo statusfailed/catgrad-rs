@@ -330,19 +330,18 @@ impl Model {
         let group_scores = sum(builder, group_scores);
         let group_scores = squeeze(builder, 2, group_scores);
         let group_idx = topk(builder, config.topk_group, group_scores)[1].clone();
+        let group_idx = unsqueeze(builder, 2, group_idx);
 
         // group_mask.scatter_(1, group_idx, 1)
 
         let cols = arange(builder, config.n_group, Dtype::I32);
-        let cols = unsqueeze(builder, 0, cols);
-        let cols = unsqueeze(builder, 0, cols);
         let mask_shape = Shape(vec![
             seq_len,
             config.num_local_experts / config.n_group,
             config.n_group,
         ]);
         let cols = expand(builder, mask_shape.clone(), cols);
-        let group_idx = unsqueeze(builder, 2, group_idx);
+
         let group_idx = expand(builder, mask_shape, group_idx);
         let matches = eq(builder, cols, group_idx);
         let matches = transpose(builder, 1, 2, matches);
