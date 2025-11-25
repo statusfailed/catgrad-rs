@@ -30,6 +30,23 @@ fn run_test(term: TypedTerm) {
 }
 
 #[test]
+fn test_shape_op() {
+    // shape of *input* tensor
+    let x_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(vec![3.into(), 1.into(), 4.into()]),
+        dtype: Dtype::F32.into(),
+    }));
+    run_test(
+        build_typed_term(
+            [x_type],
+            [shape_type(3)], // rank 3
+            |builder, [x]| vec![ops::shape(builder, x)],
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
 fn test_cast_u32_f32() {
     let s = vec![3, 1, 4];
     run_test(

@@ -18,38 +18,54 @@ use super::util::*;
 // ```
 //
 // Where `shape` is the SSA node id of the result.
-pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
 
     // Extract the shape from the input tensor type
     let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(shape_dims),
+        shape: ShapeExpr::Shape(dims),
         ..
     })) = &ssa.sources[0].1
     else {
         panic!("shape operation requires tensor input")
     };
 
+    let rank = dims.len();
+    let source_ssa = grammar::Identifier(ssa.sources[0].0.0);
+    let target_ssa = grammar::Identifier(ssa.targets[0].0.0);
+    let base = source_ssa.clone();
+    let source_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    // For static shapes, create tensor.from_elements with constants
-    let dim_values: Vec<String> = shape_dims
-        .iter()
-        .map(|dim| match dim {
-            NatExpr::Constant(n) => format!("arith.constant {} : index", n),
-            _ => panic!("shape operation requires constant dimensions for now"),
-        })
-        .collect();
+    // List of statements to generate
+    let mut statements = vec![];
 
-    vec![
-        grammar::Expr::Custom(format!(
-            "tensor.from_elements {} : {}",
-            dim_values.join(", "),
-            target_type
-        ))
-        .into_assignment(ssa),
-    ]
+    // Generate constant expressions
+    // {base}_c{i} = arith.constant {i} : index
+    statements.extend((0..rank).map(|i| format!("{base}_c{i} = arith.constant {i} : index")));
+
+    // Generate assignments
+    // {base}_d{i} = tensor.dim {base}, %c0
+    statements.extend(
+        (0..rank).map(|i| format!("{base}_d{i} = tensor.dim {base}, {base}_c{i} : {source_type}")),
+    );
+
+    // Comma separated vars `{base}_d{i}`.
+    let dim_vars = (0..rank)
+        .map(|i| format!("{base}_d{i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    //  %shape = tensor.from_elements %v0_d0, %v0_d1, %v0_d2 : tensor<3 x index>
+    statements.push(format!(
+        "{target_ssa} = tensor.from_elements {dim_vars} : {target_type}"
+    ));
+
+    statements
+        .into_iter()
+        .map(grammar::Statement::Custom)
+        .collect()
 }
 
 pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
