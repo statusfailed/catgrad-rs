@@ -1,3 +1,10 @@
+//! Lower catgrad ops to MLIR
+//!
+//! TODO:
+//!
+//! - Intermediate variables by convention use MLIR SSA id {base}_{suffix}.
+//!   This uses source[0] as base, but *SHOULD* use edge_id which won't break when source[0] is
+//!   copied.
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
@@ -442,6 +449,24 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
 
     statements.push(transpose_stmt);
     statements
+}
+
+// Reshape : Shape × Tensor → Tensor
+// Reshape(s, x) -> y
+//
+//%reshaped = tensor.reshape %input(%shape) : (tensor<3x4xf32>, tensor<2xindex>) -> tensor<2x6xf32>
+pub fn tensor_reshape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    let s = &grammar::Identifier(ssa.sources[0].0.0);
+    let x = &grammar::Identifier(ssa.sources[1].0.0);
+    let y = &grammar::Identifier(ssa.targets[0].0.0);
+
+    let s_type = core_type_to_mlir(&ssa.sources[0].1);
+    let x_type = core_type_to_mlir(&ssa.sources[1].1);
+    let y_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![grammar::Statement::Custom(format!(
+        "{y} = tensor.reshape {x}({s}) : ({x_type}, {s_type}) -> {y_type}"
+    ))]
 }
 
 ////////////////////////////////////////////////////////////////////////////////

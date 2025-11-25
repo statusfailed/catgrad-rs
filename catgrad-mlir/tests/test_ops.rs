@@ -123,6 +123,27 @@ fn test_tensor_transpose() {
     );
 }
 
+#[test]
+fn test_tensor_reshape() {
+    let input_shape = vec![2, 6]; // 2x6 tensor
+    let output_shape = vec![3, 4]; // reshaped to 3x4 tensor
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&input_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor]| {
+                // Create shape [3, 4]
+                let dim1 = 3.to_nat(builder);
+                let dim2 = 4.to_nat(builder);
+                let new_shape = ops::pack(builder, [dim1, dim2]);
+                vec![ops::reshape(builder, new_shape, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

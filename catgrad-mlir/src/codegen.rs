@@ -145,6 +145,11 @@ fn compile_to_shared_lib<P: AsRef<Path>>(llvm_ir: &str, output_so: P) -> Result<
         .arg("-o")
         .arg(output_so)
         .arg("-lm")
+        // Below are needed for memrefCopy, which itself is needed because of the reshape op lowering
+        // which uses non-contiguous copies.
+        .arg("-lmlir_c_runner_utils")
+        .arg("-lmlir_runner_utils")
+        .arg("-lm")
         .output()?;
 
     if !clang_output.status.success() {
