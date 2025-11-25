@@ -656,6 +656,62 @@ pub fn tensor_concat(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     ))]
 }
 
+// TODO: matmul needs to support arbitrary batch ranks
+// MatMul : (N, A, B) × (N, B, C) → (N, A, C)
+// Batched matrix multiplication operation.
+// Example:
+// Input: tensor<4x3x5xf32>, tensor<4x5x7xf32> -> Output: tensor<4x3x7xf32>
+//
+// Generates MLIR like:
+// %empty = tensor.empty() : tensor<4x3x7xf32>
+// %result = linalg.batch_matmul ins(%lhs, %rhs : tensor<4x3x5xf32>, tensor<4x5x7xf32>)
+//                             outs(%empty : tensor<4x3x7xf32>) -> tensor<4x3x7xf32>
+pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
+    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+
+    let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
+    let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    // Get target shape for empty tensor creation
+    let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
+        .expect("MatMul operation needs known target shape");
+
+    let base = lhs_id.clone();
+    let mut statements = vec![];
+
+    // Generate dimension extraction for dynamic dimensions in target
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.dim {lhs_id}, {base}_c{i} : {lhs_type}"
+            )));
+        }
+    }
+
+    // Create empty tensor for the result
+    let empty_expr = to_empty_expr(&base, &target_type, &target_shape_dims);
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_empty = {empty_expr}"
+    )));
+
+    // Generate the batch_matmul operation
+    statements.push(grammar::Statement::Custom(format!(
+        "  {target_id} = linalg.batch_matmul ins({lhs_id}, {rhs_id} : {lhs_type}, {rhs_type}) outs({base}_empty : {target_type}) -> {target_type}"
+    )));
+
+    statements
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 
@@ -755,6 +811,91 @@ pub fn sin(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
     elementwise("math.sin", ssa)
+}
+
+// TODO: support non-f32 dtypes
+// `LT : Tensor × Tensor → Tensor`
+//
+// Example:
+//
+// ```
+// %init = tensor.empty() : tensor<2x3xf32>
+// %result = linalg.generic {
+//     indexing_maps = [affine_map<(d0, d1) -> (d0, d1)>,
+//                      affine_map<(d0, d1) -> (d0, d1)>,
+//                      affine_map<(d0, d1) -> (d0, d1)>],
+//     iterator_types = ["parallel", "parallel"]
+// } ins(%v0, %v1 : tensor<2x3xf32>, tensor<2x3xf32>)
+//   outs(%init : tensor<2x3xf32>) {
+//     ^bb0(%a: f32, %b: f32, %out: f32):
+//         %cmp = arith.cmpf olt, %a, %b : f32
+//         %c0 = arith.constant 0.0 : f32
+//         %c1 = arith.constant 1.0 : f32
+//         %sel = arith.select %cmp, %c1, %c0 : f32
+//         linalg.yield %sel : f32
+// } -> tensor<2x3xf32>
+// ```
+pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
+    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+
+    let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
+    let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    // Get target shape for empty tensor creation
+    let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
+        .expect("Lt operation needs known target shape");
+
+    let rank = target_shape_dims.len();
+    let base = lhs_id.clone();
+    let mut statements = vec![];
+
+    // Generate dimension extraction for dynamic dimensions
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.dim {lhs_id}, {base}_c{i} : {lhs_type}"
+            )));
+        }
+    }
+
+    // Create empty tensor for the result
+    let empty_expr = to_empty_expr(&base, &target_type, &target_shape_dims);
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_init = {empty_expr}"
+    )));
+
+    // Generate indexing maps for elementwise operation
+    let dims: Vec<String> = (0..rank).map(|i| format!("d{i}")).collect();
+    let affine_map = format!("affine_map<({}) -> ({})>", dims.join(", "), dims.join(", "));
+    let iterator_types = vec!["\"parallel\""; rank].join(", ");
+
+    // Generate the linalg.generic operation for comparison
+    let linalg_stmt = grammar::Statement::Custom(format!(
+        r#"  {target_id} = linalg.generic {{
+    indexing_maps = [{affine_map}, {affine_map}, {affine_map}],
+    iterator_types = [{iterator_types}]
+  }} ins({lhs_id}, {rhs_id} : {lhs_type}, {rhs_type}) outs({base}_init : {target_type}) {{
+  ^bb0(%a: f32, %b: f32, %out: f32):
+    %cmp = arith.cmpf olt, %a, %b : f32
+    %c0 = arith.constant 0.0 : f32
+    %c1 = arith.constant 1.0 : f32
+    %sel = arith.select %cmp, %c1, %c0 : f32
+    linalg.yield %sel : f32
+  }} -> {target_type}"#
+    ));
+
+    statements.push(linalg_stmt);
+    statements
 }
 
 pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {

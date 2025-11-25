@@ -169,9 +169,7 @@ fn test_tensor_sum() {
         build_typed_term(
             [tensor_type(&input_shape, Dtype::F32)],
             [tensor_type(&output_shape, Dtype::F32)],
-            |builder, [input_tensor]| {
-                vec![ops::sum(builder, input_tensor)]
-            },
+            |builder, [input_tensor]| vec![ops::sum(builder, input_tensor)],
         )
         .unwrap(),
     );
@@ -181,11 +179,9 @@ fn test_tensor_sum() {
 fn test_nat_to_u32() {
     run_test(
         build_typed_term(
-            [Type::Nat(3.into())], // input: Nat value 3
+            [Type::Nat(3.into())],          // input: Nat value 3
             [tensor_type(&[], Dtype::U32)], // output: scalar tensor (empty shape)
-            |builder, [nat_value]| {
-                vec![ops::nat_to_u32(builder, nat_value)]
-            },
+            |builder, [nat_value]| vec![ops::nat_to_u32(builder, nat_value)],
         )
         .unwrap(),
     );
@@ -199,9 +195,7 @@ fn test_tensor_sin() {
         build_typed_term(
             [tensor_type(&shape, Dtype::F32)],
             [tensor_type(&shape, Dtype::F32)],
-            |builder, [input_tensor]| {
-                vec![ops::sin(builder, input_tensor)]
-            },
+            |builder, [input_tensor]| vec![ops::sin(builder, input_tensor)],
         )
         .unwrap(),
     );
@@ -215,9 +209,7 @@ fn test_tensor_cos() {
         build_typed_term(
             [tensor_type(&shape, Dtype::F32)],
             [tensor_type(&shape, Dtype::F32)],
-            |builder, [input_tensor]| {
-                vec![ops::cos(builder, input_tensor)]
-            },
+            |builder, [input_tensor]| vec![ops::cos(builder, input_tensor)],
         )
         .unwrap(),
     );
@@ -227,17 +219,52 @@ fn test_tensor_cos() {
 fn test_tensor_concat() {
     let tensor1_shape = vec![2, 3]; // 2x3 tensor
     let tensor2_shape = vec![2, 4]; // 2x4 tensor
-    let output_shape = vec![2, 7];  // concatenated along dim 1: 2x7 tensor
+    let output_shape = vec![2, 7]; // concatenated along dim 1: 2x7 tensor
 
     run_test(
         build_typed_term(
-            [tensor_type(&tensor1_shape, Dtype::F32), tensor_type(&tensor2_shape, Dtype::F32)],
+            [
+                tensor_type(&tensor1_shape, Dtype::F32),
+                tensor_type(&tensor2_shape, Dtype::F32),
+            ],
             [tensor_type(&output_shape, Dtype::F32)],
             |builder, [tensor1, tensor2]| {
                 let dim = 1.to_nat(builder); // Concatenate along dimension 1
                 vec![ops::concat(builder, dim, tensor1, tensor2)]
             },
         )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_matmul() {
+    let lhs_shape = vec![4, 3, 5]; // (N=4, A=3, B=5)
+    let rhs_shape = vec![4, 5, 7]; // (N=4, B=5, C=7)
+    let output_shape = vec![4, 3, 7]; // (N=4, A=3, C=7)
+
+    run_test(
+        build_typed_term(
+            [
+                tensor_type(&lhs_shape, Dtype::F32),
+                tensor_type(&rhs_shape, Dtype::F32),
+            ],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [lhs, rhs]| vec![ops::matmul(builder, lhs, rhs)],
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_lt() {
+    let shape = vec![2, 3]; // 2x3 tensor
+    let ty = tensor_type(&shape, Dtype::F32);
+
+    run_test(
+        build_typed_term([ty.clone(), ty.clone()], [ty], |builder, [lhs, rhs]| {
+            vec![ops::lt(builder, lhs, rhs)]
+        })
         .unwrap(),
     );
 }

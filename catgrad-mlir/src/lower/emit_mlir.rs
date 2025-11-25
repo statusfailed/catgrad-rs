@@ -177,6 +177,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.div" => ops::div(ssa).into_iter().map(Into::into).collect(),
         "tensor.sin" => ops::sin(ssa).into_iter().map(Into::into).collect(),
         "tensor.cos" => ops::cos(ssa).into_iter().map(Into::into).collect(),
+        "tensor.lt" => ops::lt(ssa),
         "tensor.arange" => ops::arange(ssa).into_iter().map(Into::into).collect(),
         "shape.pack" => ops::shape_pack(ssa).into_iter().map(Into::into).collect(),
         "shape.unpack" => ops::shape_unpack(ssa),
@@ -186,6 +187,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.sum" => ops::tensor_sum(ssa),
         "tensor.nat_to_u32" => ops::nat_to_u32(ssa),
         "tensor.concat" => ops::tensor_concat(ssa),
+        "tensor.matmul" => ops::tensor_matmul(ssa),
         op => todo!("unknown op {op:?}"),
     }
 }
