@@ -8,6 +8,7 @@
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
+    prelude::Dtype,
     typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, Type, TypeExpr},
 };
 
@@ -30,13 +31,8 @@ pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.targets.len() == 1);
 
     // Extract the shape from the input tensor type
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(dims),
-        ..
-    })) = &ssa.sources[0].1
-    else {
-        panic!("shape operation requires tensor input")
-    };
+    let dims =
+        require_known_shape(ssa.sources[0].1.clone()).expect("shape operation needs known shape");
 
     let rank = dims.len();
     let source_ssa = grammar::Identifier(ssa.sources[0].0.0);
@@ -79,18 +75,11 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
 
-    // Irrefutable matches because typecheck should catch errors
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(in_shape),
-        ..
-    })) = &ssa.sources[0].1
-    else {
-        panic!()
-    };
+    let in_shape = require_known_shape(ssa.sources[0].1.clone())
+        .expect("broadcast operation needs known input shape");
 
-    let Type::Shape(ShapeExpr::Shape(out_shape)) = &ssa.sources[1].1 else {
-        panic!()
-    };
+    let out_shape = require_known_shape(ssa.sources[0].1.clone())
+        .expect("broadcast operation needs known output shape");
 
     let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
     let target_id = grammar::Identifier(ssa.targets[0].0.0);
@@ -181,6 +170,34 @@ pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
     ]
 }
 
+// Shape → Nat .. Nat
+// Example rendering:
+// %c0 = arith.constant 0 : index
+// %c1 = arith.constant 1 : index
+// %c2 = arith.constant 2 : index
+// %e0 = tensor.extract %t[%c0] : tensor<3xi32>
+// %e1 = tensor.extract %t[%c1] : tensor<3xi32>
+// %e2 = tensor.extract %t[%c2] : tensor<3xi32>
+/*
+pub fn shape_unpack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    let x = &grammar::Identifier(ssa.sources[1].0.0); // tensor<Nxi32>
+    let x_type = core_type_to_mlir(&ssa.sources[1].1);
+    let base = x.clone();
+
+    let mut statements = vec![];
+
+    // Generate constant expressions
+    // {base}_c{i} = arith.constant {i} : index
+    statements.extend((0..rank).map(|i| format!("{base}_c{i} = arith.constant {i} : index")));
+
+    // Generate assignments: one for each target!
+    // {base}_d{i} = tensor.dim {base}, %c0
+    statements.extend(
+        (0..rank).map(|i| format!("{base}_d{i} = tensor.dim {base}, {base}_c{i} : {source_type}")),
+    );
+}
+*/
+
 // Index : Sources × Dim × Indexes → Values
 //
 // Lowers to something like this (in this example, dim = 0)
@@ -235,26 +252,17 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     let source_type = core_type_to_mlir(&ssa.sources[0].1);
     let index_type = core_type_to_mlir(&ssa.sources[2].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
     // Extract target shape to determine which dimensions are statically known
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(target_shape_dims),
-        ..
-    })) = &ssa.targets[0].1
-    else {
-        panic!("target must be a tensor")
-    };
+    let target_shape_dims =
+        require_known_shape(ssa.targets[0].1.clone()).expect("Index operation needs known shape");
 
     // List of statements to be returned
     let mut statements = vec![];
 
     // Extract the rank from the source tensor type
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(shape_dims),
-        ..
-    })) = &ssa.sources[0].1
-    else {
-        panic!("tensor_index operation requires tensor input")
-    };
+    let shape_dims =
+        require_known_shape(ssa.sources[0].1.clone()).expect("Index operation needs known shape");
 
     let rank = shape_dims.len();
 
@@ -289,7 +297,7 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     }
 
     // Generate empty result tensor - only include dynamic dimensions
-    let empty_expr = to_empty_expr(&base, &target_type, target_shape_dims);
+    let empty_expr = to_empty_expr(&base, &target_type, &target_shape_dims);
 
     // Generate affine map inputs: d0, d1, ..., d_{rank-1}
     let parallel_stmts = (0..rank)
@@ -388,13 +396,8 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
     };
 
     // Get tensor type info
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(shape_dims),
-        ..
-    })) = &ssa.sources[0].1
-    else {
-        panic!("transpose operation requires tensor input")
-    };
+    let shape_dims = require_known_shape(ssa.sources[0].1.clone())
+        .expect("Transpose operation needs known shape");
 
     let rank = shape_dims.len();
 
@@ -409,13 +412,8 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
     permutation.swap(*dim1, *dim2);
 
     // Get target shape for empty tensor creation
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: ShapeExpr::Shape(target_shape_dims),
-        ..
-    })) = &ssa.targets[0].1
-    else {
-        panic!("target must be a tensor")
-    };
+    let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
+        .expect("Transpose operation needs known shape");
 
     let mut statements = vec![];
 
@@ -434,7 +432,7 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
     }
 
     // Create empty tensor for the result
-    let empty_expr = to_empty_expr(&base, &target_type, target_shape_dims);
+    let empty_expr = to_empty_expr(&base, &target_type, &target_shape_dims);
 
     // Generate the transpose operation
     let permutation_str = permutation
@@ -486,15 +484,8 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
         panic!("cast dtype must be a constant")
     };
 
-    // Get source *shape*
-    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: _source_shape,
-        dtype: DtypeExpr::Constant(source_dtype),
-    })) = &ssa.sources[0].1
-    else {
-        panic!("cast source must be a tensor");
-    };
-
+    let source_dtype =
+        require_known_dtype(ssa.sources[0].1.clone()).expect("cast must have known dtype");
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
     let op_name = match (source_dtype, target_dtype) {
@@ -572,4 +563,31 @@ pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
         ))
         .into_assignment(ssa),
     ]
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Utils
+
+fn require_known_shape(t: Type) -> Option<Vec<NatExpr>> {
+    // Extract the shape from the input tensor type
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(dims),
+        ..
+    })) = t
+    else {
+        return None;
+    };
+    Some(dims)
+}
+
+fn require_known_dtype(t: Type) -> Option<Dtype> {
+    // Extract the shape from the input tensor type
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(dtype),
+        ..
+    })) = t
+    else {
+        return None;
+    };
+    Some(dtype)
 }
