@@ -160,6 +160,23 @@ fn test_shape_unpack() {
     );
 }
 
+#[test]
+fn test_tensor_sum() {
+    let input_shape = vec![2, 3, 4]; // 2x3x4 tensor
+    let output_shape = vec![2, 3, 1]; // summed over final dim: 2x3x1 tensor (catgrad keeps rank)
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&input_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor]| {
+                vec![ops::sum(builder, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

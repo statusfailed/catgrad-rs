@@ -475,6 +475,130 @@ pub fn tensor_reshape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statemen
     ))]
 }
 
+// Sum : Tensor → Tensor
+// Sums over the final dimension of the tensor.
+// Example:
+// Input: tensor<2x3x4xf32> -> Output: tensor<2x3x1xf32>
+//
+// Generates MLIR like:
+// %empty = tensor.empty() : tensor<2x3xf32>
+// %c0 = arith.constant 0.0 : f32
+// %fill = linalg.fill ins(%c0 : f32) outs(%empty : tensor<2x3xf32>) -> tensor<2x3xf32>
+// %sum = linalg.generic {
+//   indexing_maps = [
+//     affine_map<(d0, d1, d2) -> (d0, d1, d2)>,  // input
+//     affine_map<(d0, d1, d2) -> (d0, d1)>       // output (reduced d2)
+//   ],
+//   iterator_types = ["parallel", "parallel", "reduction"]
+// } ins(%input : tensor<2x3x4xf32>) outs(%fill : tensor<2x3xf32>) {
+//   ^bb0(%in: f32, %out: f32):
+//     %add = arith.addf %in, %out : f32
+//     linalg.yield %add : f32
+// } -> tensor<2x3xf32>
+pub fn tensor_sum(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+
+    // Get input and output types
+    let input_shape = require_known_shape(ssa.sources[0].1.clone())
+        .expect("Sum operation needs known input shape");
+    let output_shape = require_known_shape(ssa.targets[0].1.clone())
+        .expect("Sum operation needs known output shape");
+
+    let rank = input_shape.len();
+    let output_rank = output_shape.len();
+
+    // Verify that output rank is same as input rank (catgrad reductions keep rank)
+    assert_eq!(
+        output_rank, rank,
+        "Sum should keep same rank, reducing final dimension to size 1"
+    );
+
+    // Verify final dimension is reduced to 1
+    if let NatExpr::Constant(final_dim_size) = &output_shape[rank - 1] {
+        assert_eq!(
+            *final_dim_size, 1,
+            "Sum should reduce final dimension to size 1"
+        );
+    }
+
+    let input_type = core_type_to_mlir(&ssa.sources[0].1);
+    let output_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    let input_id = grammar::Identifier(ssa.sources[0].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = input_id.clone();
+
+    let mut statements = vec![];
+
+    // Generate dimension extraction for dynamic dimensions in output
+    for (i, dim) in output_shape.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.dim {input_id}, {base}_c{i} : {input_type}"
+            )));
+        }
+    }
+
+    // Create empty tensor for the result
+    let empty_expr = to_empty_expr(&base, &output_type, &output_shape);
+
+    // Create zero constant for initialization
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_zero = arith.constant 0.0 : f32"
+    )));
+
+    // Fill the empty tensor with zeros
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_empty = {empty_expr}"
+    )));
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_fill = linalg.fill ins({base}_zero : f32) outs({base}_empty : {output_type}) -> {output_type}"
+    )));
+
+    // Generate indexing maps
+    let input_dims: Vec<String> = (0..rank).map(|i| format!("d{i}")).collect();
+
+    // Output map: all dims except final are the same, final dim maps to 0 (reduced)
+    let mut output_dims: Vec<String> = (0..(rank - 1)).map(|i| format!("d{i}")).collect();
+    output_dims.push("0".to_string()); // Final dimension reduced to constant 0
+
+    let input_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        input_dims.join(", ")
+    );
+    let output_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        output_dims.join(", ")
+    );
+
+    // Generate iterator types: parallel for all dims except last which is reduction
+    let mut iterator_types = vec!["\"parallel\""; rank - 1];
+    iterator_types.push("\"reduction\"");
+    let iterator_types_str = iterator_types.join(", ");
+
+    // Generate the linalg.generic operation for reduction
+    let linalg_stmt = grammar::Statement::Custom(format!(
+        r#"  {target_id} = linalg.generic {{
+    indexing_maps = [{input_map}, {output_map}],
+    iterator_types = [{iterator_types_str}]
+  }} ins({input_id} : {input_type}) outs({base}_fill : {output_type}) {{
+  ^bb0(%in: f32, %out: f32):
+    %add = arith.addf %in, %out : f32
+    linalg.yield %add : f32
+  }} -> {output_type}"#
+    ));
+
+    statements.push(linalg_stmt);
+    statements
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 
@@ -544,6 +668,12 @@ pub fn add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
     elementwise("arith.addf", ssa)
+}
+
+pub fn mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+    elementwise("arith.mulf", ssa)
 }
 
 pub fn pow(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {

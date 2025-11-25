@@ -172,6 +172,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.broadcast" => ops::broadcast(ssa),
         "tensor.cast" => ops::cast(ssa).into_iter().map(Into::into).collect(),
         "tensor.add" => ops::add(ssa).into_iter().map(Into::into).collect(),
+        "tensor.mul" => ops::mul(ssa).into_iter().map(Into::into).collect(),
         "tensor.pow" => ops::pow(ssa).into_iter().map(Into::into).collect(),
         "tensor.div" => ops::div(ssa).into_iter().map(Into::into).collect(),
         "tensor.arange" => ops::arange(ssa).into_iter().map(Into::into).collect(),
@@ -180,6 +181,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.index" => ops::tensor_index(ssa),
         "tensor.transpose" => ops::tensor_transpose(ssa),
         "tensor.reshape" => ops::tensor_reshape(ssa),
+        "tensor.sum" => ops::tensor_sum(ssa),
         op => todo!("unknown op {op:?}"),
     }
 }
