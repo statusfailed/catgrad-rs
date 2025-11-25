@@ -170,28 +170,6 @@ pub fn softmax(builder: &Builder, x: Var) -> Var {
     ex / bsum
 }
 
-pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
-    let mut outputs = vec![];
-    for i in 0..chunks {
-        let s = slice(builder, dim as u32, i * chunk_size, chunk_size, x.clone());
-        outputs.push(s);
-    }
-
-    outputs
-}
-
-pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var> {
-    let mut outputs = vec![];
-    let mut offset = 0;
-    for &size in sizes {
-        let s = slice(builder, dim as u32, offset, size, x.clone());
-        outputs.push(s);
-        offset += size;
-    }
-
-    outputs
-}
-
 /// Generic linear layer with optional bias with already loaded parameters given as vars
 pub fn linear_b_param(
     builder: &Builder,

@@ -1,6 +1,27 @@
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
-use nn::chunk;
+
+pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
+    let mut outputs = vec![];
+    for i in 0..chunks {
+        let s = slice(builder, dim as u32, i * chunk_size, chunk_size, x.clone());
+        outputs.push(s);
+    }
+
+    outputs
+}
+
+pub fn split(builder: &Builder, dim: isize, sizes: &[usize], x: Var) -> Vec<Var> {
+    let mut outputs = vec![];
+    let mut offset = 0;
+    for &size in sizes {
+        let s = slice(builder, dim as u32, offset, size, x.clone());
+        outputs.push(s);
+        offset += size;
+    }
+
+    outputs
+}
 
 pub fn repeat_kv(builder: &Builder, rep: usize, x: Var) -> Var {
     let shape = shape(builder, x.clone());
