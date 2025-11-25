@@ -13,6 +13,7 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use tokenizers::tokenizer::Tokenizer;
 
+mod deepseek;
 mod gemma3;
 mod gpt2;
 mod granite;
@@ -86,6 +87,10 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
         "GraniteForCausalLM" | "GraniteMoeForCausalLM" => Box::new(granite::GraniteModel {
+            config: config.clone(),
+            max_sequence_length: args.seq_len + token_ids.len(),
+        }),
+        "DeepseekV3ForCausalLM" => Box::new(deepseek::DeepSeekModel {
             config: config.clone(),
             max_sequence_length: args.seq_len + token_ids.len(),
         }),
