@@ -177,6 +177,52 @@ fn test_tensor_sum() {
     );
 }
 
+#[test]
+fn test_nat_to_u32() {
+    run_test(
+        build_typed_term(
+            [Type::Nat(3.into())], // input: Nat value 3
+            [tensor_type(&[], Dtype::U32)], // output: scalar tensor (empty shape)
+            |builder, [nat_value]| {
+                vec![ops::nat_to_u32(builder, nat_value)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_sin() {
+    let shape = vec![2, 3]; // 2x3 tensor
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&shape, Dtype::F32)],
+            [tensor_type(&shape, Dtype::F32)],
+            |builder, [input_tensor]| {
+                vec![ops::sin(builder, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_cos() {
+    let shape = vec![2, 3]; // 2x3 tensor
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&shape, Dtype::F32)],
+            [tensor_type(&shape, Dtype::F32)],
+            |builder, [input_tensor]| {
+                vec![ops::cos(builder, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

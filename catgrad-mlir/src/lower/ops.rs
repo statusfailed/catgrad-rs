@@ -599,6 +599,34 @@ pub fn tensor_sum(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements
 }
 
+// NatToU32 : Nat → Tensor ()
+// Converts a Nat value into a scalar tensor.
+// Example:
+// Input: %nat (index type) -> Output: tensor<i32> (scalar tensor)
+//
+// Generates MLIR like:
+// %cast = arith.index_cast %nat : index to i32
+// %scalar = tensor.from_elements %cast : tensor<i32>
+pub fn nat_to_u32(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+
+    let nat_id = grammar::Identifier(ssa.sources[0].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![
+        // Cast from index to i32
+        grammar::Statement::Custom(format!(
+            "  {nat_id}_cast = arith.index_cast {nat_id} : index to i32"
+        )),
+        // Create scalar tensor from the cast value
+        grammar::Statement::Custom(format!(
+            "  {target_id} = tensor.from_elements {nat_id}_cast : {target_type}"
+        )),
+    ]
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 
@@ -686,6 +714,18 @@ pub fn div(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
     elementwise("arith.divf", ssa)
+}
+
+pub fn cos(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+    elementwise("math.cos", ssa)
+}
+
+pub fn sin(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+    elementwise("math.sin", ssa)
 }
 
 pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
