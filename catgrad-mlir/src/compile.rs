@@ -155,6 +155,7 @@ fn catgrad_to_mlir_type(catgrad_type: Type) -> MlirType {
         })) => MlirType::Memref(shape.len()),
         // Shape types are represented as 1D tensors with rank elements
         Type::Shape(typecheck::ShapeExpr::Shape(_dims)) => MlirType::Memref(1),
+        Type::Nat(_) => MlirType::I32,
         _ => todo!("Unsupported catgrad type: {:?}", catgrad_type),
         //Type::Nat(_) => todo!("unsupported"),
         //Type::Dtype(_) => todo!("unsupported"),

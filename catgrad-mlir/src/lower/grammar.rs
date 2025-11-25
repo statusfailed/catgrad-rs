@@ -385,7 +385,11 @@ impl fmt::Display for Parameter {
 impl fmt::Display for Func {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params_str = comma_separated(&self.parameters);
-        let return_types_str = comma_separated(&self.return_type);
+        let return_types_str = if self.return_type.len() > 1 {
+            format!("({})", comma_separated(&self.return_type))
+        } else {
+            comma_separated(&self.return_type)
+        };
 
         writeln!(
             f,

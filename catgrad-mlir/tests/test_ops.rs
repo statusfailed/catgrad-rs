@@ -39,7 +39,7 @@ fn test_shape_op() {
     run_test(
         build_typed_term(
             [x_type],
-            [shape_type(3)], // rank 3
+            [shape_type(&[3, 1, 4])], // rank 3
             |builder, [x]| vec![ops::shape(builder, x)],
         )
         .unwrap(),
@@ -76,7 +76,7 @@ fn test_arange() {
 #[test]
 fn test_shape_pack() {
     run_test(
-        build_typed_term([], [shape_type(3)], |builder, []| {
+        build_typed_term([], [shape_type(&[2, 3, 4])], |builder, []| {
             let n1 = 2.to_nat(builder);
             let n2 = 3.to_nat(builder);
             let n3 = 4.to_nat(builder);
@@ -144,6 +144,22 @@ fn test_tensor_reshape() {
     );
 }
 
+#[test]
+fn test_shape_unpack() {
+    run_test(
+        build_typed_term(
+            [shape_type(&[3, 1, 4])], // input: shape with rank 3
+            [
+                Type::Nat(3.into()),
+                Type::Nat(1.into()),
+                Type::Nat(4.into()),
+            ], // output: 3 individual Nat values
+            |builder, [shape]| ops::unpack::<3>(builder, shape).into(),
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 
@@ -154,9 +170,8 @@ fn tensor_type(shape: &[usize], dtype: Dtype) -> Type {
     }))
 }
 
-fn shape_type(rank: usize) -> Type {
-    use catgrad::typecheck::{NatExpr, ShapeExpr};
-    Type::Shape(ShapeExpr::Shape(vec![NatExpr::Constant(rank)]))
+fn shape_type(dims: &[usize]) -> Type {
+    Type::Shape(dims.to_owned().into())
 }
 
 ////////////////////////////////////////////////////////////////////////////////

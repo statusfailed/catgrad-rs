@@ -320,7 +320,7 @@ impl MlirValue {
         match self {
             MlirValue::MlirTensorF32(tensor) => MlirType::Memref(tensor.sizes.len()),
             MlirValue::MlirTensorU32(tensor) => MlirType::Memref(tensor.sizes.len()),
-            MlirValue::I64(_) => MlirType::I64,
+            MlirValue::I64(_) => MlirType::I32,
         }
     }
 
@@ -336,7 +336,7 @@ impl MlirValue {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MlirType {
     Memref(usize), // ranked memref
-    I64,
+    I32,
 }
 
 impl MlirType {
@@ -359,7 +359,7 @@ impl MlirType {
                 }
                 fields
             }
-            MlirType::I64 => vec![Type::i64()],
+            MlirType::I32 => vec![Type::i32()],
         }
     }
 
@@ -442,7 +442,7 @@ fn calculate_result_size(target_types: &[MlirType]) -> usize {
                     + std::mem::size_of::<i64>()
                     + 2 * rank * std::mem::size_of::<i64>()
             }
-            MlirType::I64 => std::mem::size_of::<i64>(),
+            MlirType::I32 => std::mem::size_of::<i64>(),
         })
         .sum()
 }
@@ -507,7 +507,7 @@ fn parse_results_from_buffer(
                         strides,
                     }
                 }
-                MlirType::I64 => {
+                MlirType::I32 => {
                     panic!("I64 not handled yet")
                 }
             };

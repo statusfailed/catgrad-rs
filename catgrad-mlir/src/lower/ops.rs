@@ -1,10 +1,12 @@
-//! Lower catgrad ops to MLIR
-//!
-//! TODO:
-//!
-//! - Intermediate variables by convention use MLIR SSA id {base}_{suffix}.
-//!   This uses source[0] as base, but *SHOULD* use edge_id which won't break when source[0] is
-//!   copied.
+//! # Lower catgrad ops to MLIR
+//
+// TODO:
+//
+// - Intermediate variables by convention use MLIR SSA id {base}_{suffix}.
+//   This uses source[0] as base, but *SHOULD* use edge_id which won't break when source[0] is
+//   copied.
+// - hardcoded 'index' type everywhere: should get this from code (in case we change runtime rep
+//   of Nat)
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
@@ -178,11 +180,12 @@ pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
 // %e0 = tensor.extract %t[%c0] : tensor<3xi32>
 // %e1 = tensor.extract %t[%c1] : tensor<3xi32>
 // %e2 = tensor.extract %t[%c2] : tensor<3xi32>
-/*
 pub fn shape_unpack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
-    let x = &grammar::Identifier(ssa.sources[1].0.0); // tensor<Nxi32>
-    let x_type = core_type_to_mlir(&ssa.sources[1].1);
+    let x = &grammar::Identifier(ssa.sources[0].0.0); // tensor<Nxi32>
+    let x_type = core_type_to_mlir(&ssa.sources[0].1);
     let base = x.clone();
+
+    let rank = ssa.targets.len();
 
     let mut statements = vec![];
 
@@ -192,11 +195,16 @@ pub fn shape_unpack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
 
     // Generate assignments: one for each target!
     // {base}_d{i} = tensor.dim {base}, %c0
-    statements.extend(
-        (0..rank).map(|i| format!("{base}_d{i} = tensor.dim {base}, {base}_c{i} : {source_type}")),
-    );
+    statements.extend((0..rank).map(|i| {
+        let target = grammar::Identifier(ssa.targets[i].0.0);
+        format!("{target} = tensor.extract {x}[{base}_c{i}] : {x_type}",)
+    }));
+
+    statements
+        .into_iter()
+        .map(grammar::Statement::Custom)
+        .collect()
 }
-*/
 
 // Index : Sources × Dim × Indexes → Values
 //
