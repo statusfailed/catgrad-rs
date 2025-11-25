@@ -185,6 +185,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.reshape" => ops::tensor_reshape(ssa),
         "tensor.sum" => ops::tensor_sum(ssa),
         "tensor.nat_to_u32" => ops::nat_to_u32(ssa),
+        "tensor.concat" => ops::tensor_concat(ssa),
         op => todo!("unknown op {op:?}"),
     }
 }

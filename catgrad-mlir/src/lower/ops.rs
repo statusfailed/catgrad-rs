@@ -627,6 +627,35 @@ pub fn nat_to_u32(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     ]
 }
 
+// Concat : Tensor × Tensor × Dim → Tensor
+// Concatenates two tensors along a specified dimension.
+// Example:
+// Input: tensor<2x3xf32>, tensor<2x4xf32>, dim=1 -> Output: tensor<2x7xf32>
+//
+// Generates MLIR like:
+// %result = tensor.concat dim(1) %tensor1, %tensor2 : (tensor<2x3xf32>, tensor<2x4xf32>) -> tensor<2x7xf32>
+pub fn tensor_concat(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 3);
+    assert!(ssa.targets.len() == 1);
+
+    // Sources are: [tensor1, tensor2, dim]
+    let tensor1_id = grammar::Identifier(ssa.sources[0].0.0);
+    let tensor2_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+
+    // Extract the dimension to concatenate along
+    let dim =
+        require_known_nat(ssa.sources[2].1.clone()).expect("concat dimension must be constant");
+
+    let tensor1_type = core_type_to_mlir(&ssa.sources[0].1);
+    let tensor2_type = core_type_to_mlir(&ssa.sources[1].1);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    vec![grammar::Statement::Custom(format!(
+        "  {target_id} = tensor.concat dim({dim}) {tensor1_id}, {tensor2_id} : ({tensor1_type}, {tensor2_type}) -> {target_type}"
+    ))]
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 
@@ -768,4 +797,11 @@ fn require_known_dtype(t: Type) -> Option<Dtype> {
         return None;
     };
     Some(dtype)
+}
+
+fn require_known_nat(t: Type) -> Option<usize> {
+    let Type::Nat(NatExpr::Constant(n)) = t else {
+        return None;
+    };
+    Some(n)
 }

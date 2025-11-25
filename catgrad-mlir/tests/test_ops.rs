@@ -223,6 +223,25 @@ fn test_tensor_cos() {
     );
 }
 
+#[test]
+fn test_tensor_concat() {
+    let tensor1_shape = vec![2, 3]; // 2x3 tensor
+    let tensor2_shape = vec![2, 4]; // 2x4 tensor
+    let output_shape = vec![2, 7];  // concatenated along dim 1: 2x7 tensor
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&tensor1_shape, Dtype::F32), tensor_type(&tensor2_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [tensor1, tensor2]| {
+                let dim = 1.to_nat(builder); // Concatenate along dimension 1
+                vec![ops::concat(builder, dim, tensor1, tensor2)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 
