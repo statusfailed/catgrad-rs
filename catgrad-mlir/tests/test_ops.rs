@@ -91,6 +91,21 @@ fn test_tensor_index() {
     );
 }
 
+#[test]
+fn test_tensor_transpose() {
+    let input_shape = vec![2, 3, 4]; // 2x3x4 tensor
+    let output_shape = vec![2, 4, 3]; // transposed: 2x4x3 (dims 1 and 2 swapped)
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&input_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [x]| vec![ops::transpose(builder, 1, 2, x)],
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

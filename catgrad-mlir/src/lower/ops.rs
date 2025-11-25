@@ -221,11 +221,7 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
         panic!("target must be a tensor")
     };
 
-    let is_known_rank: Vec<bool> = target_shape_dims
-        .iter()
-        .map(|dim| matches!(dim, NatExpr::Constant(_)))
-        .collect();
-
+    // List of statements to be returned
     let mut statements = vec![];
 
     // Extract the rank from the source tensor type
@@ -245,10 +241,6 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     let index_ssa = grammar::Identifier(ssa.sources[2].0.0);
 
     let target_id = grammar::Identifier(ssa.targets[0].0.0);
-    let parallel_stmts = (0..rank)
-        .map(|_| "\"parallel\"")
-        .collect::<Vec<_>>()
-        .join(", ");
 
     // Generate constant statements for each dimension
     //  %c0 = arith.constant 0 : index
@@ -274,18 +266,13 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     }
 
     // Generate empty result tensor - only include dynamic dimensions
-    let mut dim_args = vec![];
-    if !is_known_rank[0] {
-        dim_args.push(format!("{base}_n"));
-    }
-    for i in 1..rank {
-        if !is_known_rank[i] {
-            dim_args.push(format!("{base}_d{i}"));
-        }
-    }
-    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
+    let empty_expr = to_empty_expr(&base, &target_type, target_shape_dims);
 
     // Generate affine map inputs: d0, d1, ..., d_{rank-1}
+    let parallel_stmts = (0..rank)
+        .map(|_| "\"parallel\"")
+        .collect::<Vec<_>>()
+        .join(", ");
     let affine_map_inputs = (0..rank)
         .map(|i| format!("d{i}"))
         .collect::<Vec<_>>()
@@ -328,6 +315,116 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     ));
 
     statements.push(linalg_generic);
+    statements
+}
+
+/// Generate a `tensor.empty` expression from a list of NatExpr representing the dims.
+fn to_empty_expr(
+    base: &grammar::Identifier,
+    target_type: &grammar::Type,
+    dims: &[NatExpr],
+) -> String {
+    let rank = dims.len();
+
+    let is_known_dimension: Vec<bool> = dims
+        .iter()
+        .map(|dim| matches!(dim, NatExpr::Constant(_)))
+        .collect();
+
+    let mut dim_args = vec![];
+    if !is_known_dimension[0] {
+        dim_args.push(format!("{base}_n"));
+    }
+    for i in 1..rank {
+        if !is_known_dimension[i] {
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
+    empty_expr
+}
+
+// Transpose : Tensor × Nat × Nat → Tensor
+// Transposes two dimensions (assumed to be statically known as NatExpr::Constant) in the input tensor.
+// Example:
+// ```
+// %transposed = linalg.transpose ins(%0 : tensor<?x?x?x?xf32>)
+//                                outs(%init : tensor<?x?x?x?xf32>)
+//                                permutation = [0, 2, 1, 3]
+// ```
+pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 3);
+    assert!(ssa.targets.len() == 1);
+
+    // Extract the two dimension indices (must be constants)
+    let Type::Nat(NatExpr::Constant(dim1)) = &ssa.sources[1].1 else {
+        panic!("transpose dim1 must be a constant")
+    };
+    let Type::Nat(NatExpr::Constant(dim2)) = &ssa.sources[2].1 else {
+        panic!("transpose dim2 must be a constant")
+    };
+
+    // Get tensor type info
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(shape_dims),
+        ..
+    })) = &ssa.sources[0].1
+    else {
+        panic!("transpose operation requires tensor input")
+    };
+
+    let rank = shape_dims.len();
+
+    let source_type = core_type_to_mlir(&ssa.sources[0].1);
+    let target_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+
+    // Create permutation array: identity with dim1 and dim2 swapped
+    let mut permutation: Vec<usize> = (0..rank).collect();
+    permutation.swap(*dim1, *dim2);
+
+    // Get target shape for empty tensor creation
+    let Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(target_shape_dims),
+        ..
+    })) = &ssa.targets[0].1
+    else {
+        panic!("target must be a tensor")
+    };
+
+    let mut statements = vec![];
+
+    // Generate dimension extraction for dynamic dimensions
+    let base = grammar::Identifier(ssa.sources[0].0.0);
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            // This is a dynamic dimension, extract it
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.dim {tensor_id}, {base}_c{i} : {source_type}"
+            )));
+        }
+    }
+
+    // Create empty tensor for the result
+    let empty_expr = to_empty_expr(&base, &target_type, target_shape_dims);
+
+    // Generate the transpose operation
+    let permutation_str = permutation
+        .iter()
+        .map(|i| i.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let transpose_stmt = grammar::Statement::Custom(format!(
+        "  {base}_empty = {empty_expr}\n  {target_id} = linalg.transpose ins({tensor_id} : {source_type}) outs({base}_empty : {target_type}) permutation = [{permutation_str}]"
+    ));
+
+    statements.push(transpose_stmt);
     statements
 }
 

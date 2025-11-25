@@ -177,6 +177,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.arange" => ops::arange(ssa).into_iter().map(Into::into).collect(),
         "shape.pack" => ops::shape_pack(ssa).into_iter().map(Into::into).collect(),
         "tensor.index" => ops::tensor_index(ssa),
+        "tensor.transpose" => ops::tensor_transpose(ssa),
         op => todo!("unknown op {op:?}"),
     }
 }
