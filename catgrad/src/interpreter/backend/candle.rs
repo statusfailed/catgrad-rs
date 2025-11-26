@@ -507,7 +507,7 @@ impl CandleBackend {
 
         // Convert back to tensor with original shape
         let shape = x.0.dims();
-        let result_tensor = Tensor::from_slice(&result_vec, shape, x.0.device()).unwrap();
+        let result_tensor = Tensor::from_vec(result_vec, shape, x.0.device()).unwrap();
         CandleTensor(result_tensor)
     }
 
