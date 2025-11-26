@@ -121,7 +121,7 @@ pub fn pack<const N: usize>(builder: &Builder, extents: [Var; N]) -> Var {
 
 /// Unpack a shape into a dtype and its constituent Nat dimensions
 pub fn unpack<const N: usize>(builder: &Builder, x: Var) -> [Var; N] {
-    assert_eq!(x.label, Object::Shape);
+    assert_eq!(x.label, Object::Shape, "input to unpack was not a shape");
 
     let ty = vec![Object::Nat; N];
     let elements = var::operation(builder, &[x], ty, op!["shape", "unpack"]);

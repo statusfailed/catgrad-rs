@@ -342,6 +342,9 @@ fn tensor_index(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
 
     match (input.shape, idx.shape) {
         (ShapeExpr::Shape(mut input_shape), ShapeExpr::Shape(idx_shape)) => {
+            if idx_shape.len() != 1 {
+                return Err(InterpreterError::TypeError(ssa.edge_id));
+            }
             input_shape[n] = idx_shape[0].clone();
             Ok(vec![Value::Tensor(TypeExpr::NdArrayType(NdArrayType {
                 dtype: input.dtype,
