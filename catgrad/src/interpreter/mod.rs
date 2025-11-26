@@ -17,19 +17,8 @@ pub use backend::{Backend, BackendError};
 mod tests;
 
 // Create a tensor
-pub fn tensor<B: Backend, T: IntoTagged<B, 1>>(
-    backend: &B,
-    shape: Shape,
-    data: &[T],
-) -> Result<Value<B>, BackendError> {
-    if shape.size() != data.len() {
-        return Err(BackendError::ShapeError);
-    }
-    let tagged = TaggedTensor::from_slice(backend, data, shape)?;
-    Ok(Value::Tensor(tagged))
-}
 
-pub fn tensor_from_vec<B: Backend, T: IntoTagged<B, 1>>(
+pub fn tensor<B: Backend, T: IntoTagged<B, 1>>(
     backend: &B,
     shape: Shape,
     data: Vec<T>,

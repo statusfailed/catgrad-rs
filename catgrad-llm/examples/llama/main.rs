@@ -150,7 +150,7 @@ fn run_interpreter<B: interpreter::Backend>(
     let input_tensor = interpreter::tensor(
         &interpreter.backend,
         Shape(vec![1, input_data.len()]),
-        input_data,
+        input_data.to_vec(),
     )
     .expect("Failed to create input tensor");
 
@@ -364,7 +364,7 @@ fn load_model<B: interpreter::Backend>(
                 }
             };
 
-            let tensor = interpreter::tensor_from_vec(backend, Shape(shape.clone()), data)
+            let tensor = interpreter::tensor(backend, Shape(shape.clone()), data)
                 .expect("failed to create tensor");
             let key = path(name.split(".").collect()).expect("invalid param path");
             data_map.insert(key.clone(), tensor);
