@@ -9,6 +9,7 @@
 //   of Nat)
 // - max reduction uses neginf as initial value. This is not ideal, won't work with other dtypes.
 // - matmul should support arbitrary ranked batches
+// - arange, broadcast both use hacky boilerplate for generating dynamic dim args: fix?
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
@@ -121,6 +122,11 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let tensor_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
+    // Extract element type for the linalg.generic operation
+    let dtype = require_known_dtype(ssa.sources[0].1.clone())
+        .expect("broadcast requires tensor with known dtype");
+    let element_type = element_type_name(dtype);
+
     let mut statements = vec![];
 
     // Extract dimensions from the target shape tensor for dynamic dimensions
@@ -152,8 +158,8 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements.push(grammar::Statement::Custom(format!(
         r#"  {target_id} = linalg.generic {{{attrs}}} ins({tensor_id} : {tensor_type})
                                     outs({base}_out : {target_type}) {{
-                                        ^bb0(%in: f32, %out: f32):
-                                        linalg.yield %in : f32
+                                        ^bb0(%in: {element_type}, %out: {element_type}):
+                                        linalg.yield %in : {element_type}
                                     }} -> {target_type}"#
     )));
 
@@ -1194,6 +1200,11 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
+    // Extract element type for the linalg.generic operation
+    let dtype = require_known_dtype(ssa.sources[0].1.clone())
+        .expect("lt requires tensor with known dtype");
+    let element_type = element_type_name(dtype.clone());
+
     // Get target shape for empty tensor creation
     let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
         .expect("Lt operation needs known target shape");
@@ -1232,17 +1243,22 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let iterator_types = vec!["\"parallel\""; rank].join(", ");
 
     // Generate the linalg.generic operation for comparison
+    let (cmp_op, zero_val, one_val) = match dtype {
+        Dtype::F32 => ("arith.cmpf olt", "0.0", "1.0"),
+        Dtype::U32 => ("arith.cmpi ult", "0", "1"),
+    };
+
     let linalg_stmt = grammar::Statement::Custom(format!(
         r#"  {target_id} = linalg.generic {{
     indexing_maps = [{affine_map}, {affine_map}, {affine_map}],
     iterator_types = [{iterator_types}]
   }} ins({lhs_id}, {rhs_id} : {lhs_type}, {rhs_type}) outs({base}_init : {target_type}) {{
-  ^bb0(%a: f32, %b: f32, %out: f32):
-    %cmp = arith.cmpf olt, %a, %b : f32
-    %c0 = arith.constant 0.0 : f32
-    %c1 = arith.constant 1.0 : f32
-    %sel = arith.select %cmp, %c1, %c0 : f32
-    linalg.yield %sel : f32
+  ^bb0(%a: {element_type}, %b: {element_type}, %out: {element_type}):
+    %cmp = {cmp_op}, %a, %b : {element_type}
+    %c0 = arith.constant {zero_val} : {element_type}
+    %c1 = arith.constant {one_val} : {element_type}
+    %sel = arith.select %cmp, %c1, %c0 : {element_type}
+    linalg.yield %sel : {element_type}
   }} -> {target_type}"#
     ));
 
@@ -1250,19 +1266,48 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements
 }
 
-pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+pub fn arange(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
 
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
+    let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
+        .expect("Arange operation needs known target shape");
 
-    vec![
-        grammar::Expr::Custom(format!(
-            "tensor.generate {{\n^bb0(%i0: index):\n  %idx = arith.index_cast %i0 : index to i32\n  tensor.yield %idx : i32\n}} : {}",
-            target_type
-        ))
-        .into_assignment(ssa),
-    ]
+    let end_id = Identifier::Node(ssa.sources[0].0); // The 'end' parameter
+    let target_id = Identifier::Node(ssa.targets[0].0);
+
+    let mut statements = vec![];
+    let mut dim_args = vec![];
+
+    // For arange, the size should come from the 'end' parameter (source[0])
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            // For arange, typically only the first dimension is dynamic and equals the 'end' parameter
+            if i == 0 {
+                dim_args.push(end_id.to_string());
+            } else {
+                // If other dimensions are dynamic, we'd need more complex logic
+                panic!("Arange with dynamic dimensions beyond the first is not supported");
+            }
+        }
+    }
+
+    let generate_expr = if dim_args.is_empty() {
+        format!(
+            "tensor.generate {{\n^bb0(%i0: index):\n  %idx = arith.index_cast %i0 : index to i32\n  tensor.yield %idx : i32\n}} : {target_type}"
+        )
+    } else {
+        format!(
+            "tensor.generate {} {{\n^bb0(%i0: index):\n  %idx = arith.index_cast %i0 : index to i32\n  tensor.yield %idx : i32\n}} : {target_type}",
+            dim_args.join(", ")
+        )
+    };
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {target_id} = {generate_expr}"
+    )));
+    statements
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1323,4 +1368,12 @@ fn to_empty_expr(
     }
     let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
     empty_expr
+}
+
+fn element_type_name(dtype: Dtype) -> String {
+    match dtype {
+        Dtype::F32 => "f32",
+        Dtype::U32 => "i32",
+    }
+    .to_string()
 }

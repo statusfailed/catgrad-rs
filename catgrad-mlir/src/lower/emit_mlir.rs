@@ -69,8 +69,6 @@ pub fn get_mlir_body(term: Term) -> Vec<grammar::Statement> {
 
 /// Make a list of assignment statements from a single op
 fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
-    // TODO: prelude - generate any "outs"?
-
     // Get LHS of assignment and types
     let (result, return_types): (Vec<grammar::Identifier>, Vec<grammar::Type>) = ssa
         .targets
@@ -78,10 +76,13 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
         .map(|(i, t)| (grammar::Identifier::Node(*i), core_type_to_mlir(t)))
         .unzip();
 
-    //let ins: Vec<_> = ssa.sources.iter().map(to_typed_identifier).collect();
-    //let outs: Vec<_> = ssa.targets.iter().map(to_typed_identifier).collect();
+    let mut statements = vec![
+        grammar::Statement::Custom(format!("// {:?}", ssa.op)),
+        grammar::Statement::Custom(format!("// {:?}", ssa.sources)),
+        grammar::Statement::Custom(format!("// {:?}", ssa.targets)),
+    ];
 
-    let mut statements = match &ssa.op {
+    statements.extend(match &ssa.op {
         // Declarations lower to explicit snippets
         lang::Operation::Declaration(path) => lower_operation(path, ssa),
 
@@ -99,10 +100,8 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
             vec![grammar::Assignment { result, expr }.into()]
         }
         lang::Operation::Literal(lit) => literal_to_statements(ssa.edge_id, lit, result),
-    };
+    });
 
-    let comment = grammar::Statement::Custom(format!("// {:?}", ssa.op));
-    statements.insert(0, comment);
     statements
 }
 
