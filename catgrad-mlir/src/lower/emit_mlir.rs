@@ -191,7 +191,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.matmul" => ops::tensor_matmul(ssa),
         "tensor.slice" => ops::tensor_slice(ssa),
         "nat.mul" => ops::nat_mul(ssa),
-        "tensor.max" => todo!("tensor.max"),
+        "tensor.max" => ops::tensor_max(ssa),
         "tensor.argmax" => todo!("tensor.argmax"),
         op => todo!("unknown op {op:?}"),
     }

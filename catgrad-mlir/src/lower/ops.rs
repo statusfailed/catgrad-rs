@@ -7,6 +7,7 @@
 //   copied.
 // - hardcoded 'index' type everywhere: should get this from code (in case we change runtime rep
 //   of Nat)
+// - max reduction uses neginf as initial value. This is not ideal, won't work with other dtypes.
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
@@ -645,6 +646,109 @@ pub fn nat_mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     vec![grammar::Statement::Custom(format!(
         "  {target_id} = arith.muli {a_id}, {b_id} : index"
     ))]
+}
+
+// Max : Tensor → Tensor
+// Finds maximum over the final dimension of the tensor.
+// Example:
+// Input: tensor<2x3x4xf32> -> Output: tensor<2x3x1xf32>
+//
+// Generates MLIR similar to sum but with max operation
+pub fn tensor_max(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+
+    let input_shape = require_known_shape(ssa.sources[0].1.clone())
+        .expect("Max operation needs known input shape");
+    let output_shape = require_known_shape(ssa.targets[0].1.clone())
+        .expect("Max operation needs known output shape");
+
+    let rank = input_shape.len();
+    let output_rank = output_shape.len();
+
+    assert_eq!(
+        output_rank, rank,
+        "Max should keep same rank, reducing final dimension to size 1"
+    );
+
+    if let NatExpr::Constant(final_dim_size) = &output_shape[rank - 1] {
+        assert_eq!(
+            *final_dim_size, 1,
+            "Max should reduce final dimension to size 1"
+        );
+    }
+
+    let input_type = core_type_to_mlir(&ssa.sources[0].1);
+    let output_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    let input_id = grammar::Identifier(ssa.sources[0].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = input_id.clone();
+
+    let mut statements = vec![];
+
+    // Generate dimension extraction for dynamic dimensions in output
+    for (i, dim) in output_shape.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.dim {input_id}, {base}_c{i} : {input_type}"
+            )));
+        }
+    }
+
+    // Create empty tensor for the result
+    let empty_expr = to_empty_expr(&base, &output_type, &output_shape);
+
+    // Create negative infinity constant for initialization
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_ninf = arith.constant -3.40282347e+38 : f32"
+    )));
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_empty = {empty_expr}"
+    )));
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_fill = linalg.fill ins({base}_ninf : f32) outs({base}_empty : {output_type}) -> {output_type}"
+    )));
+
+    // Generate indexing maps (same as sum)
+    let input_dims: Vec<String> = (0..rank).map(|i| format!("d{i}")).collect();
+    let mut output_dims: Vec<String> = (0..(rank - 1)).map(|i| format!("d{i}")).collect();
+    output_dims.push("0".to_string());
+
+    let input_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        input_dims.join(", ")
+    );
+    let output_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        output_dims.join(", ")
+    );
+
+    let mut iterator_types = vec!["\"parallel\""; rank - 1];
+    iterator_types.push("\"reduction\"");
+    let iterator_types_str = iterator_types.join(", ");
+
+    // Generate the linalg.generic operation for max reduction
+    let linalg_stmt = grammar::Statement::Custom(format!(
+        r#"  {target_id} = linalg.generic {{
+    indexing_maps = [{input_map}, {output_map}],
+    iterator_types = [{iterator_types_str}]
+  }} ins({input_id} : {input_type}) outs({base}_fill : {output_type}) {{
+  ^bb0(%in: f32, %out: f32):
+    %max = arith.maximumf %in, %out : f32
+    linalg.yield %max : f32
+  }} -> {output_type}"#
+    ));
+
+    statements.push(linalg_stmt);
+    statements
 }
 
 // Concat : Tensor × Tensor × Dim → Tensor
