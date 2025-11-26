@@ -316,6 +316,21 @@ fn test_tensor_max() {
     );
 }
 
+#[test]
+fn test_tensor_argmax() {
+    let input_shape = vec![2, 3, 4]; // 2x3x4 tensor
+    let output_shape = vec![2, 3, 1]; // argmax over final dim: 2x3x1 tensor (indices)
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&input_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::U32)], // output is indices (U32)
+            |builder, [input_tensor]| vec![ops::argmax(builder, input_tensor)],
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

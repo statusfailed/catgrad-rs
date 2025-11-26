@@ -61,6 +61,13 @@ impl Type {
             _ => self,
         }
     }
+
+    pub fn with_dtype(self, dtype: String) -> Self {
+        match self {
+            Self::TensorType(t) => Self::TensorType(t.with_dtype(dtype)),
+            _ => self,
+        }
+    }
 }
 
 /// A type like `tensor<4x8xf32>`
@@ -73,6 +80,11 @@ pub struct TensorType {
 impl TensorType {
     pub fn into_dynamic(mut self) -> Self {
         self.shape = self.shape.into_dynamic();
+        self
+    }
+
+    pub fn with_dtype(mut self, dtype: String) -> Self {
+        self.dtype = dtype;
         self
     }
 }

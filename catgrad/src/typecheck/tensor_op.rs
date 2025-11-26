@@ -14,7 +14,8 @@ pub(crate) fn tensor_op(ssa: &CoreSSA, args: Vec<Value>, op: &TensorOp) -> Resul
         TensorOp::Cast => tensor_cast(ssa, args),
         TensorOp::MatMul => tensor_matmul(ssa, args),
         TensorOp::Scalar(c) => tensor_constant(ssa, args, c.clone()),
-        TensorOp::Sum | TensorOp::Max | TensorOp::Argmax => tensor_reduce(ssa, args),
+        TensorOp::Sum | TensorOp::Max => tensor_reduce(ssa, args),
+        TensorOp::Argmax => tensor_argmax(ssa, args),
         TensorOp::TopK => tensor_topk(ssa, args),
         TensorOp::Broadcast => tensor_broadcast(ssa, args),
         TensorOp::Reshape => tensor_reshape(ssa, args),
@@ -136,6 +137,26 @@ fn tensor_reduce(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
                 shape[k - 1] = NatExpr::Constant(1);
                 TypeExpr::NdArrayType(NdArrayType {
                     dtype: n.dtype,
+                    shape: ShapeExpr::Shape(shape),
+                })
+            }
+            _ => return Err(InterpreterError::TypeError(ssa.edge_id)),
+        },
+        TypeExpr::Var(_) => return Err(InterpreterError::TypeError(ssa.edge_id)),
+    };
+
+    Ok(vec![Value::Tensor(type_expr)])
+}
+
+fn tensor_argmax(ssa: &CoreSSA, args: Vec<Value>) -> ResultValues {
+    let [tensor] = get_exact_arity(ssa, args)?;
+    let type_expr = match to_tensor(ssa, tensor)? {
+        TypeExpr::NdArrayType(n) => match n.shape {
+            ShapeExpr::Shape(mut shape) => {
+                let k = shape.len();
+                shape[k - 1] = NatExpr::Constant(1);
+                TypeExpr::NdArrayType(NdArrayType {
+                    dtype: Dtype::U32.into(),
                     shape: ShapeExpr::Shape(shape),
                 })
             }

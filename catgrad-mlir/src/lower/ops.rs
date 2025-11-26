@@ -751,6 +751,127 @@ pub fn tensor_max(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements
 }
 
+// ArgMax : Tensor → Tensor
+// Finds indices of maximum values over the final dimension of the tensor.
+// Example:
+//
+// ```
+//  %c0 = arith.constant 0 : index
+//  %min_val = arith.constant 0xFF800000 : f32  // -inf
+//
+//  %indices_buf = tensor.empty() : tensor<4xindex>
+//  %max_buf = tensor.empty() : tensor<4xf32>
+//
+//  %init_indices = linalg.fill ins(%c0 : index) outs(%indices_buf : tensor<4xindex>) -> tensor<4xindex>
+//  %init_maxes = linalg.fill ins(%min_val : f32) outs(%max_buf : tensor<4xf32>) -> tensor<4xf32>
+//
+//  %results:2 = linalg.generic {
+//    indexing_maps = [
+//      affine_map<(d0, d1) -> (d0, d1)>,  // input
+//      affine_map<(d0, d1) -> (d0)>,       // output indices
+//      affine_map<(d0, d1) -> (d0)>        // output max values
+//    ],
+//    iterator_types = ["parallel", "reduction"]
+//  }
+//  ins(%x : tensor<4x8xf32>)
+//  outs(%init_indices, %init_maxes : tensor<4xindex>, tensor<4xf32>) {
+//  ^bb0(%in: f32, %out_idx: index, %out_max: f32):
+//    %curr_idx = linalg.index 1 : index
+//    %cmp = arith.cmpf ogt, %in, %out_max : f32
+//    %new_max = arith.select %cmp, %in, %out_max : f32
+//    %new_idx = arith.select %cmp, %curr_idx, %out_idx : index
+//    linalg.yield %new_idx, %new_max : index, f32
+//  } -> (tensor<4xindex>, tensor<4xf32>)
+//
+//  return %results#0 : tensor<4xindex>
+// ```
+pub fn tensor_argmax(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 1);
+    assert!(ssa.targets.len() == 1);
+
+    let rank = require_known_shape(ssa.sources[0].1.clone())
+        .expect("ArgMax operation needs known input shape")
+        .len();
+
+    let x = grammar::Identifier(ssa.sources[0].0.0);
+    let y = grammar::Identifier(ssa.targets[0].0.0);
+    let base = x.clone();
+
+    let x_type = core_type_to_mlir(&ssa.sources[0].1);
+    let y_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    let mut statements: Vec<String> = vec![];
+
+    // Generate input/output affine maps
+    let input_dims: Vec<String> = (0..rank).map(|i| format!("d{i}")).collect();
+    let mut output_dims: Vec<String> = (0..(rank - 1)).map(|i| format!("d{i}")).collect();
+    output_dims.push("0".to_string()); // Final dimension reduced to constant 0
+
+    let input_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        input_dims.join(", ")
+    );
+    let output_map = format!(
+        "affine_map<({}) -> ({})>",
+        input_dims.join(", "),
+        output_dims.join(", ")
+    );
+
+    // Generate iterator types: parallel for all dims except last which is reduction
+    let mut iterator_types = vec!["\"parallel\""; rank - 1];
+    iterator_types.push("\"reduction\"");
+    let iterator_types_str = iterator_types.join(", ");
+
+    // Create helper tensor for tracking max values during reduction
+    let max_buf_type = y_type.clone().with_dtype("f32".to_string());
+    let indices_buf_type = y_type.clone().with_dtype("i32".to_string());
+
+    // Constants and initialization
+    statements.extend([
+        format!("{base}_c0 = arith.constant 0 : i32"),
+        format!("{base}_min_val = arith.constant 0xFF800000 : f32"),
+        format!("{base}_indices_buf = tensor.empty() : {indices_buf_type}"),
+        format!("{base}_max_buf = tensor.empty() : {max_buf_type}"),
+        format!("{base}_init_indices = linalg.fill ins({base}_c0 : i32) outs({base}_indices_buf : {indices_buf_type}) -> {indices_buf_type}"),
+        format!("{base}_init_maxes = linalg.fill ins({base}_min_val : f32) outs({base}_max_buf : {max_buf_type}) -> {max_buf_type}"),
+    ]);
+
+    let linalg_stmt = format!(
+        r#"{base}_results:2 = linalg.generic {{
+          indexing_maps = [
+            {input_map},
+            {output_map},
+            {output_map}
+          ],
+          iterator_types = [{iterator_types_str}]
+        }}
+        ins({x} : {x_type})
+        outs({base}_init_indices, {base}_init_maxes : {indices_buf_type}, {max_buf_type}) {{
+        ^bb0(%in: f32, %out_idx: i32, %out_max: f32):
+          %curr_idx = linalg.index {last_dim} : index
+          %cmp = arith.cmpf ogt, %in, %out_max : f32
+          %new_max = arith.select %cmp, %in, %out_max : f32
+          %out_idx_index = arith.index_cast %out_idx: i32 to index
+          %new_idx = arith.select %cmp, %curr_idx, %out_idx_index : index
+          %new_idx_i32 = arith.index_cast %new_idx : index to i32
+          linalg.yield %new_idx_i32, %new_max : i32, f32
+        }} -> ({indices_buf_type}, {max_buf_type})"#,
+        last_dim = rank - 1
+    );
+
+    statements.push(linalg_stmt);
+    statements.extend([
+        format!("{x}_result = tensor.empty() : {indices_buf_type}"),
+        format!("{y} = linalg.copy ins({base}_results#0 : {indices_buf_type}) outs({x}_result: {indices_buf_type}) -> {indices_buf_type}"),
+    ]);
+
+    statements
+        .into_iter()
+        .map(grammar::Statement::Custom)
+        .collect()
+}
+
 // Concat : Tensor × Tensor × Dim → Tensor
 // Concatenates two tensors along a specified dimension.
 // Example:
