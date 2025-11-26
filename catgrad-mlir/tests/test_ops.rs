@@ -336,7 +336,7 @@ fn test_tensor_argmax() {
 #[test]
 fn test_tensor_broadcast() {
     let input_shape = vec![3, 1]; // 3x1 tensor (to be broadcasted)
-    let output_shape = vec![10, 3, 4]; // 3x4 tensor (broadcasted result)
+    let output_shape = vec![10, 3, 4]; // 10x3x4 tensor (broadcasted result)
 
     run_test(
         build_typed_term(
@@ -345,6 +345,31 @@ fn test_tensor_broadcast() {
                 shape_type(&output_shape), // target shape
             ],
             [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor, target_shape]| {
+                vec![ops::broadcast(builder, input_tensor, target_shape)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_broadcast_dynamic() {
+    // Test broadcast with dynamic dimensions to verify tensor.empty() gets proper args
+    let input_shape = vec![1]; // 1D tensor (to be broadcasted)
+
+    let output_type = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: ShapeExpr::Shape(vec![NatExpr::Var(0), 4.into()]), // Dynamic x 4 tensor
+        dtype: Dtype::F32.into(),
+    }));
+
+    run_test(
+        build_typed_term(
+            [
+                tensor_type(&input_shape, Dtype::F32),
+                shape_type(&vec![2, 4]), // target shape: 2x4
+            ],
+            [output_type],
             |builder, [input_tensor, target_shape]| {
                 vec![ops::broadcast(builder, input_tensor, target_shape)]
             },
