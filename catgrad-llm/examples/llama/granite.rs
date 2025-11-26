@@ -11,19 +11,6 @@ pub struct GraniteModel {
 }
 
 impl GraniteModel {
-    pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
-        let wte = param(
-            builder,
-            &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
-        );
-        let te = index(builder, 0, x, wte);
-
-        let emb = unsqueeze::<2, 3>(builder, 0, te);
-        let sh = shape(builder, emb.clone());
-        let mul = constant(builder, self.config.embedding_multiplier, &sh);
-        mul * emb
-    }
-
     fn mlp(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let gate = linear_no_bias(
             builder,
@@ -238,7 +225,15 @@ impl Module<1, 1> for GraniteModel {
 
         let mut cache = Cache::init(builder, &self.config, self.max_sequence_length);
 
-        let mut x = self.embeddings(builder, root.clone(), x);
+        let emb = embeddings(
+            builder,
+            root.extend(vec!["model", "embed_tokens"]).unwrap(),
+            x,
+        );
+
+        let sh = shape(builder, emb.clone());
+        let mul = constant(builder, self.config.embedding_multiplier, &sh);
+        let mut x = mul * emb;
 
         for i in 0..self.config.num_hidden_layers {
             x = self.layer(
