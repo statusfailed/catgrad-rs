@@ -53,6 +53,16 @@ pub enum Type {
     Tuple(Vec<Type>),
 }
 
+impl Type {
+    /// If this is a TensorType, erase any known information about its dimensions.
+    pub fn into_dynamic(self) -> Self {
+        match self {
+            Self::TensorType(t) => Self::TensorType(t.into_dynamic()),
+            _ => self,
+        }
+    }
+}
+
 /// A type like `tensor<4x8xf32>`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorType {
@@ -60,10 +70,46 @@ pub struct TensorType {
     pub dtype: String,
 }
 
+impl TensorType {
+    pub fn into_dynamic(mut self) -> Self {
+        self.shape = self.shape.into_dynamic();
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Shape {
     Unknown,
     Shape(Vec<Option<usize>>),
+}
+
+impl Shape {
+    // Fully dynamic equivalent of a type
+    pub fn into_dynamic(self) -> Self {
+        match self {
+            Shape::Unknown => self,
+            Shape::Shape(dims) => Shape::Shape(dims.into_iter().map(|_| None).collect()),
+        }
+    }
+    //match ty {
+    //// If Unknown, it's already fully dynamic
+    //grammar::Type::TensorType(grammar::TensorType {
+    //shape: grammar::Shape::Unknown,
+    //dtype: _,
+    //}) => ty,
+
+    //// Otherwise, erase all the known dims.
+    //grammar::Type::TensorType(grammar::TensorType {
+    //shape: grammar::Shape::Shape(dims),
+    //dtype,
+    //}) => grammar::Type::TensorType(grammar::TensorType {
+    //shape: grammar::Shape::Shape(dims.into_iter().map(|i| None).collect()),
+    //dtype,
+    //}),
+
+    //// Other types unchanged
+    //_ => ty,
+    //}
 }
 
 impl From<Vec<usize>> for Shape {

@@ -188,6 +188,11 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.nat_to_u32" => ops::nat_to_u32(ssa),
         "tensor.concat" => ops::tensor_concat(ssa),
         "tensor.matmul" => ops::tensor_matmul(ssa),
+        "tensor.slice" => ops::tensor_slice(ssa),
+        "nat.mul" => todo!("nat.mul"),
+        "tensor.sub" => todo!("tensor.sub"),
+        "tensor.max" => todo!("tensor.max"),
+        "tensor.argmax" => todo!("tensor.argmax"),
         op => todo!("unknown op {op:?}"),
     }
 }

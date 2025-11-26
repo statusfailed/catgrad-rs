@@ -712,6 +712,91 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     statements
 }
 
+// Slice : Tensor × Dim × Start × Len → Tensor
+// Slices a tensor along a specified dimension.
+// Example:
+// ```
+// %c0 = arith.constant 0 : index
+// %c1 = arith.constant 1 : index
+//
+// // dim₀ = size along dimension 0 (kept fully)
+// %dim0 = tensor.dim %input, %c0 : tensor<?x?xf32>
+//
+// // syntax: [offsets] [sizes] [strides]
+// %slice_dyn = tensor.extract_slice %input[0, %start] [%dim0, %len] [1, 1]
+//            : tensor<?x?xf32> to tensor<?x?xf32>
+// // last step recovers any lost static information
+// %slice = tensor.cast %v4_dyn : tensor<?x?x?xf32> to tensor<2x3x4xf32>
+// ```
+pub fn tensor_slice(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    let x = grammar::Identifier(ssa.sources[0].0.0);
+    let x_type = core_type_to_mlir(&ssa.sources[0].1);
+
+    let y = grammar::Identifier(ssa.targets[0].0.0);
+    let y_type = core_type_to_mlir(&ssa.targets[0].1);
+
+    //let dim = grammar::Identifier(ssa.sources[1].0.0);
+    let start = grammar::Identifier(ssa.sources[2].0.0);
+    let len = grammar::Identifier(ssa.sources[3].0.0);
+
+    let rank = require_known_shape(ssa.sources[0].1.clone())
+        .expect("slice op requires known rank")
+        .len();
+
+    let mut statements = vec![];
+
+    // Generate constants 0..rank-1
+    statements.extend((0..rank).map(|i| format!("{x}_c{i} = arith.constant {i} : index")));
+
+    // Get all dimensions of input variable.
+    statements.extend((0..rank).map(|i| format!("{x}_d{i} = tensor.dim {x}, {x}_c{i} : {x_type}")));
+
+    // TODO: we can do non-static dim, but requires an additional block of vars assigned:
+    // offset_i = if i == dim then start else 0
+    let static_dim =
+        require_known_nat(ssa.sources[1].1.clone()).expect("slice requires dim statically known");
+
+    // 0, 0, ..., start, ..., 0
+    let offset_vars = (0..rank)
+        .map(|i| {
+            if i == static_dim {
+                format!("{start}")
+            } else {
+                format!("{x}_c{i}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // d0, d1, ..., len, .., dn
+    let size_vars = (0..rank)
+        .map(|i| {
+            if i == static_dim {
+                format!("{len}")
+            } else {
+                format!("{x}_d{i}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    // Repeat 1s
+    let strides = vec![format!("{x}_c1"); rank].join(",");
+
+    // Dynamically typed result
+    let y_type_dyn = y_type.clone().into_dynamic(); // same as y_type, but with all dynamic
+
+    statements.extend([
+        format!("{x}_dyn = tensor.extract_slice {x} [{offset_vars}] [{size_vars}] [{strides}] : {x_type} to {y_type_dyn}"),
+        format!("{y} = tensor.cast {x}_dyn : {y_type_dyn} to {y_type}"),
+    ]);
+
+    statements
+        .into_iter()
+        .map(grammar::Statement::Custom)
+        .collect()
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // NOTE: below here are essentially unfinished!
 

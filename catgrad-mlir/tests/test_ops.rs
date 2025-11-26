@@ -269,6 +269,26 @@ fn test_tensor_lt() {
     );
 }
 
+#[test]
+fn test_tensor_slice() {
+    let input_shape = vec![2, 6, 4]; // 2x6x4 tensor
+    let output_shape = vec![2, 3, 4]; // slice dim 1, start=2, len=3: 2x3x4 tensor
+
+    run_test(
+        build_typed_term(
+            [tensor_type(&input_shape, Dtype::F32)],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor]| {
+                let dim = 1.to_nat(builder); // Slice along dimension 1
+                let start = 2.to_nat(builder); // Start at index 2
+                let len = 3.to_nat(builder); // Take 3 elements
+                vec![ops::slice(builder, dim, start, len, input_tensor)]
+            },
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 
