@@ -28,3 +28,15 @@ pub fn tensor<B: Backend, T: IntoTagged<B, 1>>(
     let tagged = TaggedTensor::from_slice(backend, data, shape)?;
     Ok(Value::Tensor(tagged))
 }
+
+pub fn tensor_from_vec<B: Backend, T: IntoTagged<B, 1>>(
+    backend: &B,
+    shape: Shape,
+    data: Vec<T>,
+) -> Result<Value<B>, BackendError> {
+    if shape.size() != data.len() {
+        return Err(BackendError::ShapeError);
+    }
+    let tagged = TaggedTensor::from_vec(backend, data, shape)?;
+    Ok(Value::Tensor(tagged))
+}

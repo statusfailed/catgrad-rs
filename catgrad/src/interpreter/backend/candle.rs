@@ -116,6 +116,28 @@ impl Backend for CandleBackend {
         Ok(TaggedTensor::U32([CandleTensor(tensor)]))
     }
 
+    fn ndarray_from_vec_f32(
+        &self,
+        data: Vec<f32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: &[usize] = &shape.0;
+        let tensor =
+            Tensor::from_vec(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::F32([CandleTensor(tensor)]))
+    }
+
+    fn ndarray_from_vec_u32(
+        &self,
+        data: Vec<u32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: &[usize] = &shape.0;
+        let tensor =
+            Tensor::from_vec(data, dims, &self.device).map_err(|_| BackendError::ShapeError)?;
+        Ok(TaggedTensor::U32([CandleTensor(tensor)]))
+    }
+
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self> {
         match (&x, target_dtype) {
             (TaggedTensor::F32(arr), Dtype::U32) => {

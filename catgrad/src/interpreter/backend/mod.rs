@@ -37,6 +37,18 @@ pub trait Backend: Clone + Debug {
         shape: Shape,
     ) -> Result<TaggedTensor<Self>, BackendError>;
 
+    fn ndarray_from_vec_f32(
+        &self,
+        data: Vec<f32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError>;
+
+    fn ndarray_from_vec_u32(
+        &self,
+        data: Vec<u32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError>;
+
     fn cast(&self, x: TaggedTensor<Self>, target_dtype: Dtype) -> TaggedTensor<Self>;
     fn matmul(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;
     fn add(&self, lhs: TaggedTensorTuple<Self, 2>) -> TaggedTensor<Self>;

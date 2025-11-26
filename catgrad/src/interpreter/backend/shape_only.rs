@@ -47,6 +47,22 @@ impl Backend for ShapeOnlyBackend {
         Ok(TaggedTensor::U32([ShapeOnly(shape)]))
     }
 
+    fn ndarray_from_vec_f32(
+        &self,
+        _data: Vec<f32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::F32([ShapeOnly(shape)]))
+    }
+
+    fn ndarray_from_vec_u32(
+        &self,
+        _data: Vec<u32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        Ok(TaggedTensor::U32([ShapeOnly(shape)]))
+    }
+
     fn cast(&self, x: TaggedTensor<Self>, _target_dtype: Dtype) -> TaggedTensor<Self> {
         x
     }
