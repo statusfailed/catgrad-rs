@@ -6,6 +6,8 @@ use std::io::Write;
 
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 use catgrad_llm::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
@@ -350,11 +352,11 @@ fn load_model<B: interpreter::Backend>(
             // Convert dtype and load tensor data
             let data: Vec<f32> = match view.dtype() {
                 safetensors::Dtype::F32 => tensor_data
-                    .chunks_exact(4)
+                    .par_chunks_exact(4)
                     .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
                     .collect(),
                 safetensors::Dtype::BF16 => tensor_data
-                    .chunks_exact(2)
+                    .par_chunks_exact(2)
                     .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
                     .collect(),
                 _ => {
