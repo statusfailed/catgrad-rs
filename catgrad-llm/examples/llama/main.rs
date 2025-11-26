@@ -336,6 +336,7 @@ fn load_model<B: interpreter::Backend>(
     let mut type_map = HashMap::new();
     let mut data_map = HashMap::new();
 
+    let start_load = std::time::Instant::now();
     for file_path in model_paths {
         let file = std::fs::File::open(file_path)?;
         let data = unsafe { memmap2::Mmap::map(&file)? };
@@ -378,6 +379,12 @@ fn load_model<B: interpreter::Backend>(
     let mut parameter_values = interpreter::Parameters::from(data_map);
     let mut parameter_types = typecheck::Parameters::from(type_map);
 
+    let elapsed_load = start_load.elapsed();
+    log::info!(
+        "Model weights loaded for {} in {:.2} seconds",
+        model_name,
+        elapsed_load.as_secs_f64()
+    );
     post_process_weights(
         &config,
         backend,
