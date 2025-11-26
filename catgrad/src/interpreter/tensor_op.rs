@@ -45,9 +45,9 @@ fn tensor<B: Backend, T: super::IntoTagged<B, 1>>(
     backend: &B,
     ssa: &CoreSSA,
     shape: super::Shape,
-    data: &[T],
+    data: Vec<T>,
 ) -> ResultValues<B> {
-    let value = TaggedTensor::from_slice(backend, data, shape)
+    let value = TaggedTensor::from_vec(backend, data, shape)
         .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
     Ok(vec![Value::Tensor(value)])
 }
@@ -60,8 +60,8 @@ pub fn tensor_constant<B: Backend>(
 ) -> ResultValues<B> {
     let [] = get_exact_arity(ssa, args)?; // get 0 args
     match c {
-        Scalar::F32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
-        Scalar::U32(x) => tensor(backend, ssa, super::Shape(vec![]), &[*x]),
+        Scalar::F32(x) => tensor(backend, ssa, super::Shape(vec![]), vec![*x]),
+        Scalar::U32(x) => tensor(backend, ssa, super::Shape(vec![]), vec![*x]),
     }
 }
 
@@ -74,7 +74,7 @@ fn tensor_nat_to_u32<B: Backend>(
     let value: u32 = to_nat(ssa, value)?
         .try_into()
         .map_err(|_| InterpreterError::ApplyError(ssa.edge_id))?;
-    tensor(backend, ssa, super::Shape(vec![]), &[value])
+    tensor(backend, ssa, super::Shape(vec![]), vec![value])
 }
 
 fn tensor_cast<B: Backend>(backend: &B, args: Vec<Value<B>>, ssa: &CoreSSA) -> ResultValues<B> {

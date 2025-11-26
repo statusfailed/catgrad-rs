@@ -25,18 +25,6 @@ pub trait Backend: Clone + Debug {
 
     fn zeros(&self, shape: Shape, target_dtype: Dtype) -> TaggedTensor<Self>;
 
-    fn ndarray_from_slice_f32(
-        &self,
-        data: &[f32],
-        shape: Shape,
-    ) -> Result<TaggedTensor<Self>, BackendError>;
-
-    fn ndarray_from_slice_u32(
-        &self,
-        data: &[u32],
-        shape: Shape,
-    ) -> Result<TaggedTensor<Self>, BackendError>;
-
     fn ndarray_from_vec_f32(
         &self,
         data: Vec<f32>,

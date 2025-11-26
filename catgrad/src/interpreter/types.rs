@@ -31,11 +31,6 @@ pub trait IntoTagged<B: Backend, const N: usize>:
     Clone + std::fmt::Debug + Copy + Sync + Send
 {
     fn into_tagged(arr: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N>;
-    fn ndarray_from_slice(
-        backend: &B,
-        data: &[Self],
-        shape: Shape,
-    ) -> Result<TaggedTensor<B>, BackendError>;
 
     fn ndarray_from_vec(
         backend: &B,
@@ -47,14 +42,6 @@ pub trait IntoTagged<B: Backend, const N: usize>:
 impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
     fn into_tagged(arrs: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::F32(arrs)
-    }
-
-    fn ndarray_from_slice(
-        backend: &B,
-        data: &[Self],
-        shape: Shape,
-    ) -> Result<TaggedTensor<B>, BackendError> {
-        backend.ndarray_from_slice_f32(data, shape)
     }
 
     fn ndarray_from_vec(
@@ -69,14 +56,6 @@ impl<B: Backend, const N: usize> IntoTagged<B, N> for f32 {
 impl<B: Backend, const N: usize> IntoTagged<B, N> for u32 {
     fn into_tagged(arrs: [B::BackendTensor; N]) -> TaggedTensorTuple<B, N> {
         TaggedTensorTuple::U32(arrs)
-    }
-
-    fn ndarray_from_slice(
-        backend: &B,
-        data: &[Self],
-        shape: Shape,
-    ) -> Result<TaggedTensor<B>, BackendError> {
-        backend.ndarray_from_slice_u32(data, shape)
     }
 
     fn ndarray_from_vec(
@@ -107,14 +86,6 @@ impl<B: Backend> TaggedTensor<B> {
             Self::F32(_) => Dtype::F32,
             Self::U32(_) => Dtype::U32,
         }
-    }
-
-    pub fn from_slice<T: IntoTagged<B, 1>>(
-        backend: &B,
-        data: &[T],
-        shape: Shape,
-    ) -> Result<Self, BackendError> {
-        T::ndarray_from_slice(backend, data, shape)
     }
 
     pub fn from_vec<T: IntoTagged<B, 1>>(
