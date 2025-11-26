@@ -888,6 +888,12 @@ pub fn add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     elementwise("arith.addf", ssa)
 }
 
+pub fn sub(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+    elementwise("arith.subf", ssa)
+}
+
 pub fn mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
