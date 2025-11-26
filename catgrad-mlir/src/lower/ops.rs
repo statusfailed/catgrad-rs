@@ -121,16 +121,43 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let tensor_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    vec![
-        grammar::Statement::Custom(format!("  {base}_out = tensor.empty() : {target_type}",)),
-        grammar::Statement::Custom(format!(
-            r#"  {target_id} = linalg.generic {{{attrs}}} ins({tensor_id} : {tensor_type})
+    let mut statements = vec![];
+
+    // Extract dimensions from the target shape tensor for dynamic dimensions
+    let shape_id = Identifier::Node(ssa.sources[1].0); // The target shape tensor
+    let mut dim_args = vec![];
+
+    for (i, dim) in out_shape.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_c{i} = arith.constant {i} : index"
+            )));
+            statements.push(grammar::Statement::Custom(format!(
+                "  {base}_d{i} = tensor.extract {shape_id}[{base}_c{i}] : tensor<{}xindex>",
+                out_shape.len()
+            )));
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+
+    let empty_expr = if dim_args.is_empty() {
+        format!("tensor.empty() : {target_type}")
+    } else {
+        format!("tensor.empty({}) : {target_type}", dim_args.join(", "))
+    };
+
+    statements.push(grammar::Statement::Custom(format!(
+        "  {base}_out = {empty_expr}"
+    )));
+    statements.push(grammar::Statement::Custom(format!(
+        r#"  {target_id} = linalg.generic {{{attrs}}} ins({tensor_id} : {tensor_type})
                                     outs({base}_out : {target_type}) {{
                                         ^bb0(%in: f32, %out: f32):
                                         linalg.yield %in : f32
                                     }} -> {target_type}"#
-        )),
-    ]
+    )));
+
+    statements
 }
 
 fn make_affine_map(dims: Vec<Option<usize>>, out_rank: usize) -> String {
