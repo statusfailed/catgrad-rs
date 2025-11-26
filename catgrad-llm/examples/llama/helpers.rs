@@ -215,3 +215,10 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
 
     mask * ninf
 }
+
+pub fn embeddings(builder: &Builder, p: Path, x: Var) -> Var {
+    let wte = param(builder, &p.extend(vec!["weight"]).unwrap());
+    let te = index(builder, 0, x, wte);
+
+    unsqueeze::<2, 3>(builder, 0, te)
+}

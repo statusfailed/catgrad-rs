@@ -10,16 +10,6 @@ pub struct Qwen3Model {
 }
 
 impl Qwen3Model {
-    pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
-        let wte = param(
-            builder,
-            &p.extend(vec!["model", "embed_tokens", "weight"]).unwrap(),
-        );
-        let te = index(builder, 0, x, wte);
-
-        unsqueeze::<2, 3>(builder, 0, te)
-    }
-
     fn mlp(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let gate = linear_no_bias(
             builder,
@@ -326,7 +316,11 @@ impl Module<1, 1> for Qwen3Model {
 
         let mut cache = Cache::init(builder, &self.config, self.max_sequence_length);
 
-        let mut x = self.embeddings(builder, root.clone(), x);
+        let mut x = embeddings(
+            builder,
+            root.extend(vec!["model", "embed_tokens"]).unwrap(),
+            x,
+        );
 
         for i in 0..self.config.num_hidden_layers {
             x = self.layer(
