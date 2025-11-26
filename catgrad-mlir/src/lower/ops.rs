@@ -842,12 +842,33 @@ pub fn tensor_argmax(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     let max_buf_type = y_type.clone().with_dtype("f32".to_string());
     let indices_buf_type = y_type.clone().with_dtype("i32".to_string());
 
+    // Extract dimensions for dynamic empty tensor creation
+    let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
+        .expect("ArgMax operation needs known target shape");
+
+    let mut dim_args = vec![];
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            statements.push(format!("{base}_c{i} = arith.constant {i} : index"));
+            statements.push(format!(
+                "{base}_d{i} = tensor.dim {x}, {base}_c{i} : {x_type}"
+            ));
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+
+    let empty_args = if dim_args.is_empty() {
+        "()".to_string()
+    } else {
+        format!("({})", dim_args.join(", "))
+    };
+
     // Constants and initialization
     statements.extend([
         format!("{base}_c0 = arith.constant 0 : i32"),
         format!("{base}_min_val = arith.constant 0xFF800000 : f32"),
-        format!("{base}_indices_buf = tensor.empty() : {indices_buf_type}"),
-        format!("{base}_max_buf = tensor.empty() : {max_buf_type}"),
+        format!("{base}_indices_buf = tensor.empty{empty_args} : {indices_buf_type}"),
+        format!("{base}_max_buf = tensor.empty{empty_args} : {max_buf_type}"),
         format!("{base}_init_indices = linalg.fill ins({base}_c0 : i32) outs({base}_indices_buf : {indices_buf_type}) -> {indices_buf_type}"),
         format!("{base}_init_maxes = linalg.fill ins({base}_min_val : f32) outs({base}_max_buf : {max_buf_type}) -> {max_buf_type}"),
     ]);
@@ -877,8 +898,8 @@ pub fn tensor_argmax(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
 
     statements.push(linalg_stmt);
     statements.extend([
-        format!("{x}_result = tensor.empty() : {indices_buf_type}"),
-        format!("{y} = linalg.copy ins({base}_results#0 : {indices_buf_type}) outs({x}_result: {indices_buf_type}) -> {indices_buf_type}"),
+        format!("{base}_result = tensor.empty{empty_args} : {indices_buf_type}"),
+        format!("{y} = linalg.copy ins({base}_results#0 : {indices_buf_type}) outs({base}_result: {indices_buf_type}) -> {indices_buf_type}"),
     ]);
 
     statements
