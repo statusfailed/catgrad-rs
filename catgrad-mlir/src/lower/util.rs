@@ -64,7 +64,7 @@ pub(crate) fn to_typed_identifier(
     (n, t): &(open_hypergraphs::lax::NodeId, Type),
 ) -> grammar::TypedIdentifier {
     grammar::TypedIdentifier {
-        id: grammar::Identifier(n.0),
+        id: grammar::Identifier::Node(*n),
         ty: core_type_to_mlir(t),
     }
 }

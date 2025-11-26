@@ -258,8 +258,10 @@ fn test_tensor_matmul() {
 
 #[test]
 fn test_tensor_lt() {
-    let shape = vec![2, 3]; // 2x3 tensor
-    let ty = tensor_type(&shape, Dtype::F32);
+    let ty = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        shape: vec![2, 3].to_owned().into(),
+        dtype: Dtype::F32.into(),
+    }));
 
     run_test(
         build_typed_term([ty.clone(), ty.clone()], [ty], |builder, [lhs, rhs]| {
@@ -294,8 +296,8 @@ fn test_nat_mul() {
     run_test(
         build_typed_term(
             [Type::Nat(3.into()), Type::Nat(4.into())], // input: Nat values 3 and 4
-            [Type::Nat(12.into())],                      // output: Nat value 12
-            |_builder, [a, b]| vec![a * b], // Use multiplication operator
+            [Type::Nat(12.into())],                     // output: Nat value 12
+            |_builder, [a, b]| vec![a * b],             // Use multiplication operator
         )
         .unwrap(),
     );
@@ -326,6 +328,26 @@ fn test_tensor_argmax() {
             [tensor_type(&input_shape, Dtype::F32)],
             [tensor_type(&output_shape, Dtype::U32)], // output is indices (U32)
             |builder, [input_tensor]| vec![ops::argmax(builder, input_tensor)],
+        )
+        .unwrap(),
+    );
+}
+
+#[test]
+fn test_tensor_broadcast() {
+    let input_shape = vec![3, 1]; // 3x1 tensor (to be broadcasted)
+    let output_shape = vec![3, 4]; // 3x4 tensor (broadcasted result)
+
+    run_test(
+        build_typed_term(
+            [
+                tensor_type(&input_shape, Dtype::F32),
+                shape_type(&output_shape), // target shape
+            ],
+            [tensor_type(&output_shape, Dtype::F32)],
+            |builder, [input_tensor, target_shape]| {
+                vec![ops::broadcast(builder, input_tensor, target_shape)]
+            },
         )
         .unwrap(),
     );

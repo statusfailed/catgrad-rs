@@ -3,7 +3,7 @@ use catgrad::category::lang;
 use catgrad::prelude::*;
 use catgrad::ssa::{SSA, ssa};
 
-use open_hypergraphs::lax::OpenHypergraph;
+use open_hypergraphs::lax::{EdgeId, OpenHypergraph};
 
 use super::grammar;
 use super::util::*;
@@ -46,9 +46,8 @@ pub fn get_mlir_returns(term: &Term) -> (grammar::Return, Vec<grammar::Type>) {
         .targets
         .iter()
         .map(|t| {
-            let id = t.0;
-            let catgrad_ty = &term.hypergraph.nodes[id];
-            let id = grammar::Identifier(id);
+            let catgrad_ty = &term.hypergraph.nodes[t.0];
+            let id = grammar::Identifier::Node(*t);
             let ty = core_type_to_mlir(catgrad_ty);
             grammar::TypedIdentifier { id, ty }
         })
@@ -76,7 +75,7 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let (result, return_types): (Vec<grammar::Identifier>, Vec<grammar::Type>) = ssa
         .targets
         .iter()
-        .map(|(i, t)| (grammar::Identifier(i.0), core_type_to_mlir(t)))
+        .map(|(i, t)| (grammar::Identifier::Node(*i), core_type_to_mlir(t)))
         .unzip();
 
     //let ins: Vec<_> = ssa.sources.iter().map(to_typed_identifier).collect();
@@ -99,7 +98,7 @@ fn to_statements(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
 
             vec![grammar::Assignment { result, expr }.into()]
         }
-        lang::Operation::Literal(lit) => literal_to_statements(lit, result),
+        lang::Operation::Literal(lit) => literal_to_statements(ssa.edge_id, lit, result),
     };
 
     let comment = grammar::Statement::Custom(format!("// {:?}", ssa.op));
@@ -113,18 +112,23 @@ fn as_floating(x: String) -> String {
 }
 
 fn literal_to_statements(
+    edge_id: EdgeId,
     lit: &lang::Literal,
     result: Vec<grammar::Identifier>,
 ) -> Vec<grammar::Statement> {
     match lit {
         lang::Literal::F32(x) => make_scalar_tensor_statements(
+            edge_id,
             result[0].clone(),
             as_floating(x.to_string()),
             "f32".to_string(),
         ),
-        lang::Literal::U32(x) => {
-            make_scalar_tensor_statements(result[0].clone(), x.to_string(), "i32".to_string())
-        }
+        lang::Literal::U32(x) => make_scalar_tensor_statements(
+            edge_id,
+            result[0].clone(),
+            x.to_string(),
+            "i32".to_string(),
+        ),
         lang::Literal::Nat(x) => {
             let expr = grammar::Expr::Constant(grammar::Constant {
                 name: "arith.constant".to_string(),
@@ -145,18 +149,18 @@ fn literal_to_statements(
 }
 
 fn make_scalar_tensor_statements(
+    edge_id: EdgeId,
     target_id: grammar::Identifier,
     value: String,
     dtype: String,
 ) -> Vec<grammar::Statement> {
+    let base = grammar::Identifier::Edge(edge_id);
     let scalar_constant = grammar::Statement::Custom(format!(
-        "  %v{}_scalar = arith.constant {} : {}",
-        target_id.0, value, dtype
+        "  {base}_scalar = arith.constant {value} : {dtype}",
     ));
 
     let tensor_from_elements = grammar::Statement::Custom(format!(
-        "  {} = tensor.from_elements %v{}_scalar : tensor<{}>",
-        target_id, target_id.0, dtype
+        "  {target_id} = tensor.from_elements {base}_scalar : tensor<{dtype}>",
     ));
 
     vec![scalar_constant, tensor_from_elements]

@@ -8,6 +8,7 @@
 // - hardcoded 'index' type everywhere: should get this from code (in case we change runtime rep
 //   of Nat)
 // - max reduction uses neginf as initial value. This is not ideal, won't work with other dtypes.
+// - matmul should support arbitrary ranked batches
 use catgrad::ssa::SSA;
 use catgrad::{
     category::lang,
@@ -15,8 +16,8 @@ use catgrad::{
     typecheck::{DtypeExpr, NatExpr, NdArrayType, ShapeExpr, Type, TypeExpr},
 };
 
-use super::grammar;
 use super::util::*;
+use super::{grammar, grammar::Identifier};
 
 // Represent a `Shape` as MLIR `tensor<rank x index>`.
 //
@@ -38,9 +39,11 @@ pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
         require_known_shape(ssa.sources[0].1.clone()).expect("shape operation needs known shape");
 
     let rank = dims.len();
-    let source_ssa = grammar::Identifier(ssa.sources[0].0.0);
-    let target_ssa = grammar::Identifier(ssa.targets[0].0.0);
-    let base = source_ssa.clone();
+
+    let base = Identifier::Edge(ssa.edge_id);
+    let source_ssa = Identifier::Node(ssa.sources[0].0);
+    let target_ssa = Identifier::Node(ssa.targets[0].0);
+
     let source_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
@@ -52,10 +55,11 @@ pub fn shape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     statements.extend((0..rank).map(|i| format!("{base}_c{i} = arith.constant {i} : index")));
 
     // Generate assignments
-    // {base}_d{i} = tensor.dim {base}, %c0
-    statements.extend(
-        (0..rank).map(|i| format!("{base}_d{i} = tensor.dim {base}, {base}_c{i} : {source_type}")),
-    );
+    // {base}_d{i} = tensor.dim {}, %c0
+    statements
+        .extend((0..rank).map(|i| {
+            format!("{base}_d{i} = tensor.dim {source_ssa}, {base}_c{i} : {source_type}")
+        }));
 
     // Comma separated vars `{base}_d{i}`.
     let dim_vars = (0..rank)
@@ -81,11 +85,12 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let in_shape = require_known_shape(ssa.sources[0].1.clone())
         .expect("broadcast operation needs known input shape");
 
-    let out_shape = require_known_shape(ssa.sources[0].1.clone())
+    let out_shape = require_known_shape(ssa.targets[0].1.clone())
         .expect("broadcast operation needs known output shape");
 
-    let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let tensor_id = Identifier::Node(ssa.sources[0].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     // Generate indexing maps for broadcasting
     let out_rank = out_shape.len();
@@ -117,17 +122,16 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let tensor_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    let empty_tensor = grammar::Statement::Custom(format!(
-        "  %v{}_out = tensor.empty() : {}",
-        target_id.0, target_type
-    ));
-
-    let linalg_generic = grammar::Statement::Custom(format!(
-        "  {} = linalg.generic {{{}}} ins({} : {}) outs(%v{}_out : {}) {{\n^bb0(%in: f32, %out: f32):\n  linalg.yield %in : f32\n}} -> {}",
-        target_id, attrs, tensor_id, tensor_type, target_id.0, target_type, target_type
-    ));
-
-    vec![empty_tensor, linalg_generic]
+    vec![
+        grammar::Statement::Custom(format!("  {base}_out = tensor.empty() : {target_type}",)),
+        grammar::Statement::Custom(format!(
+            r#"  {target_id} = linalg.generic {{{attrs}}} ins({tensor_id} : {tensor_type})
+                                    outs({base}_out : {target_type}) {{
+                                        ^bb0(%in: f32, %out: f32):
+                                        linalg.yield %in : f32
+                                    }} -> {target_type}"#
+        )),
+    ]
 }
 
 fn make_affine_map(dims: Vec<Option<usize>>, out_rank: usize) -> String {
@@ -182,9 +186,9 @@ pub fn shape_pack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> 
 // %e1 = tensor.extract %t[%c1] : tensor<3xi32>
 // %e2 = tensor.extract %t[%c2] : tensor<3xi32>
 pub fn shape_unpack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
-    let x = &grammar::Identifier(ssa.sources[0].0.0); // tensor<Nxi32>
+    let base = Identifier::Edge(ssa.edge_id);
+    let x = &Identifier::Node(ssa.sources[0].0); // tensor<Nxi32>
     let x_type = core_type_to_mlir(&ssa.sources[0].1);
-    let base = x.clone();
 
     let rank = ssa.targets.len();
 
@@ -197,7 +201,7 @@ pub fn shape_unpack(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     // Generate assignments: one for each target!
     // {base}_d{i} = tensor.dim {base}, %c0
     statements.extend((0..rank).map(|i| {
-        let target = grammar::Identifier(ssa.targets[i].0.0);
+        let target = Identifier::Node(ssa.targets[i].0);
         format!("{target} = tensor.extract {x}[{base}_c{i}] : {x_type}",)
     }));
 
@@ -276,11 +280,10 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     let rank = shape_dims.len();
 
     // Base name prefix used for intermediate variables that don't appear in the original hypergraph
-    let source_ssa = grammar::Identifier(ssa.sources[0].0.0);
-    let base = source_ssa.clone();
-    let index_ssa = grammar::Identifier(ssa.sources[2].0.0);
-
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let source_ssa = Identifier::Node(ssa.sources[0].0);
+    let index_ssa = Identifier::Node(ssa.sources[2].0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     // Generate constant statements for each dimension
     //  %c0 = arith.constant 0 : index
@@ -298,7 +301,7 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
 
     // Generate dimension extraction statements for dims 1..rank
     //  %d1 = tensor.dim %src, %c1 : tensor<?x?x?xf32>
-    let src_id = grammar::Identifier(ssa.sources[0].0.0);
+    let src_id = Identifier::Node(ssa.sources[0].0);
     for i in 1..rank {
         statements.push(grammar::Statement::Custom(format!(
             "  {base}_d{i} = tensor.dim {source_ssa}, {base}_c{i} : {source_type}",
@@ -413,8 +416,8 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
     let source_type = core_type_to_mlir(&ssa.sources[0].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let tensor_id = Identifier::Node(ssa.sources[0].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     // Create permutation array: identity with dim1 and dim2 swapped
     let mut permutation: Vec<usize> = (0..rank).collect();
@@ -427,7 +430,7 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
     let mut statements = vec![];
 
     // Generate dimension extraction for dynamic dimensions
-    let base = grammar::Identifier(ssa.sources[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
     for (i, dim) in target_shape_dims.iter().enumerate() {
         if !matches!(dim, NatExpr::Constant(_)) {
             // This is a dynamic dimension, extract it
@@ -463,9 +466,9 @@ pub fn tensor_transpose(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statem
 //
 //%reshaped = tensor.reshape %input(%shape) : (tensor<3x4xf32>, tensor<2xindex>) -> tensor<2x6xf32>
 pub fn tensor_reshape(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
-    let s = &grammar::Identifier(ssa.sources[0].0.0);
-    let x = &grammar::Identifier(ssa.sources[1].0.0);
-    let y = &grammar::Identifier(ssa.targets[0].0.0);
+    let s = &Identifier::Node(ssa.sources[0].0);
+    let x = &Identifier::Node(ssa.sources[1].0);
+    let y = &Identifier::Node(ssa.targets[0].0);
 
     let s_type = core_type_to_mlir(&ssa.sources[0].1);
     let x_type = core_type_to_mlir(&ssa.sources[1].1);
@@ -526,9 +529,9 @@ pub fn tensor_sum(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let input_type = core_type_to_mlir(&ssa.sources[0].1);
     let output_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    let input_id = grammar::Identifier(ssa.sources[0].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
-    let base = input_id.clone();
+    let input_id = Identifier::Node(ssa.sources[0].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
+    let base = Identifier::Edge(ssa.edge_id);
 
     let mut statements = vec![];
 
@@ -612,18 +615,19 @@ pub fn nat_to_u32(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 1);
     assert!(ssa.targets.len() == 1);
 
-    let nat_id = grammar::Identifier(ssa.sources[0].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let nat_id = Identifier::Node(ssa.sources[0].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
     vec![
         // Cast from index to i32
         grammar::Statement::Custom(format!(
-            "  {nat_id}_cast = arith.index_cast {nat_id} : index to i32"
+            "  {base}_cast = arith.index_cast {nat_id} : index to i32"
         )),
         // Create scalar tensor from the cast value
         grammar::Statement::Custom(format!(
-            "  {target_id} = tensor.from_elements {nat_id}_cast : {target_type}"
+            "  {target_id} = tensor.from_elements {base}_cast : {target_type}"
         )),
     ]
 }
@@ -639,9 +643,9 @@ pub fn nat_mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
 
-    let a_id = grammar::Identifier(ssa.sources[0].0.0);
-    let b_id = grammar::Identifier(ssa.sources[1].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let a_id = Identifier::Node(ssa.sources[0].0);
+    let b_id = Identifier::Node(ssa.sources[1].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     vec![grammar::Statement::Custom(format!(
         "  {target_id} = arith.muli {a_id}, {b_id} : index"
@@ -681,9 +685,9 @@ pub fn tensor_max(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let input_type = core_type_to_mlir(&ssa.sources[0].1);
     let output_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    let input_id = grammar::Identifier(ssa.sources[0].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
-    let base = input_id.clone();
+    let input_id = Identifier::Node(ssa.sources[0].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
+    let base = Identifier::Edge(ssa.edge_id);
 
     let mut statements = vec![];
 
@@ -793,9 +797,9 @@ pub fn tensor_argmax(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
         .expect("ArgMax operation needs known input shape")
         .len();
 
-    let x = grammar::Identifier(ssa.sources[0].0.0);
-    let y = grammar::Identifier(ssa.targets[0].0.0);
-    let base = x.clone();
+    let x = Identifier::Node(ssa.sources[0].0);
+    let y = Identifier::Node(ssa.targets[0].0);
+    let base = Identifier::Edge(ssa.edge_id);
 
     let x_type = core_type_to_mlir(&ssa.sources[0].1);
     let y_type = core_type_to_mlir(&ssa.targets[0].1);
@@ -884,9 +888,9 @@ pub fn tensor_concat(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     assert!(ssa.targets.len() == 1);
 
     // Sources are: [tensor1, tensor2, dim]
-    let tensor1_id = grammar::Identifier(ssa.sources[0].0.0);
-    let tensor2_id = grammar::Identifier(ssa.sources[1].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let tensor1_id = Identifier::Node(ssa.sources[0].0);
+    let tensor2_id = Identifier::Node(ssa.sources[1].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     // Extract the dimension to concatenate along
     let dim =
@@ -915,9 +919,10 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
 
-    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
-    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let lhs_id = Identifier::Node(ssa.sources[0].0);
+    let rhs_id = Identifier::Node(ssa.sources[1].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
     let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
@@ -927,7 +932,6 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
         .expect("MatMul operation needs known target shape");
 
-    let base = lhs_id.clone();
     let mut statements = vec![];
 
     // Generate dimension extraction for dynamic dimensions in target
@@ -974,15 +978,15 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
 // %slice = tensor.cast %v4_dyn : tensor<?x?x?xf32> to tensor<2x3x4xf32>
 // ```
 pub fn tensor_slice(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
-    let x = grammar::Identifier(ssa.sources[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let x = Identifier::Node(ssa.sources[0].0);
     let x_type = core_type_to_mlir(&ssa.sources[0].1);
 
-    let y = grammar::Identifier(ssa.targets[0].0.0);
+    let y = Identifier::Node(ssa.targets[0].0);
     let y_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    //let dim = grammar::Identifier(ssa.sources[1].0.0);
-    let start = grammar::Identifier(ssa.sources[2].0.0);
-    let len = grammar::Identifier(ssa.sources[3].0.0);
+    let start = Identifier::Node(ssa.sources[2].0);
+    let len = Identifier::Node(ssa.sources[3].0);
 
     let rank = require_known_shape(ssa.sources[0].1.clone())
         .expect("slice op requires known rank")
@@ -991,10 +995,11 @@ pub fn tensor_slice(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
     let mut statements = vec![];
 
     // Generate constants 0..rank-1
-    statements.extend((0..rank).map(|i| format!("{x}_c{i} = arith.constant {i} : index")));
+    statements.extend((0..rank).map(|i| format!("{base}_c{i} = arith.constant {i} : index")));
 
     // Get all dimensions of input variable.
-    statements.extend((0..rank).map(|i| format!("{x}_d{i} = tensor.dim {x}, {x}_c{i} : {x_type}")));
+    statements
+        .extend((0..rank).map(|i| format!("{base}_d{i} = tensor.dim {x}, {base}_c{i} : {x_type}")));
 
     // TODO: we can do non-static dim, but requires an additional block of vars assigned:
     // offset_i = if i == dim then start else 0
@@ -1007,7 +1012,7 @@ pub fn tensor_slice(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
             if i == static_dim {
                 format!("{start}")
             } else {
-                format!("{x}_c{i}")
+                format!("{base}_c{i}")
             }
         })
         .collect::<Vec<_>>()
@@ -1019,21 +1024,21 @@ pub fn tensor_slice(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
             if i == static_dim {
                 format!("{len}")
             } else {
-                format!("{x}_d{i}")
+                format!("{base}_d{i}")
             }
         })
         .collect::<Vec<_>>()
         .join(", ");
 
     // Repeat 1s
-    let strides = vec![format!("{x}_c1"); rank].join(",");
+    let strides = vec![format!("{base}_c1"); rank].join(",");
 
     // Dynamically typed result
     let y_type_dyn = y_type.clone().into_dynamic(); // same as y_type, but with all dynamic
 
     statements.extend([
-        format!("{x}_dyn = tensor.extract_slice {x} [{offset_vars}] [{size_vars}] [{strides}] : {x_type} to {y_type_dyn}"),
-        format!("{y} = tensor.cast {x}_dyn : {y_type_dyn} to {y_type}"),
+        format!("{base}_dyn = tensor.extract_slice {x} [{offset_vars}] [{size_vars}] [{strides}] : {x_type} to {y_type_dyn}"),
+        format!("{y} = tensor.cast {base}_dyn : {y_type_dyn} to {y_type}"),
     ]);
 
     statements
@@ -1050,7 +1055,7 @@ pub fn cast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Assignment> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
 
-    let tensor_id = grammar::Identifier(ssa.sources[0].0.0);
+    let tensor_id = Identifier::Node(ssa.sources[0].0);
     let source_type = core_type_to_mlir(&ssa.sources[0].1);
 
     // Extract dtype from second source
@@ -1086,7 +1091,7 @@ fn elementwise(op_name: &str, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::
     let operands: Vec<grammar::Identifier> = ssa
         .sources
         .iter()
-        .map(|(source_node, _)| grammar::Identifier(source_node.0))
+        .map(|(source_node, _)| Identifier::Node(*source_node))
         .collect();
     let result_type = core_type_to_mlir(&ssa.targets[0].1);
 
@@ -1175,9 +1180,10 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     assert!(ssa.sources.len() == 2);
     assert!(ssa.targets.len() == 1);
 
-    let lhs_id = grammar::Identifier(ssa.sources[0].0.0);
-    let rhs_id = grammar::Identifier(ssa.sources[1].0.0);
-    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+    let base = Identifier::Edge(ssa.edge_id);
+    let lhs_id = Identifier::Node(ssa.sources[0].0);
+    let rhs_id = Identifier::Node(ssa.sources[1].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
 
     let lhs_type = core_type_to_mlir(&ssa.sources[0].1);
     let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
@@ -1188,7 +1194,6 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
         .expect("Lt operation needs known target shape");
 
     let rank = target_shape_dims.len();
-    let base = lhs_id.clone();
     let mut statements = vec![];
 
     // Generate dimension extraction for dynamic dimensions

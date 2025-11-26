@@ -12,6 +12,7 @@
 //!  }
 //! ```
 use derive_more::From;
+use open_hypergraphs::lax::{EdgeId, NodeId};
 use std::fmt;
 
 /// A top-level MLIR function, for example:
@@ -130,8 +131,12 @@ impl From<Vec<usize>> for Shape {
     }
 }
 
+// Identifiers are either nodes in the graph, or named intermediates 'attached' to an edge.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Identifier(pub usize);
+pub enum Identifier {
+    Node(NodeId),
+    Edge(EdgeId),
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TypedIdentifier {
@@ -177,7 +182,7 @@ impl Expr {
         let result = ssa
             .targets
             .iter()
-            .map(|(target_node, _)| Identifier(target_node.0))
+            .map(|(target_node, _)| Identifier::Node(*target_node))
             .collect();
 
         Assignment { result, expr: self }
@@ -298,7 +303,10 @@ impl fmt::Display for Shape {
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "%v{}", self.0)
+        match self {
+            Self::Node(n) => write!(f, "%v{}", n.0),
+            Self::Edge(e) => write!(f, "%e{}", e.0),
+        }
     }
 }
 
