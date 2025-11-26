@@ -361,8 +361,13 @@ pub fn main() -> Result<()> {
         return Ok(());
     }
 
+    let start_load = std::time::Instant::now();
     model_runner.load(model_paths);
-    println!("Model weights loaded for {model_name}");
+    let elapsed_load = start_load.elapsed();
+    println!(
+        "Model weights loaded for {model_name} in {:.2} seconds",
+        elapsed_load.as_secs_f64()
+    );
 
     let input = NdArray::new(token_ids, Shape(vec![batches, tokens]));
     log::info!("Input tokens {:?}", &input);
