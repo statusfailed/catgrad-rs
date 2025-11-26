@@ -97,7 +97,6 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
 
     // Make affine map for *broadcasted* tensor
     //      (d_0..d_{out_rank}) -> (trailing dims, with 1s replaced with literal 0)
-    // NOTE: we need to handle
     let input_dims: Vec<_> = in_shape
         .iter()
         .map(|nat| match nat {
@@ -137,12 +136,17 @@ pub fn broadcast(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
 fn make_affine_map(dims: Vec<Option<usize>>, out_rank: usize) -> String {
     // Assume dim names are d{i}
     let params: Vec<String> = (0..out_rank).map(|i| format!("d{}", i)).collect();
+
+    // For broadcasting, input dimensions align with trailing output dimensions
+    let input_rank = dims.len();
+    let offset = out_rank - input_rank; // How many leading dims in output have no input correspondence
+
     let outputs: Vec<String> = dims
         .iter()
         .enumerate()
         .map(|(i, d)| match d {
-            Some(1) => "0".to_string(),
-            _ => format!("d{i}"),
+            Some(1) => "0".to_string(), // Broadcasted dimension maps to constant 0
+            _ => format!("d{}", i + offset), // Map to corresponding trailing output dimension
         })
         .collect();
 
@@ -359,32 +363,6 @@ pub fn tensor_index(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement>
 
     statements.push(linalg_generic);
     statements
-}
-
-/// Generate a `tensor.empty` expression from a list of NatExpr representing the dims.
-fn to_empty_expr(
-    base: &grammar::Identifier,
-    target_type: &grammar::Type,
-    dims: &[NatExpr],
-) -> String {
-    let rank = dims.len();
-
-    let is_known_dimension: Vec<bool> = dims
-        .iter()
-        .map(|dim| matches!(dim, NatExpr::Constant(_)))
-        .collect();
-
-    let mut dim_args = vec![];
-    if !is_known_dimension[0] {
-        dim_args.push(format!("{base}_n"));
-    }
-    for i in 1..rank {
-        if !is_known_dimension[i] {
-            dim_args.push(format!("{base}_d{i}"));
-        }
-    }
-    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
-    empty_expr
 }
 
 // Transpose : Tensor × Nat × Nat → Tensor
@@ -1209,7 +1187,13 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     }
 
     // Create empty tensor for the result
-    let empty_expr = to_empty_expr(&base, &target_type, &target_shape_dims);
+    let mut dim_args = vec![];
+    for (i, dim) in target_shape_dims.iter().enumerate() {
+        if !matches!(dim, NatExpr::Constant(_)) {
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
 
     statements.push(grammar::Statement::Custom(format!(
         "  {base}_init = {empty_expr}"
@@ -1286,4 +1270,30 @@ fn require_known_nat(t: Type) -> Option<usize> {
         return None;
     };
     Some(n)
+}
+
+/// Generate a `tensor.empty` expression from a list of NatExpr representing the dims.
+fn to_empty_expr(
+    base: &grammar::Identifier,
+    target_type: &grammar::Type,
+    dims: &[NatExpr],
+) -> String {
+    let rank = dims.len();
+
+    let is_known_dimension: Vec<bool> = dims
+        .iter()
+        .map(|dim| matches!(dim, NatExpr::Constant(_)))
+        .collect();
+
+    let mut dim_args = vec![];
+    if !is_known_dimension[0] {
+        dim_args.push(format!("{base}_n"));
+    }
+    for i in 1..rank {
+        if !is_known_dimension[i] {
+            dim_args.push(format!("{base}_d{i}"));
+        }
+    }
+    let empty_expr = format!("tensor.empty({}) : {target_type}", dim_args.join(", "));
+    empty_expr
 }

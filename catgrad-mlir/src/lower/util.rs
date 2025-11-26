@@ -37,7 +37,7 @@ fn type_expr_to_tensor_type(t: &TypeExpr) -> grammar::TensorType {
                         .map(|dim| match dim {
                             catgrad::typecheck::NatExpr::Constant(c) => Some(*c),
                             catgrad::typecheck::NatExpr::Var(_) => None,
-                            _ => todo!("unnormalized NatExpr"),
+                            _ => None, // unknown dim (requires runtime calculation)
                         })
                         .collect(),
                 ),

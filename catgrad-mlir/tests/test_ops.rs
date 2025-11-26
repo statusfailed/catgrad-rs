@@ -259,7 +259,7 @@ fn test_tensor_matmul() {
 #[test]
 fn test_tensor_lt() {
     let ty = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        shape: vec![2, 3].to_owned().into(),
+        shape: ShapeExpr::Shape(vec![2.into(), NatExpr::Var(0), 3.into(), NatExpr::Var(0)]),
         dtype: Dtype::F32.into(),
     }));
 
@@ -336,7 +336,7 @@ fn test_tensor_argmax() {
 #[test]
 fn test_tensor_broadcast() {
     let input_shape = vec![3, 1]; // 3x1 tensor (to be broadcasted)
-    let output_shape = vec![3, 4]; // 3x4 tensor (broadcasted result)
+    let output_shape = vec![10, 3, 4]; // 3x4 tensor (broadcasted result)
 
     run_test(
         build_typed_term(
