@@ -939,10 +939,16 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
     let rhs_type = core_type_to_mlir(&ssa.sources[1].1);
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
-    // Get target shape for empty tensor creation
+    // Extract element type
+    let dtype = require_known_dtype(ssa.sources[0].1.clone())
+        .expect("matmul requires tensor with known dtype");
+    let element_type = element_type_name(dtype);
+
+    // Get shapes
     let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
         .expect("MatMul operation needs known target shape");
 
+    let rank = target_shape_dims.len();
     let mut statements = vec![];
 
     // Generate dimension extraction for dynamic dimensions in target
@@ -964,9 +970,57 @@ pub fn tensor_matmul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
         "  {base}_empty = {empty_expr}"
     )));
 
-    // Generate the batch_matmul operation
+    // Generate indexing maps for matmul
+    // We need (rank + 1) dimensions: batch_dims + M + N + K
+    // For input A: (...batch_dims, M, K)
+    // For input B: (...batch_dims, K, N)
+    // For output: (...batch_dims, M, N)
+    let total_dims = rank + 1; // Add one for the K dimension
+    let batch_dims: Vec<String> = (0..rank - 2).map(|i| format!("d{i}")).collect();
+    let m_dim = format!("d{}", rank - 2);
+    let n_dim = format!("d{}", rank - 1);
+    let k_dim = format!("d{}", rank); // K is the extra reduction dimension
+
+    let all_dims: Vec<String> = (0..total_dims).map(|i| format!("d{i}")).collect();
+
+    let lhs_map = format!(
+        "affine_map<({}) -> ({})>",
+        all_dims.join(", "),
+        [batch_dims.clone(), vec![m_dim.clone(), k_dim.clone()]]
+            .concat()
+            .join(", ")
+    );
+    let rhs_map = format!(
+        "affine_map<({}) -> ({})>",
+        all_dims.join(", "),
+        [batch_dims.clone(), vec![k_dim, n_dim.clone()]]
+            .concat()
+            .join(", ")
+    );
+    let out_map = format!(
+        "affine_map<({}) -> ({})>",
+        all_dims.join(", "),
+        [batch_dims, vec![m_dim, n_dim]].concat().join(", ")
+    );
+
+    let iterator_types = [
+        vec!["\"parallel\""; rank - 2], // batch dimensions
+        vec!["\"parallel\"", "\"parallel\"", "\"reduction\""], // M, N, K
+    ]
+    .concat()
+    .join(", ");
+
+    // Generate linalg.generic for matmul
     statements.push(grammar::Statement::Custom(format!(
-        "  {target_id} = linalg.batch_matmul ins({lhs_id}, {rhs_id} : {lhs_type}, {rhs_type}) outs({base}_empty : {target_type}) -> {target_type}"
+        r#"  {target_id} = linalg.generic {{
+    indexing_maps = [{lhs_map}, {rhs_map}, {out_map}],
+    iterator_types = [{iterator_types}]
+  }} ins({lhs_id}, {rhs_id} : {lhs_type}, {rhs_type}) outs({base}_empty : {target_type}) {{
+  ^bb0(%a: {element_type}, %b: {element_type}, %acc: {element_type}):
+    %prod = arith.mulf %a, %b : {element_type}
+    %sum = arith.addf %acc, %prod : {element_type}
+    linalg.yield %sum : {element_type}
+  }} -> {target_type}"#
     )));
 
     statements
@@ -1201,8 +1255,8 @@ pub fn lt(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     let target_type = core_type_to_mlir(&ssa.targets[0].1);
 
     // Extract element type for the linalg.generic operation
-    let dtype = require_known_dtype(ssa.sources[0].1.clone())
-        .expect("lt requires tensor with known dtype");
+    let dtype =
+        require_known_dtype(ssa.sources[0].1.clone()).expect("lt requires tensor with known dtype");
     let element_type = element_type_name(dtype.clone());
 
     // Get target shape for empty tensor creation
