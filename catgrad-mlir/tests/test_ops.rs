@@ -289,6 +289,18 @@ fn test_tensor_slice() {
     );
 }
 
+#[test]
+fn test_nat_mul() {
+    run_test(
+        build_typed_term(
+            [Type::Nat(3.into()), Type::Nat(4.into())], // input: Nat values 3 and 4
+            [Type::Nat(12.into())],                      // output: Nat value 12
+            |_builder, [a, b]| vec![a * b], // Use multiplication operator
+        )
+        .unwrap(),
+    );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Type helpers
 

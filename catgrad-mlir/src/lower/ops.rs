@@ -627,6 +627,26 @@ pub fn nat_to_u32(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     ]
 }
 
+// NatMul : Nat × Nat → Nat
+// Multiplies two natural numbers.
+// Example:
+// Input: %a, %b (index types) -> Output: %result (index type)
+//
+// Generates MLIR like:
+// %result = arith.muli %a, %b : index
+pub fn nat_mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let a_id = grammar::Identifier(ssa.sources[0].0.0);
+    let b_id = grammar::Identifier(ssa.sources[1].0.0);
+    let target_id = grammar::Identifier(ssa.targets[0].0.0);
+
+    vec![grammar::Statement::Custom(format!(
+        "  {target_id} = arith.muli {a_id}, {b_id} : index"
+    ))]
+}
+
 // Concat : Tensor × Tensor × Dim → Tensor
 // Concatenates two tensors along a specified dimension.
 // Example:
