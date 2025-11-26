@@ -6,6 +6,8 @@ use std::io::Write;
 
 use std::collections::HashMap;
 
+use rayon::prelude::*;
+
 use catgrad_llm::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
@@ -148,7 +150,7 @@ fn run_interpreter<B: interpreter::Backend>(
     let input_tensor = interpreter::tensor(
         &interpreter.backend,
         Shape(vec![1, input_data.len()]),
-        input_data,
+        input_data.to_vec(),
     )
     .expect("Failed to create input tensor");
 
@@ -336,6 +338,7 @@ fn load_model<B: interpreter::Backend>(
     let mut type_map = HashMap::new();
     let mut data_map = HashMap::new();
 
+    let start_load = std::time::Instant::now();
     for file_path in model_paths {
         let file = std::fs::File::open(file_path)?;
         let data = unsafe { memmap2::Mmap::map(&file)? };
@@ -349,11 +352,11 @@ fn load_model<B: interpreter::Backend>(
             // Convert dtype and load tensor data
             let data: Vec<f32> = match view.dtype() {
                 safetensors::Dtype::F32 => tensor_data
-                    .chunks_exact(4)
+                    .par_chunks_exact(4)
                     .map(|b| f32::from_le_bytes(b.try_into().unwrap()))
                     .collect(),
                 safetensors::Dtype::BF16 => tensor_data
-                    .chunks_exact(2)
+                    .par_chunks_exact(2)
                     .map(|b| half::bf16::from_le_bytes(b.try_into().unwrap()).to_f32())
                     .collect(),
                 _ => {
@@ -361,7 +364,7 @@ fn load_model<B: interpreter::Backend>(
                 }
             };
 
-            let tensor = interpreter::tensor(backend, Shape(shape.clone()), &data)
+            let tensor = interpreter::tensor(backend, Shape(shape.clone()), data)
                 .expect("failed to create tensor");
             let key = path(name.split(".").collect()).expect("invalid param path");
             data_map.insert(key.clone(), tensor);
@@ -378,6 +381,12 @@ fn load_model<B: interpreter::Backend>(
     let mut parameter_values = interpreter::Parameters::from(data_map);
     let mut parameter_types = typecheck::Parameters::from(type_map);
 
+    let elapsed_load = start_load.elapsed();
+    log::info!(
+        "Model weights loaded for {} in {:.2} seconds",
+        model_name,
+        elapsed_load.as_secs_f64()
+    );
     post_process_weights(
         &config,
         backend,

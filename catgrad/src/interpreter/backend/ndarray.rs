@@ -87,6 +87,30 @@ impl Backend for NdArrayBackend {
         Ok(from_u32(arr))
     }
 
+    fn ndarray_from_vec_f32(
+        &self,
+        data: Vec<f32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: Vec<usize> = shape.0;
+        let arr =
+            ArrayD::from_shape_vec(IxDyn(&dims), data).map_err(|_| BackendError::ShapeError)?;
+
+        Ok(from_f32(arr))
+    }
+
+    fn ndarray_from_vec_u32(
+        &self,
+        data: Vec<u32>,
+        shape: Shape,
+    ) -> Result<TaggedTensor<Self>, BackendError> {
+        let dims: Vec<usize> = shape.0;
+        let arr =
+            ArrayD::from_shape_vec(IxDyn(&dims), data).map_err(|_| BackendError::ShapeError)?;
+
+        Ok(from_u32(arr))
+    }
+
     fn arange(&self, end: usize) -> TaggedTensor<Self> {
         // TODO: use from_iter instead?
         let result = from_f32(ndarray::Array::range(0.0, end as f32, 1.0).into_dyn());

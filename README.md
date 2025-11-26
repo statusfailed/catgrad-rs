@@ -151,7 +151,7 @@ let backend = NdArrayBackend;
 let term = nn::Sigmoid.term().unwrap().term;
 
 // create an input tensor
-let input = tensor(&backend, Shape(vec![2, 3]), &[1., 2., 3., 4., 5., 6.]).expect("tensor creation");
+let input = tensor(&backend, Shape(vec![2, 3]), vec![1., 2., 3., 4., 5., 6.]).expect("tensor creation");
 
 // Create and run the interpreter
 let interpreter = Interpreter::new(backend, stdlib(), Parameters::from([]));
