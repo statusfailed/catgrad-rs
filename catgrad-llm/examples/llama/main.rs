@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 use rayon::prelude::*;
 
+use catgrad_llm::helpers::*;
 use catgrad_llm::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
@@ -19,7 +20,6 @@ mod deepseek;
 mod gemma3;
 mod gpt2;
 mod granite;
-mod helpers;
 mod llama;
 mod qwen3;
 
@@ -201,7 +201,7 @@ struct Cache {
 
 impl Cache {
     pub fn init(builder: &Builder, config: &Config, positions: usize) -> Self {
-        let (cos, sin) = helpers::rope_tables(
+        let (cos, sin) = rope_tables(
             builder,
             config.rope_theta,
             positions.to_nat(builder),

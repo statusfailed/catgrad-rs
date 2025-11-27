@@ -1,7 +1,7 @@
-use super::helpers::*;
 use crate::llm_type;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
+use catgrad_llm::helpers::*;
 use catgrad_llm::models::utils::Config;
 
 use nn::*;
