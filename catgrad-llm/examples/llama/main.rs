@@ -1,6 +1,5 @@
 use catgrad::interpreter::backend::candle::CandleBackend;
 use catgrad::interpreter::backend::ndarray::NdArrayBackend;
-use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use std::io::Write;
 
@@ -8,7 +7,6 @@ use std::collections::HashMap;
 
 use rayon::prelude::*;
 
-use catgrad_llm::helpers::*;
 use catgrad_llm::legacy::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 
@@ -16,12 +14,7 @@ use anyhow::Result;
 use clap::{Parser, ValueEnum};
 use tokenizers::tokenizer::Tokenizer;
 
-mod deepseek;
-mod gemma3;
-mod gpt2;
-mod granite;
-mod llama;
-mod qwen3;
+use catgrad_llm::models::*;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -170,45 +163,6 @@ fn run_interpreter<B: interpreter::Backend>(
         }
     } else {
         Err(anyhow::anyhow!("No result"))
-    }
-}
-
-/// Type signature for LLM Modules
-fn llm_type() -> ([Type; 1], [Type; 1]) {
-    use catgrad::typecheck::*;
-    let batch_size = NatExpr::Var(0);
-    let seq_len = NatExpr::Var(1);
-
-    // Input shape B×S
-    let t_x = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::U32),
-        shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
-    }));
-
-    // Output shape B×1
-    let t_y = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
-        dtype: DtypeExpr::Constant(Dtype::U32),
-        shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
-    }));
-
-    ([t_x], [t_y])
-}
-
-struct Cache {
-    pub cos: Var,
-    pub sin: Var,
-}
-
-impl Cache {
-    pub fn init(builder: &Builder, config: &Config, positions: usize) -> Self {
-        let (cos, sin) = rope_tables(
-            builder,
-            config.rope_theta,
-            positions.to_nat(builder),
-            config.get_head_dim(),
-        );
-
-        Self { cos, sin }
     }
 }
 
