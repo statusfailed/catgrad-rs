@@ -1,6 +1,46 @@
+use crate::legacy::models::utils::Config;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad::stdlib::nn::*;
+
+/// Type signature for LLM Modules
+pub fn llm_type() -> ([Type; 1], [Type; 1]) {
+    use catgrad::typecheck::*;
+    let batch_size = NatExpr::Var(0);
+    let seq_len = NatExpr::Var(1);
+
+    // Input shape B×S
+    let t_x = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![batch_size.clone(), seq_len]),
+    }));
+
+    // Output shape B×1
+    let t_y = Type::Tensor(TypeExpr::NdArrayType(NdArrayType {
+        dtype: DtypeExpr::Constant(Dtype::U32),
+        shape: ShapeExpr::Shape(vec![batch_size, NatExpr::Constant(1)]),
+    }));
+
+    ([t_x], [t_y])
+}
+
+pub struct Cache {
+    pub cos: Var,
+    pub sin: Var,
+}
+
+impl Cache {
+    pub fn init(builder: &Builder, config: &Config, positions: usize) -> Self {
+        let (cos, sin) = rope_tables(
+            builder,
+            config.rope_theta,
+            positions.to_nat(builder),
+            config.get_head_dim(),
+        );
+
+        Self { cos, sin }
+    }
+}
 
 pub fn chunk(builder: &Builder, dim: isize, chunks: usize, chunk_size: usize, x: Var) -> Vec<Var> {
     let mut outputs = vec![];

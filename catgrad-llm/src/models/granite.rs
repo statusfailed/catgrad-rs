@@ -1,15 +1,15 @@
-use crate::{Cache, llm_type};
+use crate::helpers::*;
+use crate::legacy::models::utils::Config;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
-use catgrad_llm::helpers::*;
-use catgrad_llm::legacy::models::utils::Config;
 use nn::*;
-pub struct LlamaModel {
+
+pub struct GraniteModel {
     pub config: Config,
     pub max_sequence_length: usize,
 }
 
-impl LlamaModel {
+impl GraniteModel {
     fn mlp(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let gate = linear_no_bias(
             builder,
@@ -33,6 +33,60 @@ impl LlamaModel {
             p.extend(["down_proj"]).unwrap(),
             x,
         )
+    }
+
+    fn moe(&self, builder: &Builder, p: Path, x: Var) -> Var {
+        let [_, seq_len, _] = unpack::<3>(builder, shape(builder, x.clone()));
+
+        let moe_input = param(builder, &p.extend(vec!["input_linear", "weight"]).unwrap());
+        let moe_output = param(builder, &p.extend(vec!["output_linear", "weight"]).unwrap());
+        let routed = linear_no_bias(
+            builder,
+            self.config.hidden_size,
+            self.config.num_local_experts,
+            p.extend(["router", "layer"]).unwrap(),
+            x.clone(),
+        );
+
+        let vi = topk(builder, self.config.num_experts_per_tok, routed);
+        let values = vi.0;
+        let indices = vi.1;
+
+        let sh = shape!(builder, seq_len, self.config.num_experts_per_tok);
+
+        let indices = reshape(builder, sh.clone(), indices);
+
+        let values = reshape(builder, sh, values);
+
+        let values = softmax(builder, values);
+
+        let fullx = transpose(builder, 0, 1, x);
+        let mut sumk = constant(builder, 0., &shape(builder, fullx.clone()));
+
+        for i in 0..self.config.num_experts_per_tok {
+            let idx = get(builder, 1, i, indices.clone());
+            let val = get(builder, 1, i, values.clone());
+
+            let gate_up = index(builder, 0, idx.clone(), moe_input.clone());
+            let out = index(builder, 0, idx.clone(), moe_output.clone());
+
+            let gate_up = chunk(builder, 1, 2, self.config.intermediate_size, gate_up);
+            let gate = transpose(builder, 1, 2, gate_up[0].clone());
+            let up = transpose(builder, 1, 2, gate_up[1].clone());
+
+            let gate = matmul(builder, fullx.clone(), gate);
+            let up = matmul(builder, fullx.clone(), up);
+            let x = silu(builder, gate) * up; // SwiGLU
+
+            let out = transpose(builder, 1, 2, out);
+            let x = matmul(builder, x, out);
+
+            let v = unsqueeze::<2, 3>(builder, 2, val);
+            let v = broadcast(builder, v, shape(builder, x.clone()));
+            sumk = sumk + x * v;
+        }
+
+        transpose(builder, 0, 1, sumk)
     }
 
     fn attention(
@@ -75,9 +129,6 @@ impl LlamaModel {
         let k = transpose(builder, 1, 2, k);
         let v = transpose(builder, 1, 2, v);
 
-        let k = repeat_kv(builder, rep, k);
-        let v = repeat_kv(builder, rep, v);
-
         let q = apply_rope_embedding(
             builder,
             pos,
@@ -95,11 +146,14 @@ impl LlamaModel {
             k,
         );
 
+        let k = repeat_kv(builder, rep, k);
+        let v = repeat_kv(builder, rep, v);
+
         let tk = transpose(builder, 2, 3, k);
         let attn = matmul(builder, q, tk);
         let sh = shape(builder, attn.clone());
-        let denom = constant(builder, f32::sqrt(head_dim as f32), &sh);
-        let mut attn = attn / denom;
+        let mul = constant(builder, self.config.attention_multiplier, &sh);
+        let mut attn = attn * mul;
 
         let mask = causal_mask(builder, s.clone());
         let mask = broadcast(builder, mask, sh);
@@ -139,7 +193,11 @@ impl LlamaModel {
             p.extend(["self_attn"]).unwrap(),
             x,
         );
-        let x = res + x;
+
+        let sh = shape(builder, x.clone());
+        let mul = constant(builder, self.config.residual_multiplier, &sh);
+
+        let x = res + x * mul.clone();
         let res = x.clone();
         let x = rmsnorm(
             builder,
@@ -147,14 +205,18 @@ impl LlamaModel {
             p.extend(["post_attention_layernorm"]).unwrap(),
             x,
         );
-        let x = self.mlp(builder, p.extend(["mlp"]).unwrap(), x);
-        x + res
+        let x = if self.config.num_experts_per_tok == 0 {
+            self.mlp(builder, p.extend(["mlp"]).unwrap(), x)
+        } else {
+            self.moe(builder, p.extend(["block_sparse_moe"]).unwrap(), x)
+        };
+        x * mul + res
     }
 }
 
-impl Module<1, 1> for LlamaModel {
+impl Module<1, 1> for GraniteModel {
     fn path(&self) -> Path {
-        path(vec!["llama"]).expect("invalid model path")
+        path(vec!["granite"]).expect("invalid model path")
     }
 
     fn def(&self, builder: &Builder, [x]: [Var; 1]) -> [Var; 1] {
@@ -162,11 +224,15 @@ impl Module<1, 1> for LlamaModel {
 
         let mut cache = Cache::init(builder, &self.config, self.max_sequence_length);
 
-        let mut x = embeddings(
+        let emb = embeddings(
             builder,
             root.extend(vec!["model", "embed_tokens"]).unwrap(),
             x,
         );
+
+        let sh = shape(builder, emb.clone());
+        let mul = constant(builder, self.config.embedding_multiplier, &sh);
+        let mut x = mul * emb;
 
         for i in 0..self.config.num_hidden_layers {
             x = self.layer(
@@ -186,17 +252,11 @@ impl Module<1, 1> for LlamaModel {
             x,
         );
 
-        let lm_head_weights = if self.config.tie_word_embeddings {
-            vec!["model", "embed_tokens"]
-        } else {
-            vec!["lm_head"]
-        };
-
         x = linear_no_bias(
             builder,
             self.config.hidden_size,
             self.config.vocab_size,
-            root.extend(lm_head_weights).unwrap(),
+            root.extend(["model", "embed_tokens"]).unwrap(),
             x,
         );
 

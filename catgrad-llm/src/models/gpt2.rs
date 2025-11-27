@@ -1,8 +1,7 @@
-use crate::llm_type;
+use crate::helpers::*;
+use crate::legacy::models::utils::Config;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
-use catgrad_llm::helpers::*;
-use catgrad_llm::legacy::models::utils::Config;
 
 use nn::*;
 pub struct GPT2Model {
