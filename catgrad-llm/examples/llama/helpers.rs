@@ -218,6 +218,13 @@ pub fn causal_mask(builder: &Builder, size: Var) -> Var {
 
 pub fn embeddings(builder: &Builder, p: Path, x: Var) -> Var {
     let wte = param(builder, &p.extend(vec!["weight"]).unwrap());
+
+    //flatten the input tensor as that is how index expects it
+    let [b, s] = unpack::<2>(builder, shape(builder, x.clone()));
+    let sh = shape!(builder, b * s);
+    let x = reshape(builder, sh, x);
+
+    //index into the weight tensor
     let te = index(builder, 0, x, wte);
 
     unsqueeze::<2, 3>(builder, 0, te)
