@@ -25,6 +25,7 @@
             rustc
             cargo
             rustfmt
+            rust-analyzer
             clippy
 
             # Python for ezmlir script

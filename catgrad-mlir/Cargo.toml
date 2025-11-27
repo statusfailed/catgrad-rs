@@ -16,3 +16,13 @@ libffi = "5.0.0"
 open-hypergraphs = "0.2.8"
 tempdir = "0.3.7"
 tempfile = "3.23.0"
+
+[dev-dependencies]
+anyhow = "1.0.100"
+catgrad-llm = { path = "../catgrad-llm" }
+half = "2.7.1"
+memmap2 = "0.9.9"
+safetensors = "0.7.0"
+serde = "1.0.228"
+serde_json = "1.0.145"
+tokenizers = "0.22.1"
