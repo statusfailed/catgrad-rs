@@ -3,7 +3,7 @@ use catgrad::category::lang::eq;
 use catgrad::prelude::ops::*;
 use catgrad::prelude::*;
 use catgrad_llm::helpers::*;
-use catgrad_llm::models::utils::Config;
+use catgrad_llm::legacy::models::utils::Config;
 use nn::*;
 
 pub struct DeepSeekModel {
