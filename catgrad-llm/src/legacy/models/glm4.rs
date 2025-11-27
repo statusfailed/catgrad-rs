@@ -1,8 +1,8 @@
 // GLM4 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::nn::layers::*;
-use crate::nn::rope::apply_rope_embedding;
+use crate::legacy::nn::layers::*;
+use crate::legacy::nn::rope::apply_rope_embedding;
 use catgrad_legacy::backend::cpu::eval::Builder;
 use catgrad_legacy::core::{Dtype, NdArrayType, Shape, Var};
 

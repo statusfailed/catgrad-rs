@@ -1,7 +1,7 @@
 // GPT-2 model description
 
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::nn::layers::*;
+use crate::legacy::nn::layers::*;
 use catgrad_legacy::backend::cpu::eval::Builder;
 use catgrad_legacy::core::{Dtype, NdArrayType, Shape, Var};
 

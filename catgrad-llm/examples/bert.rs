@@ -14,7 +14,7 @@ use catgrad_legacy::{
     core::{Dtype, NdArrayType, Shape, Var},
 };
 
-use catgrad_llm::nn::layers::*;
+use catgrad_llm::legacy::nn::layers::*;
 
 use catgrad_llm::utils::read_safetensors_file;
 

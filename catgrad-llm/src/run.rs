@@ -1,7 +1,7 @@
 //! A stripped-down version of ModelRunner from catgrad examples, intended for serving
 use crate::Result;
 use crate::legacy::models::utils::{Cache, Config, ModelBuilder, get_model};
-use crate::nn::layers::{argmax, cast, reshape};
+use crate::legacy::nn::layers::{argmax, cast, reshape};
 use crate::serve;
 use crate::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 use catgrad_legacy::{

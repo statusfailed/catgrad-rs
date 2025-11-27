@@ -1,7 +1,7 @@
 // Gemma-3 model description
 use super::utils::{Cache, Config, ModelBuilder};
-use crate::nn::layers::*;
-use crate::nn::rope::rope;
+use crate::legacy::nn::layers::*;
+use crate::legacy::nn::rope::rope;
 use catgrad_legacy::backend::cpu::eval::Builder;
 use catgrad_legacy::core::{NdArrayType, Shape, Var};
 
