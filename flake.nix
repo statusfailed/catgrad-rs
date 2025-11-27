@@ -33,14 +33,14 @@
             ++ pkgs.lib.optionals withExamples ["--examples"];
 
           # libraries
-          buildInputs =
+          propagatedBuildInputs =
             []
             ++ pkgs.lib.optionals withMlir (with llvmPackages; [
               mlir # for mlir_c_runner_utils
             ]);
 
           # executables
-          nativeBuildInputs =
+          propagatedNativeBuildInputs =
             []
             ++ pkgs.lib.optionals withMlir (with llvmPackages; [
               mlir
