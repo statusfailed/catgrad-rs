@@ -840,7 +840,7 @@ pub fn tensor_argmax(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement
 
     // Create helper tensor for tracking max values during reduction
     let max_buf_type = y_type.clone().with_dtype("f32".to_string());
-    let indices_buf_type = y_type.clone().with_dtype("i32".to_string());
+    let indices_buf_type = y_type.with_dtype("i32".to_string());
 
     // Extract dimensions for dynamic empty tensor creation
     let target_shape_dims = require_known_shape(ssa.targets[0].1.clone())
@@ -1436,6 +1436,8 @@ fn to_empty_expr(
     if !is_known_dimension[0] {
         dim_args.push(format!("{base}_n"));
     }
+
+    #[allow(clippy::needless_range_loop)]
     for i in 1..rank {
         if !is_known_dimension[i] {
             dim_args.push(format!("{base}_d{i}"));

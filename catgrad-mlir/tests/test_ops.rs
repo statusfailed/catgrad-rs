@@ -368,7 +368,7 @@ fn test_tensor_broadcast_dynamic() {
         build_typed_term(
             [
                 tensor_type(&input_shape, Dtype::F32),
-                shape_type(&vec![2, 4]), // target shape: 2x4
+                shape_type(&[2, 4]), // target shape: 2x4
             ],
             [output_type],
             |builder, [input_tensor, target_shape]| {

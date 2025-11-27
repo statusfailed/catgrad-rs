@@ -169,7 +169,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
     use super::ops;
     match path.to_string().as_str() {
         "cartesian.copy" => panic!("Copy ops must be forgotten before MLIR"),
-        "tensor.shape" => ops::shape(ssa).into_iter().map(Into::into).collect(),
+        "tensor.shape" => ops::shape(ssa),
         "tensor.dtype" => vec![],
         "tensor.neg" => ops::neg(ssa).into_iter().map(Into::into).collect(),
         "tensor.broadcast" => ops::broadcast(ssa),
@@ -182,7 +182,7 @@ fn lower_operation(path: &Path, ssa: &SSA<Type, lang::Operation>) -> Vec<grammar
         "tensor.sin" => ops::sin(ssa).into_iter().map(Into::into).collect(),
         "tensor.cos" => ops::cos(ssa).into_iter().map(Into::into).collect(),
         "tensor.lt" => ops::lt(ssa),
-        "tensor.arange" => ops::arange(ssa).into_iter().map(Into::into).collect(),
+        "tensor.arange" => ops::arange(ssa),
         "shape.pack" => ops::shape_pack(ssa).into_iter().map(Into::into).collect(),
         "shape.unpack" => ops::shape_unpack(ssa),
         "tensor.index" => ops::tensor_index(ssa),
