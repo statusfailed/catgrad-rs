@@ -58,7 +58,10 @@
           meta = with pkgs.lib; {
             description = manifest.description;
             license = licenses.mit;
-            mainProgram = "llama";
+            mainProgram =
+              if withMlir
+              then "mlir-llm"
+              else "llm";
           };
         };
     in {
