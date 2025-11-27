@@ -3,7 +3,6 @@
 mod error;
 pub mod helpers;
 pub mod legacy;
-pub mod nn;
 pub mod run;
 pub mod serve;
 pub mod utils;
