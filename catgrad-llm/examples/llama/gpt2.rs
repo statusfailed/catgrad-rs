@@ -12,6 +12,11 @@ pub struct GPT2Model {
 impl GPT2Model {
     pub fn embeddings(&self, builder: &Builder, p: Path, x: Var) -> Var {
         let wte = param(builder, &p.extend(["wte", "weight"]).unwrap());
+
+        //flatten the input tensor as that is how index expects it
+        let [b, s] = unpack::<2>(builder, shape(builder, x.clone()));
+        let sh = shape!(builder, b * s);
+        let x = reshape(builder, sh, x);
         let te = index(builder, 0, x, wte);
 
         // add back batch size dim
