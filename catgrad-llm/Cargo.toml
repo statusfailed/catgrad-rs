@@ -1,11 +1,12 @@
 [package]
 name = "catgrad-llm"
-license = "MIT"
-repository = "https://github.com/hellas-ai/catgrad"
-description = "Tools for LLMs built with catgrad"
-version = "0.1.1"
-edition = "2024"
-rust-version = "1.87"
+description = "High-level support for large language models in catgrad"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation.workspace = true
 
 [dependencies]
 catgrad-legacy = { version = "0.1.1", path = "../catgrad-legacy" }

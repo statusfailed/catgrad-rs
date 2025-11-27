@@ -13,27 +13,59 @@
   }:
     flake-utils.lib.eachDefaultSystem (system: let
       pkgs = nixpkgs.legacyPackages.${system};
-      manifest = (pkgs.lib.importTOML ./Cargo.toml).package;
-    in {
-      packages.default = pkgs.rustPlatform.buildRustPackage {
-        pname = manifest.name;
-        version = manifest.version;
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
+      manifest = (pkgs.lib.importTOML ./Cargo.toml).workspace.package;
 
-        meta = with pkgs.lib; {
-          description = manifest.description;
-          license = licenses.mit;
+      mkCatgrad = {
+        withExamples ? true,
+        withMlir ? false,
+        llvmPackages ? pkgs.llvmPackages_21,
+      }:
+        pkgs.rustPlatform.buildRustPackage {
+          pname = "catgrad";
+          version = manifest.version;
+          src = ./.;
+          cargoDeps = pkgs.rustPlatform.importCargoLock {
+            lockFile = ./Cargo.lock;
+          };
+
+          cargoBuildFlags =
+            ["--workspace"]
+            ++ pkgs.lib.optionals withExamples ["--examples"];
+
+          # libraries
+          buildInputs =
+            []
+            ++ pkgs.lib.optionals withMlir (with llvmPackages; [
+              mlir # for mlir_c_runner_utils
+            ]);
+
+          # executables
+          nativeBuildInputs =
+            []
+            ++ pkgs.lib.optionals withMlir (with llvmPackages; [
+              mlir
+              llvm
+            ]);
+
+          # include examples
+          postInstall = pkgs.lib.optionalString withExamples ''
+            mkdir -p $out/bin
+            find target -path '*/release/examples/*' -executable -type f \
+              ! -name '*-????????????????' \
+              -exec install -Dm755 {} $out/bin/ \;
+          '';
+
+          meta = with pkgs.lib; {
+            description = manifest.description;
+            license = licenses.mit;
+            mainProgram = "llama";
+          };
         };
-      };
-
-      devShells.default = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [
-          cargo
-          rustc
-          rustfmt
-          clippy
-        ];
+    in {
+      packages = {
+        default = mkCatgrad {};
+        minimal = mkCatgrad {withExamples = false;};
+        withMlir = mkCatgrad {withMlir = true;};
       };
     });
 }
