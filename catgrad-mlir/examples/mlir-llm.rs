@@ -6,7 +6,7 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 use catgrad_llm::helpers::*;
-use catgrad_llm::models::utils::Config;
+use catgrad_llm::legacy::models::utils::Config;
 use catgrad_llm::utils::get_model_files;
 use tokenizers::tokenizer::Tokenizer;
 

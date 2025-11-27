@@ -17,7 +17,7 @@ use tokenizers::tokenizer::{Result, Tokenizer};
 
 use catgrad_llm::utils::{get_model_chat_template, get_model_files, read_safetensors_multiple};
 
-use catgrad_llm::models::utils::{Cache, Config, ModelBuilder, get_model};
+use catgrad_llm::legacy::models::utils::{Cache, Config, ModelBuilder, get_model};
 use catgrad_llm::nn::layers::{argmax, cast, reshape};
 
 struct ModelRunner {
