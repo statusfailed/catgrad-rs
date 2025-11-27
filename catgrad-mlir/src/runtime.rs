@@ -144,14 +144,33 @@ impl LlvmRuntime {
         })?;
 
         // Verify argument types match
+        // NOTE: this only checks ranks; we must also check that the statically required dimensions
+        // of the typed term match the provided data dimensions!
         let actual_source_types: Vec<MlirType> = args.iter().map(|a| a.to_type()).collect();
-        if !actual_source_types.iter().eq(&entrypoint.source_types) {
+
+        let m = actual_source_types.len();
+        let n = entrypoint.source_types.len();
+        if m != n {
             return Err(RuntimeError::TypeError(format!(
-                "Function '{}' argument type mismatch: expected {:?}, got {:?}",
+                "Function '{}' arity mismatch: expected {:?}, got {:?}",
                 name.to_string_lossy(),
                 entrypoint.source_types,
                 args.iter().map(|a| a.to_type()),
             )));
+        }
+
+        for (i, (expected, actual)) in entrypoint
+            .source_types
+            .iter()
+            .zip(actual_source_types.iter())
+            .enumerate()
+        {
+            if actual != expected {
+                return Err(RuntimeError::TypeError(format!(
+                    "Function '{}' argument {i} type mismatch: expected {expected:?}, got {actual:?}",
+                    name.to_string_lossy(),
+                )));
+            }
         }
 
         // Call the internal helper function
