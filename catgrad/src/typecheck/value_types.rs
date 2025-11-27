@@ -50,6 +50,12 @@ impl NatExpr {
     }
 }
 
+impl From<usize> for NatExpr {
+    fn from(n: usize) -> Self {
+        NatExpr::Constant(n)
+    }
+}
+
 impl ShapeExpr {
     pub(crate) fn nf(&self) -> Self {
         match self {
@@ -62,9 +68,21 @@ impl ShapeExpr {
     }
 }
 
+impl From<Vec<usize>> for ShapeExpr {
+    fn from(dims: Vec<usize>) -> Self {
+        ShapeExpr::Shape(dims.into_iter().map(Into::into).collect())
+    }
+}
+
 impl DtypeExpr {
     pub(crate) fn nf(&self) -> Self {
         self.clone()
+    }
+}
+
+impl From<Dtype> for DtypeExpr {
+    fn from(value: Dtype) -> Self {
+        DtypeExpr::Constant(value)
     }
 }
 
