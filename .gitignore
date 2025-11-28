@@ -1,6 +1,8 @@
 /target
-Cargo.lock
 *.safetensors
 .cargo
 .DS_Store
 **/examples/images
+/result
+.claude
+.zed
