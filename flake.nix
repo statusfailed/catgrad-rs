@@ -20,8 +20,8 @@
         withMlir ? false,
         llvmPackages ? pkgs.llvmPackages_21,
       }: let
-        mlirLibs = with llvmPackages; [mlir llvm];
-        mlirBins = with llvmPackages; [mlir llvm clang];
+        # todo: reduce closure size by using clang/llvm from rust toolchain?
+        mlirInputs = with llvmPackages; [mlir llvm clang];
       in
         pkgs.rustPlatform.buildRustPackage {
           pname = "catgrad";
@@ -38,21 +38,10 @@
             ["--workspace"]
             ++ pkgs.lib.optionals withExamples ["--examples"];
 
-          # if withMlir, we need to wrap binaries to add mlir to PATH/LIBRARY_PATH
-          nativeBuildInputs =
-            if withMlir
-            then [pkgs.makeWrapper]
-            else [];
-
-          propagatedBuildInputs =
+          buildInputs =
             []
-            ++ pkgs.lib.optionals withMlir mlirLibs;
+            ++ pkgs.lib.optionals withMlir [pkgs.makeWrapper] ++ mlirInputs;
 
-          propagatedNativeBuildInputs =
-            []
-            ++ pkgs.lib.optionals withMlir mlirBins;
-
-          # include examples and wrap MLIR entrypoints when available
           postInstall =
             # copy examples if requested (except test binaries)
             pkgs.lib.optionalString withExamples ''
@@ -61,15 +50,17 @@
                 ! -name '*-????????????????' \
                 -exec install -Dm755 {} $out/bin/ \;
             ''
-            # mlir-llm needs mlir toolchain + libs at runtime, wrap binary to add them to env
+            # mlir-llm needs mlir toolchain + libs: for builds/tests/devshell they come from buildInputs
+            # at runtime: we need to wrap the executable in a script that appends the necessary environment variables
+            # the rust code uses e.g `-lmlir_c_runner_utils`- we need to set NIX_LDFLAGS so linker knows where to look
             + pkgs.lib.optionalString withMlir ''
               if [ -x "$out/bin/mlir-llm" ]; then
                 wrapProgram "$out/bin/mlir-llm" \
-                  --prefix PATH : "${pkgs.lib.makeBinPath mlirBins}" \
-                  --prefix LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirLibs}" \
-                  --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirLibs}" \
-                  --prefix DYLD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirLibs}" \
-                  --prefix NIX_LDFLAGS " " "-L${pkgs.lib.makeLibraryPath mlirLibs}"
+                  --prefix PATH : "${pkgs.lib.makeBinPath mlirInputs}" \
+                  --prefix LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirInputs}" \
+                  --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirInputs}" \
+                  --prefix DYLD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath mlirInputs}" \
+                  --prefix NIX_LDFLAGS " " "-L${pkgs.lib.makeLibraryPath mlirInputs}"
               fi
             '';
 
