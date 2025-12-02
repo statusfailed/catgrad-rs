@@ -45,7 +45,7 @@ pub fn main() -> Result<()> {
     println!("Input tensor: {}", input_tensor);
 
     // Call the function using the CompiledModel API
-    let prefix = Path::new(["llama"]).unwrap();
+    let prefix = model.path();
     let param_values = param_values
         .into_iter()
         .map(|(k, v)| (prefix.concat(&k), v))
