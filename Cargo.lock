@@ -442,6 +442,7 @@ dependencies = [
  "anyhow",
  "catgrad",
  "catgrad-llm",
+ "clap",
  "derive_more",
  "half",
  "libc",

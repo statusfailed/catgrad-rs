@@ -19,6 +19,7 @@ tempfile = "3.23.0"
 
 [dev-dependencies]
 anyhow = "1.0.100"
+clap = { workspace = true }
 catgrad-llm = { path = "../catgrad-llm" }
 half = { workspace = true }
 memmap2 = { workspace = true }
