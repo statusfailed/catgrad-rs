@@ -91,6 +91,7 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
         }),
         "GPT2LMHeadModel" => Box::new(gpt2::GPT2Model {
             config: config.clone(),
+            max_sequence_length: args.seq_len + token_ids.len(),
         }),
         _ => panic!("Unsupported model architecture {}", config.architectures[0]),
     };
