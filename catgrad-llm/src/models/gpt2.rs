@@ -6,6 +6,7 @@ use catgrad::prelude::*;
 use nn::*;
 pub struct GPT2Model {
     pub config: Config,
+    pub max_sequence_length: usize,
 }
 
 impl GPT2Model {

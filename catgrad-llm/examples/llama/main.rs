@@ -68,29 +68,31 @@ fn run_with_backend<B: interpreter::Backend>(args: &Args, backend: B) -> Result<
 
     let mut token_ids = encoding.get_ids().to_vec();
 
+    let max_sequence_length = args.seq_len + token_ids.len();
     let model: Box<dyn Module<1, 1>> = match config.architectures[0].as_str() {
         "LlamaForCausalLM" => Box::new(llama::LlamaModel {
             config: config.clone(),
-            max_sequence_length: args.seq_len + token_ids.len(),
+            max_sequence_length,
         }),
         "Gemma3ForCausalLM" => Box::new(gemma3::Gemma3Model {
             config: config.clone(),
-            max_sequence_length: args.seq_len + token_ids.len(),
+            max_sequence_length,
         }),
         "Qwen3ForCausalLM" | "Qwen3MoeForCausalLM" => Box::new(qwen3::Qwen3Model {
             config: config.clone(),
-            max_sequence_length: args.seq_len + token_ids.len(),
+            max_sequence_length,
         }),
         "GraniteForCausalLM" | "GraniteMoeForCausalLM" => Box::new(granite::GraniteModel {
             config: config.clone(),
-            max_sequence_length: args.seq_len + token_ids.len(),
+            max_sequence_length,
         }),
         "DeepseekV3ForCausalLM" => Box::new(deepseek::DeepSeekModel {
             config: config.clone(),
-            max_sequence_length: args.seq_len + token_ids.len(),
+            max_sequence_length,
         }),
         "GPT2LMHeadModel" => Box::new(gpt2::GPT2Model {
             config: config.clone(),
+            max_sequence_length,
         }),
         _ => panic!("Unsupported model architecture {}", config.architectures[0]),
     };

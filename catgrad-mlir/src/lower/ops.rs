@@ -663,6 +663,26 @@ pub fn nat_mul(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
     ))]
 }
 
+// NatAdd : Nat × Nat → Nat
+// Adds two natural numbers.
+// Example:
+// Input: %a, %b (index types) -> Output: %result (index type)
+//
+// Generates MLIR like:
+// %result = arith.addi %a, %b : index
+pub fn nat_add(ssa: &SSA<Type, lang::Operation>) -> Vec<grammar::Statement> {
+    assert!(ssa.sources.len() == 2);
+    assert!(ssa.targets.len() == 1);
+
+    let a_id = Identifier::Node(ssa.sources[0].0);
+    let b_id = Identifier::Node(ssa.sources[1].0);
+    let target_id = Identifier::Node(ssa.targets[0].0);
+
+    vec![grammar::Statement::Custom(format!(
+        "  {target_id} = arith.addi {a_id}, {b_id} : index"
+    ))]
+}
+
 // Max : Tensor → Tensor
 // Finds maximum over the final dimension of the tensor.
 // Example:

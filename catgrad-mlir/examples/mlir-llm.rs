@@ -5,19 +5,58 @@ use anyhow::Result;
 use std::collections::HashMap;
 
 use catgrad_llm::legacy::models::utils::Config;
-use catgrad_llm::models::llama::LlamaModel;
+use catgrad_llm::models::*;
 use catgrad_llm::utils::get_model_files;
+use clap::Parser;
 use tokenizers::tokenizer::Tokenizer;
 
+#[derive(Parser, Debug)]
+struct Args {
+    /// Model name on Huggingface Hub
+    #[arg(
+        short = 'm',
+        long,
+        default_value = "HuggingFaceTB/SmolLM2-135M-Instruct"
+    )]
+    model_name: String,
+}
+
 pub fn main() -> Result<()> {
-    let (param_values, parameters, config, _tokenizer) =
-        load_model("HuggingFaceTB/SmolLM2-135M-Instruct")?;
+    let args = Args::parse();
+
+    let (param_values, parameters, config, _tokenizer) = load_model(&args.model_name)?;
 
     ////////////////////////////////////////
     // Setup model and environment
-    let model = LlamaModel {
-        config,
-        max_sequence_length: 10, //todo
+
+    let max_sequence_length = 1;
+
+    let model: Box<dyn Module<1, 1>> = match config.architectures[0].as_str() {
+        "LlamaForCausalLM" => Box::new(llama::LlamaModel {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        "Gemma3ForCausalLM" => Box::new(gemma3::Gemma3Model {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        "Qwen3ForCausalLM" | "Qwen3MoeForCausalLM" => Box::new(qwen3::Qwen3Model {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        "GraniteForCausalLM" | "GraniteMoeForCausalLM" => Box::new(granite::GraniteModel {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        "DeepseekV3ForCausalLM" => Box::new(deepseek::DeepSeekModel {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        "GPT2LMHeadModel" => Box::new(gpt2::GPT2Model {
+            config: config.clone(),
+            max_sequence_length,
+        }),
+        _ => panic!("Unsupported model architecture {}", config.architectures[0]),
     };
 
     let typed_term = model.term().expect("Failed to create typed term");
@@ -45,7 +84,7 @@ pub fn main() -> Result<()> {
     println!("Input tensor: {}", input_tensor);
 
     // Call the function using the CompiledModel API
-    let prefix = Path::new(["llama"]).unwrap();
+    let prefix = model.path();
     let param_values = param_values
         .into_iter()
         .map(|(k, v)| (prefix.concat(&k), v))
